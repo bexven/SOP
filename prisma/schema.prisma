@@ -1,0 +1,431 @@
+// Product Pipeline SOP & Task Manager — data model.
+// Connection URLs live in prisma.config.ts (DIRECT_URL for the CLI) and in
+// src/lib/server/db.ts (pooled DATABASE_URL for the app, via @prisma/adapter-pg).
+// Money is always Decimal, never Float.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  RESEARCHER
+  IMAGE_DESIGNER
+  VIDEO_EDITOR
+  MEDIA_BUYER
+  ADMIN
+}
+
+enum Priority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ProductStage {
+  RESEARCH
+  CREATIVE
+  READY_TO_LAUNCH
+  LIVE
+  COMPLETED
+  KILLED
+}
+
+enum CampaignStatus {
+  NOT_LAUNCHED
+  RUNNING
+  SCALING
+  PAUSED
+  STOPPED
+}
+
+enum TaskType {
+  RESEARCH
+  WEBSITE_IMAGE
+  AD_IMAGE_LANDSCAPE
+  AD_IMAGE_SQUARE
+  AD_IMAGE_VERTICAL
+  STORE_LISTING
+  VIDEO_MAIN
+  VIDEO_SQUARE
+  CAMPAIGN_LAUNCH
+}
+
+enum TaskStatus {
+  LOCKED
+  TODO
+  SUBMITTED
+  REVISION
+  APPROVED
+  CANCELLED
+}
+
+enum ReviewDecision {
+  APPROVED
+  REVISION
+}
+
+enum KillReason {
+  LOW_MARGIN
+  SUPPLIER_ISSUE
+  WEAK_CREATIVE
+  POOR_AD_PERFORMANCE
+  OTHER
+}
+
+enum EventType {
+  PRODUCT_CREATED
+  PRODUCT_UPDATED
+  RESEARCH_SUBMITTED
+  STAGE_CHANGED
+  TASK_CREATED
+  TASK_UNLOCKED
+  TASK_SUBMITTED
+  TASK_APPROVED
+  TASK_REVISION_REQUESTED
+  TASK_REASSIGNED
+  TASK_CANCELLED
+  TASK_REOPENED
+  TASK_RELOCKED
+  BRIEF_UPDATED
+  BATCH_REQUESTED
+  CAMPAIGN_LAUNCHED
+  CAMPAIGN_STATUS_CHANGED
+  PRODUCT_SENT_BACK
+  PRODUCT_KILLED
+  PRODUCT_COMPLETED
+  OVERRIDE
+  COMMENT_ADDED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_REASSIGNED
+  REVIEW_REQUESTED
+  TASK_APPROVED
+  REVISION_REQUESTED
+  BRIEF_UPDATED
+  MENTIONED
+  SENT_BACK
+  PRODUCT_KILLED
+  TASK_UNASSIGNED
+}
+
+model User {
+  id                String    @id @default(cuid())
+  name              String
+  role              Role
+  pinHash           String
+  avatarColor       String
+  active            Boolean   @default(true)
+  /// Forces a PIN change on next login (seeded users, admin PIN resets).
+  mustChangePin     Boolean   @default(false)
+  /// Embedded in the session cookie; bumping it revokes every session.
+  sessionVersion    Int       @default(0)
+  failedPinAttempts Int       @default(0)
+  lockedUntil       DateTime?
+  /// Tie-breaker for auto-assignment (least recently assigned wins).
+  lastAssignedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  createdProducts Product[]        @relation("ProductCreator")
+  ownedProducts   Product[]        @relation("ProductMediaBuyer")
+  tasks           Task[]           @relation("TaskAssignee")
+  submissions     TaskSubmission[] @relation("Submitter")
+  decisions       TaskSubmission[] @relation("Decider")
+  comments        Comment[]
+  mentions        CommentMention[]
+  notifications   Notification[]   @relation("NotifRecipient")
+  events          ActivityEvent[]
+
+  @@index([role, active])
+}
+
+model Product {
+  id                     String       @id @default(cuid())
+  /// Human reference, shown as PRD-0042.
+  number                 Int          @unique @default(autoincrement())
+  name                   String
+  supplierUrl            String
+  imageUrl               String?
+  chinaPriceRmb          Decimal      @db.Decimal(12, 2)
+  shippingPerUnitRmb     Decimal      @db.Decimal(12, 2)
+  sellingPriceBdt        Decimal      @db.Decimal(12, 2)
+  /// Snapshot; refreshed while in RESEARCH, frozen at submit.
+  rmbToBdtRate           Decimal      @db.Decimal(10, 4)
+  /// Snapshot; refreshed while in RESEARCH, frozen at submit.
+  courierChargePct       Decimal      @db.Decimal(5, 2)
+  targetCustomer         String?
+  problemSolved          String?
+  sellingAngle           String?
+  referenceLinks         String[]     @default([])
+  priority               Priority     @default(MEDIUM)
+  targetLaunchDate       DateTime?    @db.Date
+  stage                  ProductStage @default(RESEARCH)
+  stageEnteredAt         DateTime     @default(now())
+  /// Markdown.
+  creativeBrief          String?
+  creativeBriefUpdatedAt DateTime?
+  killReason             KillReason?
+  killNote               String?
+  killedAt               DateTime?
+  completedAt            DateTime?
+  createdById            String
+  /// Owning media buyer: writes the brief, reviews, launches.
+  mediaBuyerId           String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  createdBy     User              @relation("ProductCreator", fields: [createdById], references: [id])
+  mediaBuyer    User?             @relation("ProductMediaBuyer", fields: [mediaBuyerId], references: [id])
+  batches       CreativeBatch[]
+  tasks         Task[]
+  campaign      Campaign?
+  comments      Comment[]
+  events        ActivityEvent[]
+  transitions   StageTransition[]
+  notifications Notification[]
+
+  @@index([stage, priority])
+  @@index([createdAt])
+}
+
+model CreativeBatch {
+  id            String    @id @default(cuid())
+  productId     String
+  number        Int
+  reason        String?
+  /// The creative brief as it was when this batch was requested.
+  briefSnapshot String?
+  /// Batch-level due date (Batch #N). Null = per-task SLA.
+  dueAt         DateTime?
+  requestedById String
+  createdAt     DateTime  @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@unique([productId, number])
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  productId    String
+  batchId      String?
+  type         TaskType
+  role         Role
+  phase        Int        @default(1)
+  status       TaskStatus @default(TODO)
+  /// Explicit unlock dependency (a Phase 2 task points at its Phase 1 task).
+  dependsOnId  String?
+  assigneeId   String?
+  assignedAt   DateTime?
+  unlockedAt   DateTime?
+  /// Calculated from the SLA when the task unlocks.
+  dueAt        DateTime?
+  /// Latest revision / send-back note (shown as a banner).
+  revisionNote String?
+  submittedAt  DateTime?
+  approvedAt   DateTime?
+  approvedById String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  product       Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  batch         CreativeBatch?   @relation(fields: [batchId], references: [id])
+  dependsOn     Task?            @relation("TaskDeps", fields: [dependsOnId], references: [id])
+  dependents    Task[]           @relation("TaskDeps")
+  assignee      User?            @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  checklist     ChecklistItem[]
+  submissions   TaskSubmission[]
+  events        ActivityEvent[]
+  notifications Notification[]
+
+  @@index([assigneeId, status])
+  @@index([productId, batchId])
+  @@index([status, dueAt])
+}
+
+model TaskSubmission {
+  id            String          @id @default(cuid())
+  taskId        String
+  version       Int
+  /// Google Drive link, or the live store URL for STORE_LISTING.
+  url           String
+  note          String?
+  submittedById String
+  decision      ReviewDecision?
+  decisionNote  String?
+  decidedById   String?
+  decidedAt     DateTime?
+  createdAt     DateTime        @default(now())
+
+  task        Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  submittedBy User  @relation("Submitter", fields: [submittedById], references: [id])
+  decidedBy   User? @relation("Decider", fields: [decidedById], references: [id])
+
+  @@unique([taskId, version])
+}
+
+/// Per-task-type configuration: SLA and the "How we do this" step guide.
+model TaskTypeConfig {
+  taskType    TaskType @id
+  slaHours    Int
+  /// Markdown.
+  guideBody   String   @default("")
+  /// [{ label, url }] — validated with zod.
+  guideLinks  Json     @default("[]")
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+model ChecklistTemplateItem {
+  id        String   @id @default(cuid())
+  taskType  TaskType
+  label     String
+  required  Boolean  @default(true)
+  order     Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([taskType, active, order])
+}
+
+model ChecklistItem {
+  id          String    @id @default(cuid())
+  taskId      String
+  /// Snapshot of the template label at task creation.
+  label       String
+  required    Boolean
+  order       Int
+  checked     Boolean   @default(false)
+  checkedById String?
+  checkedAt   DateTime?
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, order])
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  productId      String         @unique
+  status         CampaignStatus @default(NOT_LAUNCHED)
+  adsManagerUrl  String?
+  metaCampaignId String?
+  dailyBudgetUsd Decimal?       @db.Decimal(10, 2)
+  strategyNotes  String?
+  launchedAt     DateTime?
+  launchedById   String?
+  updatedAt      DateTime       @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+/// One row per stage change; drives time-in-stage and bottleneck averages.
+model StageTransition {
+  id        String        @id @default(cuid())
+  productId String
+  fromStage ProductStage?
+  toStage   ProductStage
+  actorId   String
+  at        DateTime      @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, at])
+  @@index([toStage, at])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  productId String
+  authorId  String
+  /// One level of replies (enforced in the domain layer).
+  parentId  String?
+  body      String
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+
+  product  Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  author   User             @relation(fields: [authorId], references: [id])
+  parent   Comment?         @relation("Replies", fields: [parentId], references: [id])
+  replies  Comment[]        @relation("Replies")
+  mentions CommentMention[]
+
+  @@index([productId, createdAt])
+}
+
+model CommentMention {
+  commentId String
+  userId    String
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([commentId, userId])
+}
+
+model ActivityEvent {
+  id        String    @id @default(cuid())
+  productId String?
+  taskId    String?
+  actorId   String
+  type      EventType
+  /// { from, to, note, fields: { name: { old, new } } } — zod-typed per EventType.
+  data      Json?
+  createdAt DateTime  @default(now())
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  actor   User     @relation(fields: [actorId], references: [id])
+
+  @@index([productId, createdAt])
+  @@index([type, createdAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  actorId   String?
+  productId String?
+  taskId    String?
+  type      NotificationType
+  message   String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user    User     @relation("NotifRecipient", fields: [userId], references: [id])
+  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([userId, readAt, createdAt])
+}
+
+/// Per-IP login throttle (complements the per-account lockout).
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  ip        String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+}
+
+/// Single row, id = 1.
+model Settings {
+  id               Int      @id @default(1)
+  rmbToBdtRate     Decimal  @db.Decimal(10, 4)
+  usdToBdtRate     Decimal  @db.Decimal(10, 4)
+  courierChargePct Decimal  @default(2) @db.Decimal(5, 2)
+  healthyMarginPct Decimal  @db.Decimal(5, 2)
+  thinMarginPct    Decimal  @db.Decimal(5, 2)
+  updatedById      String?
+  updatedAt        DateTime @updatedAt
+}
