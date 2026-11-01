@@ -27,7 +27,7 @@ export function ResearchSummary({ product }: { product: ProductDetail }) {
   ];
   return (
     <section className="surface rounded-panel p-4 sm:p-5" aria-label="Research">
-      <h3 className="text-section text-slate-900">Research</h3>
+      <h2 className="text-section text-slate-900">Research</h2>
       <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
         {rows.map(([k, val]) => (
           <div key={k} className="min-w-0">

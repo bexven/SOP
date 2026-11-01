@@ -11,7 +11,7 @@ export function CampaignCard({ product }: { product: ProductDetail }) {
   return (
     <section className="surface rounded-panel p-4" aria-label="Campaign">
       <div className="flex items-center justify-between">
-        <h3 className="text-section text-slate-900">Campaign</h3>
+        <h2 className="text-section text-slate-900">Campaign</h2>
         <CampaignPill status={c.status} />
       </div>
       <dl className="mt-3 grid gap-3 text-body">

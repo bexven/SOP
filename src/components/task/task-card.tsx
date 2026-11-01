@@ -97,12 +97,13 @@ export function TaskCard({
     <motion.article
       layout={reduce ? false : "position"}
       initial={false}
-      animate={{ opacity: locked || closed ? 0.72 : 1 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      // Muted → active is a background change (not opacity) so text keeps AA contrast.
+      animate={{ backgroundColor: locked || closed ? "rgb(248 250 252)" : "rgb(255 255 255)" }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         "surface overflow-hidden rounded-panel transition-shadow duration-200",
         task.status === "REVISION" && "border-rose-300 ring-1 ring-rose-200",
-        locked && "bg-slate-50/80 shadow-none",
+        (locked || closed) && "shadow-none",
         justUnlocked && "ring-2 ring-emerald-300/70",
       )}
       aria-label={`${TASK_TYPE_LABELS[task.type]} — ${task.status.toLowerCase()}`}

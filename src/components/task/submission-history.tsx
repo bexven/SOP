@@ -8,9 +8,9 @@ export function SubmissionHistory({ submissions }: { submissions: TaskDTO["submi
   if (submissions.length === 0) return null;
   return (
     <section aria-label="Submission history" className="rounded-control border border-slate-200/80 bg-white">
-      <h4 className="border-b border-slate-100 px-3 py-2 text-meta text-slate-700">
+      <p className="border-b border-slate-100 px-3 py-2 text-meta text-slate-700">
         Submissions <span className="num text-slate-500">{submissions.length}</span>
-      </h4>
+      </p>
       <ol className="divide-y divide-slate-100">
         {submissions.map((s, i) => (
           <li key={s.id} className={cn("grid gap-1.5 px-3 py-2.5", i > 0 && "opacity-80")}>

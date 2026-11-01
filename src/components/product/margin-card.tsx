@@ -25,7 +25,7 @@ export function MarginCard({
   return (
     <section className={cn("surface rounded-panel p-4", className)} aria-label="Margin check">
       <div className="flex items-center justify-between">
-        <h3 className="text-section text-slate-900">Margin check</h3>
+        <h2 className="text-section text-slate-900">Margin check</h2>
         <MarginBadge pct={margin?.marginPct} band={band} />
       </div>
       {margin ? (

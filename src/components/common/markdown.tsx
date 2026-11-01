@@ -46,7 +46,7 @@ export function Markdown({ source, className }: { source: string; className?: st
         if (b.type === "heading") {
           const cls = b.level === 1 ? "text-section text-slate-900" : "text-body font-semibold text-slate-900";
           return (
-            <p key={i} className={cls} role="heading" aria-level={b.level + 2}>
+            <p key={i} className={cls}>
               {renderInline(b.children)}
             </p>
           );

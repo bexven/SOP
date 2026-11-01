@@ -48,6 +48,12 @@
   --raised-shadow: 0 2px 4px rgb(15 23 42 / 0.05), 0 12px 24px -8px rgb(15 23 42 / 0.12);
 }
 
+/* Tertiary text: one step darker than stock slate-500 so it passes WCAG AA
+   (≥ 4.5:1) on tinted glass as well as on white. */
+@theme {
+  --color-slate-500: #56677e;
+}
+
 @theme inline {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;

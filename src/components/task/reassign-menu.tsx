@@ -61,9 +61,9 @@ export function ReassignMenu({
       <DropdownMenuTrigger
         disabled={pending}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
-        aria-label={assignee ? `Assigned to ${assignee.name}. Reassign` : "Unassigned. Assign someone"}
       >
         {face}
+        <span className="sr-only">{assignee ? `Reassign (assigned to ${assignee.name})` : "Assign someone (unassigned)"}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Assign to a {ROLE_LABELS[taskRole].toLowerCase()}</DropdownMenuLabel>

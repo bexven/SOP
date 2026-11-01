@@ -140,7 +140,7 @@ export function Timeline({ product }: { product: ProductDetail }) {
   return (
     <div className="grid gap-4">
       <section className="surface rounded-panel p-4" aria-label="Time in each stage">
-        <h3 className="text-section text-slate-900">Time in each stage</h3>
+        <h2 className="text-section text-slate-900">Time in each stage</h2>
         <ul className="mt-3 flex flex-wrap gap-2">
           {STAGES.filter((s) => totals[s] !== undefined).map((s) => (
             <li key={s} className={cn("flex items-center gap-2 rounded-control border px-3 py-2", s === product.stage ? "border-indigo-200 bg-indigo-50/50" : "border-slate-200 bg-white")}>

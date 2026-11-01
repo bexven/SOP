@@ -22,7 +22,7 @@ export function EmptyState({
           <Icon className="size-5" />
         </div>
       </div>
-      <h3 className="text-section text-slate-900">{title}</h3>
+      <h2 className="text-section text-slate-900">{title}</h2>
       <p className="mt-1 max-w-sm text-body text-slate-600">{description}</p>
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
