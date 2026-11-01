@@ -32,3 +32,15 @@ describe("validateThresholds", () => {
     expect(validateThresholds({ healthyMarginPct: "15", thinMarginPct: "15" })).not.toBeNull();
   });
 });
+
+import { formatRelative } from "./format";
+describe("formatRelative", () => {
+  const now = new Date("2026-11-01T12:00:00Z");
+  it("formats recent times", () => {
+    expect(formatRelative(new Date("2026-11-01T11:59:40Z"), now)).toBe("just now");
+    expect(formatRelative(new Date("2026-11-01T11:55:00Z"), now)).toBe("5m ago");
+    expect(formatRelative(new Date("2026-11-01T09:00:00Z"), now)).toBe("3h ago");
+    expect(formatRelative(new Date("2026-10-30T12:00:00Z"), now)).toBe("2d ago");
+    expect(formatRelative(new Date("2026-10-01T12:00:00Z"), now)).toBe("1 Oct 2026");
+  });
+});
