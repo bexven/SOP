@@ -33,17 +33,16 @@ describe("permissions", () => {
 });
 
 describe("navigation", () => {
-  it("shows admin sections only to Admin", () => {
-    expect(navItemsFor("ADMIN").map((i) => i.key)).toEqual([
-      "queue",
-      "pipeline",
-      "products",
-      "overview",
-      "team",
-      "settings",
-    ]);
-    for (const role of ROLES.filter((r) => r !== "ADMIN")) {
-      expect(navItemsFor(role).map((i) => i.key)).toEqual(["queue", "pipeline", "products"]);
+  const keys = (r: Parameters<typeof navItemsFor>[0]) => navItemsFor(r).map((i) => i.key);
+  it("gives Admin every menu", () => {
+    expect(keys("ADMIN")).toEqual(["dashboard", "research", "creative", "pipeline", "products", "overview", "team", "settings"]);
+  });
+  it("shows Research only to researchers (and Admin)", () => {
+    expect(keys("RESEARCHER")).toEqual(["dashboard", "research", "pipeline", "products"]);
+  });
+  it("shows Creative to designers, editors and media buyers", () => {
+    for (const r of ["IMAGE_DESIGNER", "VIDEO_EDITOR", "MEDIA_BUYER"] as const) {
+      expect(keys(r)).toEqual(["dashboard", "creative", "pipeline", "products"]);
     }
   });
 });

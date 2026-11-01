@@ -70,6 +70,22 @@ enum ReviewDecision {
   REVISION
 }
 
+enum AssetKind {
+  IMAGE
+  LINK
+}
+
+enum Reaction {
+  LIKED
+  DISLIKED
+}
+
+enum FollowUpKind {
+  DIFFERENT_ANGLE
+  DIFFERENT_SIZE
+  OTHER
+}
+
 enum KillReason {
   LOW_MARGIN
   SUPPLIER_ISSUE
@@ -101,6 +117,9 @@ enum EventType {
   PRODUCT_COMPLETED
   OVERRIDE
   COMMENT_ADDED
+  ASSET_REACTED
+  ASSET_COMMENTED
+  FOLLOW_UP_REQUESTED
 }
 
 enum NotificationType {
@@ -114,6 +133,7 @@ enum NotificationType {
   SENT_BACK
   PRODUCT_KILLED
   TASK_UNASSIGNED
+  FEEDBACK
 }
 
 model User {
@@ -122,6 +142,8 @@ model User {
   role              Role
   pinHash           String
   avatarColor       String
+  /// Uploaded profile photo (stored in Asset).
+  avatarAssetId     String?
   active            Boolean   @default(true)
   /// Forces a PIN change on next login (seeded users, admin PIN resets).
   mustChangePin     Boolean   @default(false)
@@ -143,6 +165,8 @@ model User {
   mentions        CommentMention[]
   notifications   Notification[]   @relation("NotifRecipient")
   events          ActivityEvent[]
+  avatarAsset     Asset?           @relation("UserAvatar", fields: [avatarAssetId], references: [id])
+  assetComments   AssetComment[]
 
   @@index([role, active])
 }
@@ -218,13 +242,13 @@ model CreativeBatch {
 }
 
 model Task {
-  id           String     @id @default(cuid())
+  id           String        @id @default(cuid())
   productId    String
   batchId      String?
   type         TaskType
   role         Role
-  phase        Int        @default(1)
-  status       TaskStatus @default(TODO)
+  phase        Int           @default(1)
+  status       TaskStatus    @default(TODO)
   /// Explicit unlock dependency (a Phase 2 task points at its Phase 1 task).
   dependsOnId  String?
   assigneeId   String?
@@ -237,10 +261,16 @@ model Task {
   submittedAt  DateTime?
   approvedAt   DateTime?
   approvedById String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  /// Follow-up asked for when the original was approved (different angle / size).
+  followUpOfId String?
+  requestKind  FollowUpKind?
+  requestNote  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   product       Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  followUpOf    Task?            @relation("TaskFollowUps", fields: [followUpOfId], references: [id])
+  followUps     Task[]           @relation("TaskFollowUps")
   batch         CreativeBatch?   @relation(fields: [batchId], references: [id])
   dependsOn     Task?            @relation("TaskDeps", fields: [dependsOnId], references: [id])
   dependents    Task[]           @relation("TaskDeps")
@@ -259,8 +289,8 @@ model TaskSubmission {
   id            String          @id @default(cuid())
   taskId        String
   version       Int
-  /// Google Drive link, or the live store URL for STORE_LISTING.
-  url           String
+  /// Legacy single link (now stored as a LINK item in `items`).
+  url           String?
   note          String?
   submittedById String
   decision      ReviewDecision?
@@ -269,11 +299,62 @@ model TaskSubmission {
   decidedAt     DateTime?
   createdAt     DateTime        @default(now())
 
-  task        Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  submittedBy User  @relation("Submitter", fields: [submittedById], references: [id])
-  decidedBy   User? @relation("Decider", fields: [decidedById], references: [id])
+  task        Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  submittedBy User             @relation("Submitter", fields: [submittedById], references: [id])
+  decidedBy   User?            @relation("Decider", fields: [decidedById], references: [id])
+  items       SubmissionItem[]
 
   @@unique([taskId, version])
+}
+
+/// Binary file stored in Postgres (images are compressed in the browser first).
+/// Keeps hosting portable: no object-storage service needed.
+model Asset {
+  id           String   @id @default(cuid())
+  mime         String
+  bytes        Bytes
+  width        Int?
+  height       Int?
+  size         Int
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  items       SubmissionItem[]
+  avatarUsers User[]           @relation("UserAvatar")
+}
+
+/// One image or link inside a submission round; reviewers react and comment per item.
+model SubmissionItem {
+  id           String    @id @default(cuid())
+  submissionId String
+  order        Int
+  kind         AssetKind
+  assetId      String?
+  url          String?
+  label        String?
+  reaction     Reaction?
+  reactedById  String?
+  reactedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  submission TaskSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  asset      Asset?         @relation(fields: [assetId], references: [id])
+  comments   AssetComment[]
+
+  @@index([submissionId, order])
+}
+
+model AssetComment {
+  id        String   @id @default(cuid())
+  itemId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  item   SubmissionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  author User           @relation(fields: [authorId], references: [id])
+
+  @@index([itemId, createdAt])
 }
 
 /// Per-task-type configuration: SLA and the "How we do this" step guide.

@@ -3,16 +3,16 @@ import type { CampaignStatus, ProductStage } from "@/generated/prisma/enums";
 /**
  * Pipeline stepper (pure). Derived from stage, Phase 1 progress and campaign
  * status — never stored.
- *   Research → Creative · Phase 1 → Creative · Phase 2 & Store → Ready to Launch → Live → Scaling
+ *   Research → Creative · Phase 1 → Creative · Phase 2 & Store → Ready to Launch → Live
+ * (A "Scaling" step was removed at the owner's request.)
  */
 
 export const STEPPER_STEPS = [
   "Research",
-  "Creative · Phase 1",
-  "Creative · Phase 2 & Store",
-  "Ready to Launch",
+  "Creative: step 1",
+  "Creative: step 2 & store",
+  "Ready to launch",
   "Live",
-  "Scaling",
 ] as const;
 
 export type StepState = "done" | "current" | "upcoming" | "killed";
@@ -44,7 +44,7 @@ function indexFor(stage: ProductStage, input: StepperInput): number {
     case "READY_TO_LAUNCH":
       return 3;
     case "LIVE":
-      return input.campaignStatus === "SCALING" ? 5 : 4;
+      return 4;
     case "COMPLETED":
       return STEPPER_STEPS.length;
     case "KILLED":

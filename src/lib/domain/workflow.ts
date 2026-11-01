@@ -1,4 +1,4 @@
-import type { CampaignStatus, ProductStage, Role, TaskStatus, TaskType } from "@/generated/prisma/enums";
+import type { CampaignStatus, FollowUpKind, ProductStage, Role, TaskStatus, TaskType } from "@/generated/prisma/enums";
 import { isOpenStatus } from "./assignment";
 import { CAMPAIGN_STATUSES, CREATIVE_TYPES, isReviewedType, TASK_TYPE_ROLE } from "./labels";
 
@@ -70,8 +70,12 @@ export type NewTask = {
   phase: number;
   status: "TODO" | "LOCKED";
   dependsOnKey: string | null;
-  /** True: belongs to the plan's newBatch. False: no batch (e.g. campaign launch). */
+  /** True: belongs to the plan's newBatch. False: no batch (e.g. campaign launch) unless `batchId` is set. */
   inNewBatch: boolean;
+  /** An existing batch to join (follow-ups). */
+  batchId?: string | null;
+  /** Follow-up of an approved task (different angle / size). */
+  followUp?: { ofTaskId: string; kind: FollowUpKind; note: string | null };
   /** Explicit assignee (e.g. the product's media buyer); undefined = auto-assign by role. */
   assigneeId?: string | null;
   /** Explicit due date (Batch #N); undefined = SLA from unlock time. */
@@ -226,14 +230,37 @@ export function planSubmitTask(p: ProductSnap, taskId: string): PlanResult {
  * in CREATIVE, the product moves to READY_TO_LAUNCH and a Campaign Launch task
  * is created for the media buyer.
  */
-export function planApprove(p: ProductSnap, taskId: string): PlanResult {
+export function planApprove(
+  p: ProductSnap,
+  taskId: string,
+  opts: { followUp?: { kind: FollowUpKind; note: string | null } } = {},
+): PlanResult {
   const task = findTask(p, taskId);
   if (!task) return fail("Task not found.");
   if (task.status !== "SUBMITTED") return fail("Only submitted work can be approved.");
+  if (opts.followUp && !isReviewedType(task.type)) return fail("Follow-ups are only for creative work.");
   const plan = emptyPlan();
   plan.changes.push({ kind: "approve", taskId, from: "SUBMITTED" });
   for (const dep of p.tasks.filter((t) => t.dependsOnId === taskId && t.status === "LOCKED")) {
     plan.changes.push({ kind: "unlock", taskId: dep.id, from: "LOCKED" });
+  }
+
+  // "Approve, and also ask for a different angle / size": a new task for the
+  // same person in the same batch. It keeps the batch open (no stage move yet).
+  if (opts.followUp) {
+    plan.newTasks.push({
+      key: "followUp",
+      type: task.type,
+      role: task.role,
+      phase: task.phase,
+      status: "TODO",
+      dependsOnKey: null,
+      inNewBatch: false,
+      batchId: task.batchId,
+      assigneeId: task.assigneeId ?? undefined,
+      followUp: { ofTaskId: task.id, kind: opts.followUp.kind, note: opts.followUp.note?.trim() || null },
+    });
+    return ok(plan);
   }
 
   const batch = latestBatch(p);

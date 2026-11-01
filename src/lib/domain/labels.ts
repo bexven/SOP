@@ -1,5 +1,6 @@
 import type {
   CampaignStatus,
+  FollowUpKind,
   KillReason,
   Priority,
   ProductStage,
@@ -130,7 +131,8 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   CANCELLED: "Cancelled",
 };
 
-export const CAMPAIGN_STATUSES = ["RUNNING", "SCALING", "PAUSED", "STOPPED"] as const satisfies readonly CampaignStatus[];
+/** Statuses a Media Buyer can pick. (SCALING is kept in the DB enum but not offered for now.) */
+export const CAMPAIGN_STATUSES = ["RUNNING", "PAUSED", "STOPPED"] as const satisfies readonly CampaignStatus[];
 
 export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
   NOT_LAUNCHED: "Not launched",
@@ -185,3 +187,29 @@ export const TASK_TYPE_SHORT: Record<TaskType, string> = {
   VIDEO_SQUARE: "Square video",
   CAMPAIGN_LAUNCH: "Campaign launch",
 };
+
+/** The two creative lanes: the image designer's and the video editor's. */
+export const IMAGE_LANE = ["WEBSITE_IMAGE", "AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL", "STORE_LISTING"] as const satisfies readonly TaskType[];
+export const VIDEO_LANE = ["VIDEO_MAIN", "VIDEO_SQUARE"] as const satisfies readonly TaskType[];
+
+export function laneOf(type: TaskType): "images" | "videos" | null {
+  if ((IMAGE_LANE as readonly TaskType[]).includes(type)) return "images";
+  if ((VIDEO_LANE as readonly TaskType[]).includes(type)) return "videos";
+  return null;
+}
+
+export const FOLLOW_UP_KINDS = ["DIFFERENT_ANGLE", "DIFFERENT_SIZE", "OTHER"] as const satisfies readonly FollowUpKind[];
+
+export const FOLLOW_UP_LABELS: Record<FollowUpKind, string> = {
+  DIFFERENT_ANGLE: "Different angle",
+  DIFFERENT_SIZE: "Different size",
+  OTHER: "Something else",
+};
+
+/** What a person must attach when submitting (pure). Returns an error message or null. */
+export function submissionError(type: TaskType, counts: { images: number; links: number }): string | null {
+  if (type === "STORE_LISTING") return counts.links > 0 ? null : "Add the live store product URL.";
+  if (laneOf(type) === "videos") return counts.links > 0 ? null : "Add at least one video link (Google Drive).";
+  if (laneOf(type) === "images") return counts.images > 0 ? null : "Upload at least one image.";
+  return "This task isn't submitted for review.";
+}

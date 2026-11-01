@@ -71,7 +71,7 @@ function apply(p: ProductSnap, result: PlanResult): ProductSnap {
       phase: nt.phase,
       status: nt.status,
       dependsOnId: nt.dependsOnKey ? keyToId.get(nt.dependsOnKey)! : null,
-      batchId: nt.inNewBatch ? batchId : null,
+      batchId: nt.inNewBatch ? batchId : (nt.batchId ?? null),
       assigneeId: nt.assigneeId ?? "auto",
     });
   }
@@ -213,8 +213,9 @@ describe("launch & live", () => {
     expect(planCampaignStatus(p, "PAUSED").ok).toBe(false);
     p = apply(p, planLaunch(p));
     expect(planCampaignStatus(p, "RUNNING").ok).toBe(false);
-    p = apply(p, planCampaignStatus(p, "SCALING"));
-    expect(p.campaignStatus).toBe("SCALING");
+    expect(planCampaignStatus(p, "SCALING").ok).toBe(false); // not offered any more
+    p = apply(p, planCampaignStatus(p, "PAUSED"));
+    expect(p.campaignStatus).toBe("PAUSED");
     expect(planCampaignStatus(p, "NOT_LAUNCHED").ok).toBe(false);
   });
 
@@ -372,5 +373,41 @@ describe("task permissions", () => {
   it("admin can reassign any open task", () => {
     expect(reassignError({ id: "a", role: "ADMIN" }, task, designer2)).toBeNull();
     expect(reassignError({ id: "a", role: "ADMIN" }, { ...task, status: "APPROVED" }, designer2)).not.toBeNull();
+  });
+});
+
+describe("approve with a follow-up (different angle / size)", () => {
+  it("creates a follow-up task for the same person in the same batch and still unlocks Phase 2", () => {
+    let p = apply(newProduct(), planResearchSubmit(newProduct()));
+    const website = byType(p, "WEBSITE_IMAGE");
+    p = apply(p, planSubmitTask(p, website.id));
+    const r = planApprove(p, website.id, { followUp: { kind: "DIFFERENT_ANGLE", note: "Show it folded" } });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.plan.newTasks).toHaveLength(1);
+    expect(r.plan.newTasks[0]).toMatchObject({
+      type: "WEBSITE_IMAGE",
+      status: "TODO",
+      batchId: website.batchId,
+      assigneeId: website.assigneeId,
+      followUp: { ofTaskId: website.id, kind: "DIFFERENT_ANGLE", note: "Show it folded" },
+    });
+    expect(r.plan.changes.filter((c) => c.kind === "unlock")).toHaveLength(4);
+  });
+
+  it("a follow-up on the last task keeps the product in Creative", () => {
+    let p = apply(newProduct(), planResearchSubmit(newProduct()));
+    for (const type of ["WEBSITE_IMAGE", "VIDEO_MAIN", "AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL", "STORE_LISTING"] as const) {
+      p = submitAndApprove(p, type);
+    }
+    const sq = byType(p, "VIDEO_SQUARE");
+    p = apply(p, planSubmitTask(p, sq.id));
+    const r = planApprove(p, sq.id, { followUp: { kind: "DIFFERENT_SIZE", note: null } });
+    expect(r.ok && r.plan.stage).toBeNull();
+  });
+
+  it("is only for creative work", () => {
+    const p = toReadyToLaunch();
+    expect(planApprove(p, byType(p, "CAMPAIGN_LAUNCH").id, { followUp: { kind: "OTHER", note: null } }).ok).toBe(false);
   });
 });
