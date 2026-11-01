@@ -148,39 +148,42 @@ model User {
 }
 
 model Product {
-  id                     String       @id @default(cuid())
+  id                     String        @id @default(cuid())
   /// Human reference, shown as PRD-0042.
-  number                 Int          @unique @default(autoincrement())
+  number                 Int           @unique @default(autoincrement())
   name                   String
-  supplierUrl            String
+  /// Research fields are nullable so a draft can be saved; the submit gate enforces them.
+  supplierUrl            String?
   imageUrl               String?
-  chinaPriceRmb          Decimal      @db.Decimal(12, 2)
-  shippingPerUnitRmb     Decimal      @db.Decimal(12, 2)
-  sellingPriceBdt        Decimal      @db.Decimal(12, 2)
+  chinaPriceRmb          Decimal?      @db.Decimal(12, 2)
+  shippingPerUnitRmb     Decimal?      @db.Decimal(12, 2)
+  sellingPriceBdt        Decimal?      @db.Decimal(12, 2)
   /// Snapshot; refreshed while in RESEARCH, frozen at submit.
-  rmbToBdtRate           Decimal      @db.Decimal(10, 4)
+  rmbToBdtRate           Decimal       @db.Decimal(10, 4)
   /// Snapshot; refreshed while in RESEARCH, frozen at submit.
-  courierChargePct       Decimal      @db.Decimal(5, 2)
+  courierChargePct       Decimal       @db.Decimal(5, 2)
   targetCustomer         String?
   problemSolved          String?
   sellingAngle           String?
-  referenceLinks         String[]     @default([])
-  priority               Priority     @default(MEDIUM)
-  targetLaunchDate       DateTime?    @db.Date
-  stage                  ProductStage @default(RESEARCH)
-  stageEnteredAt         DateTime     @default(now())
+  referenceLinks         String[]      @default([])
+  priority               Priority      @default(MEDIUM)
+  targetLaunchDate       DateTime?     @db.Date
+  stage                  ProductStage  @default(RESEARCH)
+  stageEnteredAt         DateTime      @default(now())
   /// Markdown.
   creativeBrief          String?
   creativeBriefUpdatedAt DateTime?
   killReason             KillReason?
   killNote               String?
   killedAt               DateTime?
+  /// Stage the product was in when killed (for the stepper).
+  stageBeforeKill        ProductStage?
   completedAt            DateTime?
   createdById            String
   /// Owning media buyer: writes the brief, reviews, launches.
   mediaBuyerId           String?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
   createdBy     User              @relation("ProductCreator", fields: [createdById], references: [id])
   mediaBuyer    User?             @relation("ProductMediaBuyer", fields: [mediaBuyerId], references: [id])
