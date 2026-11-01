@@ -5,7 +5,6 @@ import {
   addTemplateItemSchema,
   reorderTemplateSchema,
   setTemplateItemActiveSchema,
-  stepGuideSchema,
   updateTemplateItemSchema,
 } from "@/lib/validation/templates";
 import { ActionError, defineAction } from "../action";
@@ -55,20 +54,5 @@ export const reorderTemplateAction = defineAction({
     }
     await db.$transaction(ids.map((id, order) => db.checklistTemplateItem.update({ where: { id }, data: { order } })));
     return done();
-  },
-});
-
-export const saveStepGuideAction = defineAction({
-  capability: "settings.manage",
-  schema: stepGuideSchema,
-  run: async ({ taskType, body, links }, { user }) => {
-    const existing = await db.taskTypeConfig.findUnique({ where: { taskType } });
-    if (!existing) throw new ActionError("Set an SLA for this task type first (Settings → General).");
-    await db.taskTypeConfig.update({
-      where: { taskType },
-      data: { guideBody: body, guideLinks: links, updatedById: user.id },
-    });
-    revalidatePath("/", "layout");
-    return { ok: true, message: "Step guide saved" };
   },
 });

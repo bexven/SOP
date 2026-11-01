@@ -109,6 +109,19 @@ src/generated/     Prisma client (generated, git-ignored)
 - **Profile photos** (`/profile`).
 - **No "Scaling" step** in the stepper and SCALING isn't offered as a campaign status (enum kept in DB).
 
+## Round 4 (research revamp)
+- **All prices are BDT.** `Product.chinaPriceBdt` / `shippingPerUnitBdt` / `sellingPriceBdt`; landed cost =
+  China price + shipping (no exchange rate). `rmbToBdtRate` stays in Settings/Product as reference only.
+- **Brand colours are hex** (`Brand.color`, e.g. Mr.WOW `#15803D`, Timtom `#0369A1`). `src/lib/brand-color.ts`
+  derives AA-safe variants. The product page wraps itself in `brandThemeStyle()` so every primary button,
+  checkbox, stepper and focus ring uses the product's brand colour. Primary-coloured UI must use `primary`
+  / `ring` / `accent` tokens (not hard-coded indigo) to follow the brand. Dialogs are portaled, so they keep indigo.
+- **Research page tabs**: Pending approval (default) · Approved · In research · Not approved (killed at research/review).
+- **Product page "simple" layout** (no tabs: details + review + discussion) for job role RESEARCHER always,
+  and for everyone while a product is in Research / Product review (or killed there). Tasks and Timeline
+  tabs appear only from Creative on, and never for researchers.
+- **Step guides ("How we do this") removed** from the UI; the `TaskTypeConfig.guide*` columns are kept but unused.
+
 ## Agreed decisions (from the brief review)
 - Q1 Each product has an owning Media Buyer (`Product.mediaBuyerId`), auto-assigned at research submit;
   they write the brief, get review notifications and launch. Any Media Buyer or Admin may still review.

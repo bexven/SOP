@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { ArrowRightIcon, ExternalLinkIcon, PlusIcon, SaveIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { Priority } from "@/generated/prisma/enums";
+import { BrandPicker } from "@/components/common/brand-picker";
 import { Field, fieldA11y } from "@/components/common/field";
 import { ChecklistPanel, type ChecklistItemDTO } from "@/components/task/checklist-panel";
-import { StepGuidePanel, type GuideDTO } from "@/components/task/step-guide-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,8 +23,8 @@ export type ResearchValues = {
   name: string;
   supplierUrl: string;
   imageUrl: string;
-  chinaPriceRmb: string;
-  shippingPerUnitRmb: string;
+  chinaPriceBdt: string;
+  shippingPerUnitBdt: string;
   sellingPriceBdt: string;
   targetCustomer: string;
   problemSolved: string;
@@ -40,22 +40,20 @@ export function ResearchForm({
   productId,
   initial,
   checklist,
-  guide,
   rates,
   editable,
   brands,
   mode = "research",
   onDone,
 }: {
-  brands: { id: string; name: string; active: boolean }[];
+  brands: { id: string; name: string; color: string; active: boolean }[];
   /** "admin": an Admin editing a product after research (no checklist / submit; changes are logged). */
   mode?: "research" | "admin";
   onDone?: () => void;
   productId: string;
   initial: ResearchValues;
   checklist: ChecklistItemDTO[];
-  guide: GuideDTO | undefined;
-  rates: { rmbToBdtRate: string; courierChargePct: string; healthyMarginPct: string; thinMarginPct: string } | null;
+  rates: { courierChargePct: string; healthyMarginPct: string; thinMarginPct: string } | null;
   editable: boolean;
 }) {
   const router = useRouter();
@@ -68,21 +66,20 @@ export function ResearchForm({
     setV((prev) => ({ ...prev, [key]: value }));
     setDirty(true);
   };
-  const money = (key: "chinaPriceRmb" | "shippingPerUnitRmb" | "sellingPriceBdt") => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const money = (key: "chinaPriceBdt" | "shippingPerUnitBdt" | "sellingPriceBdt") => (e: React.ChangeEvent<HTMLInputElement>) =>
     set(key, e.target.value.replace(/[^\d.]/g, ""));
 
   const margin = useMemo(
     () =>
       rates
         ? computeMargin({
-            chinaPriceRmb: v.chinaPriceRmb || null,
-            shippingPerUnitRmb: v.shippingPerUnitRmb || null,
+            chinaPriceBdt: v.chinaPriceBdt || null,
+            shippingPerUnitBdt: v.shippingPerUnitBdt || null,
             sellingPriceBdt: v.sellingPriceBdt || null,
-            rmbToBdtRate: rates.rmbToBdtRate,
             courierChargePct: rates.courierChargePct,
           })
         : null,
-    [v.chinaPriceRmb, v.shippingPerUnitRmb, v.sellingPriceBdt, rates],
+    [v.chinaPriceBdt, v.shippingPerUnitBdt, v.sellingPriceBdt, rates],
   );
   const band = margin?.marginPct && rates ? marginBand(margin.marginPct, rates) : null;
 
@@ -92,8 +89,8 @@ export function ResearchForm({
       brandId: v.brandId,
       name: v.name,
       supplierUrl: v.supplierUrl,
-      chinaPriceRmb: v.chinaPriceRmb,
-      shippingPerUnitRmb: v.shippingPerUnitRmb,
+      chinaPriceBdt: v.chinaPriceBdt,
+      shippingPerUnitBdt: v.shippingPerUnitBdt,
       sellingPriceBdt: v.sellingPriceBdt,
     },
     missingChecklist,
@@ -145,25 +142,7 @@ export function ResearchForm({
         <section className="surface grid gap-4 rounded-panel p-4 sm:p-5" aria-label="Research details">
           <fieldset className="grid gap-1.5">
             <legend className="mb-1.5 text-meta text-slate-700">Brand *</legend>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Brand">
-              {brands.filter((b) => b.active || b.id === v.brandId).map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={v.brandId === b.id}
-                  disabled={disabled}
-                  onClick={() => set("brandId", b.id)}
-                  className={
-                    v.brandId === b.id
-                      ? "rounded-control bg-indigo-600 px-4 py-2 text-body font-semibold text-white"
-                      : "rounded-control bg-white px-4 py-2 text-body font-semibold text-slate-800 ring-1 ring-slate-200 ring-inset hover:bg-slate-50 disabled:opacity-60"
-                  }
-                >
-                  {b.name}
-                </button>
-              ))}
-            </div>
+            <BrandPicker brands={brands.filter((b) => b.active || b.id === v.brandId)} value={v.brandId} onChange={(id) => set("brandId", id)} disabled={disabled} />
           </fieldset>
           <Field id="r-name" label="Product name *" error={err("name")}>
             <Input {...fieldA11y("r-name", err("name"))} value={v.name} onChange={(e) => set("name", e.target.value)} disabled={disabled} />
@@ -180,7 +159,7 @@ export function ResearchForm({
                   disabled={disabled}
                 />
                 {v.supplierUrl.startsWith("http") ? (
-                  <Button asChild variant="outline" size="icon" aria-label="Open supplier link">
+                  <Button asChild size="icon" aria-label="Open supplier link">
                     <a href={v.supplierUrl} target="_blank" rel="noopener noreferrer">
                       <ExternalLinkIcon />
                     </a>
@@ -200,8 +179,8 @@ export function ResearchForm({
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <MoneyField id="r-china" label="China unit price *" unit="¥" value={v.chinaPriceRmb} onChange={money("chinaPriceRmb")} error={err("chinaPriceRmb")} disabled={disabled} />
-            <MoneyField id="r-ship" label="Shipping per unit *" unit="¥" value={v.shippingPerUnitRmb} onChange={money("shippingPerUnitRmb")} error={err("shippingPerUnitRmb")} disabled={disabled} />
+            <MoneyField id="r-china" label="China price / unit *" unit="BDT" value={v.chinaPriceBdt} onChange={money("chinaPriceBdt")} error={err("chinaPriceBdt")} disabled={disabled} />
+            <MoneyField id="r-ship" label="Shipping per unit *" unit="BDT" value={v.shippingPerUnitBdt} onChange={money("shippingPerUnitBdt")} error={err("shippingPerUnitBdt")} disabled={disabled} />
             <MoneyField id="r-sell" label="Selling price *" unit="BDT" value={v.sellingPriceBdt} onChange={money("sellingPriceBdt")} error={err("sellingPriceBdt")} disabled={disabled} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -269,7 +248,7 @@ export function ResearchForm({
             {editable ? (
               <Button
                 type="button"
-                variant="outline"
+                variant="brandSoft"
                 size="sm"
                 className="w-fit"
                 onClick={() => set("referenceLinks", [...v.referenceLinks, ""])}
@@ -284,14 +263,13 @@ export function ResearchForm({
 
       <aside className="grid content-start gap-4">
         {rates ? (
-          <MarginCard margin={margin} band={band} rate={rates.rmbToBdtRate} courierPct={rates.courierChargePct} />
+          <MarginCard margin={margin} band={band} courierPct={rates.courierChargePct} />
         ) : (
           <div className="surface rounded-panel p-4 text-body text-amber-800">
-            Exchange rates aren&apos;t set yet. An Admin needs to fill in Settings → Rates &amp; margins.
+            Margin settings aren&apos;t set yet. An Admin needs to fill in Settings → Rates &amp; margins.
           </div>
         )}
         {mode === "research" ? <ChecklistPanel items={checklist} editable={editable} /> : null}
-        {mode === "research" ? <StepGuidePanel guide={guide} /> : null}
         {editable && mode === "admin" ? (
           <div className="surface sticky bottom-3 grid gap-2 rounded-panel p-3">
             <p className="text-meta font-normal text-slate-600">You&apos;re editing as Admin. Every change is logged on the timeline (old → new).</p>
@@ -312,7 +290,7 @@ export function ResearchForm({
                 <span className="font-medium text-slate-800">Still needed:</span> {blockers.join(", ")}
               </p>
             ) : (
-              <p className="text-meta font-normal text-emerald-800">Ready to submit. This starts Creative and assigns 7 tasks.</p>
+              <p className="text-meta font-normal text-emerald-800">Ready to submit. It goes to Product review for approval.</p>
             )}
             <div className="flex gap-2">
               <Button variant="outline" onClick={onSave} disabled={pending || !dirty} className="flex-1">

@@ -66,10 +66,9 @@ export const sendBackSchema = z.object({
   reopenTaskIds: z.array(idSchema).max(20).default([]),
 });
 
-/** Admin override: any research field plus the rate snapshot and owner. */
+/** Admin override: any research field plus the courier snapshot and owner. */
 export const overrideSchema = researchFieldsSchema.extend({
   productId: idSchema,
-  rmbToBdtRate: z.string().trim().regex(/^\d+(\.\d{1,4})?$/, "Rate must be a number").refine((v) => Number(v) > 0, "Rate must be above 0"),
   courierChargePct: z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Enter a percentage").refine((v) => Number(v) <= 100, "At most 100%"),
   mediaBuyerId: z.string().optional().nullable().transform((v) => v || null),
 });

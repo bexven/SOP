@@ -1,6 +1,6 @@
 import { MarginBadge } from "@/components/common/pills";
 import type { MarginBand, MarginResult } from "@/lib/domain/margin";
-import { formatBdt, formatNumber, formatPct } from "@/lib/format";
+import { formatBdt, formatPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const BAR: Record<MarginBand, string> = { healthy: "bg-emerald-500", ok: "bg-amber-500", thin: "bg-rose-500" };
@@ -8,17 +8,12 @@ const BAR: Record<MarginBand, string> = { healthy: "bg-emerald-500", ok: "bg-amb
 export function MarginCard({
   margin,
   band,
-  rate,
   courierPct,
-  snapshot,
   className,
 }: {
   margin: MarginResult | null;
   band: MarginBand | null;
-  rate: string;
   courierPct: string;
-  /** True when showing the product's frozen snapshot rather than live settings. */
-  snapshot?: boolean;
   className?: string;
 }) {
   const pct = margin?.marginPct ? Number(margin.marginPct) : null;
@@ -30,7 +25,7 @@ export function MarginCard({
       </div>
       {margin ? (
         <>
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-body sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-body">
             <Metric label="Landed cost" value={formatBdt(margin.landedCostBdt)} />
             <Metric label={`Courier (${formatPct(courierPct)})`} value={formatBdt(margin.courierChargeBdt)} />
             <Metric
@@ -50,7 +45,7 @@ export function MarginCard({
         <p className="mt-2 text-body text-slate-600">Enter the China price, shipping and selling price to see the margin.</p>
       )}
       <p className="mt-3 text-meta font-normal text-slate-500">
-        ¥1 = <span className="num">৳{formatNumber(rate)}</span> {snapshot ? "(snapshot saved with this product)" : "(current rate; saved with the product)"}
+        All prices in Taka (৳). Landed cost = China price + shipping; courier is {formatPct(courierPct)} of the selling price.
       </p>
     </section>
   );

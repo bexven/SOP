@@ -37,10 +37,9 @@ export async function listProducts(viewerRole: Role) {
   const now = Date.now();
   return products.filter((p) => canSeeProduct(viewerRole, p.stage, p.stageBeforeKill)).map((p) => {
     const margin = computeMargin({
-      chinaPriceRmb: p.chinaPriceRmb?.toString() ?? null,
-      shippingPerUnitRmb: p.shippingPerUnitRmb?.toString() ?? null,
+      chinaPriceBdt: p.chinaPriceBdt?.toString() ?? null,
+      shippingPerUnitBdt: p.shippingPerUnitBdt?.toString() ?? null,
       sellingPriceBdt: p.sellingPriceBdt?.toString() ?? null,
-      rmbToBdtRate: p.rmbToBdtRate.toString(),
       courierChargePct: p.courierChargePct.toString(),
     });
     const open = p.tasks.filter((t) => isOpenStatus(t.status) && t.status !== "LOCKED");

@@ -95,7 +95,7 @@ function normalize(v: unknown): string | null {
 export const overrideProductAction = defineAction({
   capability: "product.override",
   schema: overrideSchema,
-  run: async ({ productId, rmbToBdtRate, courierChargePct, mediaBuyerId, ...rest }, { user }) => {
+  run: async ({ productId, courierChargePct, mediaBuyerId, ...rest }, { user }) => {
     const changes = await db.$transaction(async (tx) => {
       const product = await tx.product.findUnique({ where: { id: productId } });
       if (!product) throw new ActionError("This product no longer exists.");
@@ -103,7 +103,7 @@ export const overrideProductAction = defineAction({
         const mb = await tx.user.findUnique({ where: { id: mediaBuyerId } });
         if (!mb?.active || mb.role !== "MEDIA_BUYER") throw new ActionError("Pick an active media buyer.");
       }
-      const next: Record<string, unknown> = { ...researchData(rest), rmbToBdtRate, courierChargePct, mediaBuyerId };
+      const next: Record<string, unknown> = { ...researchData(rest), courierChargePct, mediaBuyerId };
       const changes: Record<string, { old: string | null; new: string | null }> = {};
       for (const [key, value] of Object.entries(next)) {
         const before = normalize((product as Record<string, unknown>)[key]);

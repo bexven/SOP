@@ -1,5 +1,5 @@
 import "server-only";
-import type { ProductStage, TaskType } from "@/generated/prisma/enums";
+import type { ProductStage } from "@/generated/prisma/enums";
 import { computeMargin, marginBand, type MarginBand, type MarginResult } from "@/lib/domain/margin";
 import { deriveStepper, type Stepper } from "@/lib/domain/stepper";
 import { latestBatch } from "@/lib/domain/workflow";
@@ -89,14 +89,11 @@ export async function getProductDetail(id: string) {
     }),
   ]);
 
-  const types = [...new Set(p.tasks.map((t) => t.type))];
-  const guides = await db.taskTypeConfig.findMany({ where: { taskType: { in: types } } });
 
   const margin: MarginResult | null = computeMargin({
-    chinaPriceRmb: str(p.chinaPriceRmb),
-    shippingPerUnitRmb: str(p.shippingPerUnitRmb),
+    chinaPriceBdt: str(p.chinaPriceBdt),
+    shippingPerUnitBdt: str(p.shippingPerUnitBdt),
     sellingPriceBdt: str(p.sellingPriceBdt),
-    rmbToBdtRate: p.rmbToBdtRate.toString(),
     courierChargePct: p.courierChargePct.toString(),
   });
   const band: MarginBand | null = margin?.marginPct && thresholds ? marginBand(margin.marginPct, thresholds) : null;
@@ -121,8 +118,8 @@ export async function getProductDetail(id: string) {
     priority: p.priority,
     imageUrl: p.imageUrl,
     supplierUrl: p.supplierUrl,
-    chinaPriceRmb: str(p.chinaPriceRmb),
-    shippingPerUnitRmb: str(p.shippingPerUnitRmb),
+    chinaPriceBdt: str(p.chinaPriceBdt),
+    shippingPerUnitBdt: str(p.shippingPerUnitBdt),
     sellingPriceBdt: str(p.sellingPriceBdt),
     rmbToBdtRate: p.rmbToBdtRate.toString(),
     courierChargePct: p.courierChargePct.toString(),
@@ -212,12 +209,6 @@ export async function getProductDetail(id: string) {
         })),
       })),
     })),
-    guides: Object.fromEntries(
-      guides.map((g) => [
-        g.taskType,
-        { body: g.guideBody, links: Array.isArray(g.guideLinks) ? (g.guideLinks as { label: string; url: string }[]) : [] },
-      ]),
-    ) as Partial<Record<TaskType, { body: string; links: { label: string; url: string }[] }>>,
     comments: comments.map((c) => ({
       id: c.id,
       parentId: c.parentId,

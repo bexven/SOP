@@ -1,19 +1,18 @@
 import Decimal from "decimal.js";
 
 /**
- * Live margin check (pure).
- *   Landed cost (BDT)  = (China price + shipping per unit) × RMB→BDT rate
+ * Live margin check (pure). All prices are in BDT (owner's rule).
+ *   Landed cost (BDT)  = China unit price + shipping per unit
  *   Courier (BDT)      = selling price × courier %
  *   Gross margin (BDT) = selling price − landed cost − courier
  *   Margin %           = gross margin ÷ selling price × 100
- * All inputs are decimal strings (or null while the researcher is typing).
+ * Inputs are decimal strings (or null while the researcher is typing).
  */
 
 export type MarginInput = {
-  chinaPriceRmb: string | null;
-  shippingPerUnitRmb: string | null;
+  chinaPriceBdt: string | null;
+  shippingPerUnitBdt: string | null;
   sellingPriceBdt: string | null;
-  rmbToBdtRate: string;
   courierChargePct: string;
 };
 
@@ -27,8 +26,8 @@ export type MarginResult = {
 
 export type MarginBand = "healthy" | "ok" | "thin";
 
-function parse(value: string | null): Decimal | null {
-  if (value === null) return null;
+function parse(value: string | null | undefined): Decimal | null {
+  if (value === null || value === undefined) return null;
   const trimmed = value.trim();
   if (trimmed === "" || !/^-?\d+(\.\d+)?$/.test(trimmed)) return null;
   return new Decimal(trimmed);
@@ -36,14 +35,13 @@ function parse(value: string | null): Decimal | null {
 
 /** Returns null until all three prices are valid numbers. */
 export function computeMargin(input: MarginInput): MarginResult | null {
-  const china = parse(input.chinaPriceRmb);
-  const shipping = parse(input.shippingPerUnitRmb);
+  const china = parse(input.chinaPriceBdt);
+  const shipping = parse(input.shippingPerUnitBdt);
   const selling = parse(input.sellingPriceBdt);
-  const rate = parse(input.rmbToBdtRate);
   const courierPct = parse(input.courierChargePct);
-  if (!china || !shipping || !selling || !rate || !courierPct) return null;
+  if (!china || !shipping || !selling || !courierPct) return null;
 
-  const landed = china.plus(shipping).times(rate);
+  const landed = china.plus(shipping);
   const courier = selling.times(courierPct).dividedBy(100);
   const gross = selling.minus(landed).minus(courier);
   const pct = selling.isZero() ? null : gross.dividedBy(selling).times(100);

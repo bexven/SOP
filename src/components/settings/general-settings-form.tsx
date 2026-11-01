@@ -90,7 +90,7 @@ export function GeneralSettingsForm({ initial }: { initial: (Values & { updatedA
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          {num("rmbToBdtRate", "RMB → BDT rate", { suffix: "BDT", hint: "Taka per 1 Chinese yuan (¥)" })}
+          {num("rmbToBdtRate", "RMB → BDT rate", { suffix: "BDT", hint: "Reference only. Product prices are entered in BDT." })}
           {num("usdToBdtRate", "USD → BDT rate", { suffix: "BDT", hint: "Taka per 1 US dollar ($)" })}
           {num("courierChargePct", "Courier charge", { suffix: "%", hint: "Percent of the selling price" })}
           <div className="hidden sm:block" />

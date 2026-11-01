@@ -37,7 +37,7 @@ type EventDTO = ProductDetail["events"][number];
 type Line = { id: string; icon: React.ComponentType<{ className?: string }>; tone: string; actor: EventDTO["actor"]; text: React.ReactNode; note?: string | null; at: string };
 
 const FIELD: Record<string, string> = {
-  name: "name", supplierUrl: "supplier link", imageUrl: "image", chinaPriceRmb: "China price", shippingPerUnitRmb: "shipping",
+  name: "name", supplierUrl: "supplier link", imageUrl: "image", chinaPriceBdt: "China price", shippingPerUnitBdt: "shipping",
   sellingPriceBdt: "selling price", rmbToBdtRate: "rate snapshot", courierChargePct: "courier %", targetCustomer: "target customer",
   problemSolved: "problem solved", sellingAngle: "selling angle", referenceLinks: "reference links", priority: "priority",
   targetLaunchDate: "target launch", mediaBuyerId: "media buyer", dueAt: "due date",

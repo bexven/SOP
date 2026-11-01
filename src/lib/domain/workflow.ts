@@ -174,16 +174,16 @@ export type ResearchFields = {
   brandId?: string | null;
   name: string | null;
   supplierUrl: string | null;
-  chinaPriceRmb: string | null;
-  shippingPerUnitRmb: string | null;
+  chinaPriceBdt: string | null;
+  shippingPerUnitBdt: string | null;
   sellingPriceBdt: string | null;
 };
 
 const RESEARCH_REQUIRED: { key: keyof ResearchFields; label: string }[] = [
   { key: "name", label: "Product name" },
   { key: "supplierUrl", label: "Supplier link" },
-  { key: "chinaPriceRmb", label: "China unit price" },
-  { key: "shippingPerUnitRmb", label: "Shipping per unit" },
+  { key: "chinaPriceBdt", label: "China unit price" },
+  { key: "shippingPerUnitBdt", label: "Shipping per unit" },
   { key: "sellingPriceBdt", label: "Selling price" },
 ];
 

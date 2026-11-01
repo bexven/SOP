@@ -42,15 +42,17 @@ Navigation is a menu bar across the top. Each person only sees the menus for the
 | Menu | Who | What it does |
 |---|---|---|
 | **Dashboard** (home) | Everyone | Summary counts, then only your pending work: Overdue · Waiting for my review · Needs changes · Due today · Upcoming. |
-| **Research** | Researcher, Admin | Your products in research and those sent back. **Add product** lives here (shortcut `C`). |
+| **Research** | Everyone except image/video makers | Tabs: **Pending approval** · **Approved** · **In research** · **Not approved**. **Add product** lives here (shortcut `C`). |
 | **Creative** | Image designer, Video editor, Media buyer, Admin | Open creative work in two lanes: **Images** and **Videos** (designers see only their lane). |
 | **Pipeline** | Everyone | Kanban by stage. |
 | **Products** | Everyone | Searchable, sortable table with filters (stage, priority, person, overdue, killed). |
-| **Admin ▾** | Admin | Overview (workload, bottleneck, kill reasons) · Team · Settings (rates, SLAs, checklists, step guides). |
+| **Admin ▾** | Admin | Overview (workload, bottleneck, kill reasons) · Team · Settings (rates, SLAs, checklists, brands & colours). |
 | **Account menu** (your photo) | Everyone | My profile & photo · Change PIN · Switch user · Sign out. |
 
-**Product page** (`/products/<id>`): Overview (research, margin, campaign) · Tasks (brief, then **Images** and
-**Videos** lanes) · Discussion (@mentions) · Timeline (every event and time in each stage).
+**Product page** (`/products/<id>`): coloured in the product's brand colour. While a product is in research or
+review (and always for researchers) it is one simple page: details, prices in BDT, margin, the review decision
+and the discussion. From Creative on, others get tabs: Overview · Tasks (brief, **Images** and **Videos** lanes) ·
+Discussion (@mentions) · Timeline.
 
 **Creative review:** designers upload several images per task (compressed automatically). The media buyer or
 Admin can 👍 / 👎 each image and comment on it. **Approve** can also ask for a *different angle*, *different
@@ -60,8 +62,8 @@ size* or *something else*: this creates a follow-up task for the same designer. 
 
 **Notifications** are in-app (bell, refreshed every 30 s and when the tab regains focus).
 
-After deploying, an Admin should add SOP checklist items and step guides for each creative task type
-(Admin ▾ → Settings → Checklists / Step guides). Only the research checklist is seeded.
+After deploying, an Admin should add SOP checklist items for each creative task type
+(Admin ▾ → Settings → Checklists). Only the research checklist is seeded. All prices are entered in BDT.
 
 ## Vercel + Neon setup (testing environment)
 

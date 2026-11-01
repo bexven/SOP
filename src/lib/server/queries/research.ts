@@ -1,15 +1,54 @@
 import "server-only";
 import type { Role } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import { computeMargin, marginBand } from "@/lib/domain/margin";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
 import { getMarginThresholds } from "./product";
 
-/** The Research page: drafts in research (yours, or all for Admin) and what you've already submitted. */
+const person = { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } } satisfies Prisma.UserDefaultArgs;
+const brandSel = { select: { id: true, name: true, color: true } } satisfies Prisma.BrandDefaultArgs;
+const EARLY = ["RESEARCH", "REVIEW"] as const;
+
+type Priced = {
+  chinaPriceBdt: { toString(): string } | null;
+  shippingPerUnitBdt: { toString(): string } | null;
+  sellingPriceBdt: { toString(): string } | null;
+  courierChargePct: { toString(): string };
+};
+
+function marginOf(p: Priced, thresholds: Awaited<ReturnType<typeof getMarginThresholds>>) {
+  const margin = computeMargin({
+    chinaPriceBdt: p.chinaPriceBdt?.toString() ?? null,
+    shippingPerUnitBdt: p.shippingPerUnitBdt?.toString() ?? null,
+    sellingPriceBdt: p.sellingPriceBdt?.toString() ?? null,
+    courierChargePct: p.courierChargePct.toString(),
+  });
+  return {
+    marginPct: margin?.marginPct ?? null,
+    marginBand: margin?.marginPct && thresholds ? marginBand(margin.marginPct, thresholds) : null,
+  };
+}
+
+/**
+ * The Research page:
+ *  - In research: drafts being filled in (and ones sent back).
+ *  - Pending approval: submitted, waiting for the reviewer.
+ *  - Approved: passed Product review (now in Creative or later).
+ *  - Not approved: killed at research / review.
+ * Everyone who can see the page sees every product (Q12); researchers without admin access see only their own drafts.
+ */
 export async function getResearchBoard(user: { id: string; role: Role; jobRole: Role }) {
-  // Researchers see their own drafts; Admin, reviewers and media buyers see everyone's.
   const admin = user.role !== "RESEARCHER";
-  const [inResearch, submitted, thresholds, inReview] = await Promise.all([
+  const decided = {
+    events: {
+      where: { type: { in: ["PRODUCT_APPROVED", "PRODUCT_REJECTED"] } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 1,
+      select: { createdAt: true, data: true, actor: { select: { id: true, name: true } } },
+    },
+  } satisfies Prisma.ProductInclude;
+  const [inResearch, inReview, approved, notApproved, thresholds] = await Promise.all([
     db.product.findMany({
       where: {
         stage: "RESEARCH",
@@ -17,48 +56,43 @@ export async function getResearchBoard(user: { id: string; role: Role; jobRole: 
       },
       orderBy: { updatedAt: "desc" },
       include: {
-        tasks: {
-          where: { type: "RESEARCH" },
-          include: { checklist: true, assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } } },
-        },
-        brand: { select: { id: true, name: true, color: true } },
+        tasks: { where: { type: "RESEARCH" }, include: { checklist: true, assignee: person } },
+        brand: brandSel,
       },
     }),
-    db.product.findMany({
-      where: { stage: { not: "RESEARCH" }, ...(admin ? {} : { createdById: user.id }) },
-      orderBy: { updatedAt: "desc" },
-      take: 20,
-      select: { id: true, number: true, name: true, stage: true, imageUrl: true, updatedAt: true, killReason: true, brand: { select: { id: true, name: true, color: true } } },
-    }),
-    getMarginThresholds(),
     db.product.findMany({
       where: { stage: "REVIEW" },
       orderBy: { stageEnteredAt: "asc" },
-      select: {
-        id: true,
-        number: true,
-        name: true,
-        imageUrl: true,
-        stageEnteredAt: true,
-        brand: { select: { id: true, name: true, color: true } },
+      include: {
+        brand: brandSel,
+        createdBy: person,
         tasks: {
           where: { type: "PRODUCT_APPROVAL", status: { in: ["TODO", "REVISION"] } },
-          select: { id: true, dueAt: true, assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } } },
+          select: { id: true, dueAt: true, assignee: person },
         },
       },
     }),
+    db.product.findMany({
+      where: {
+        stage: { notIn: [...EARLY] },
+        NOT: { stage: "KILLED", stageBeforeKill: { in: [...EARLY] } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 100,
+      include: { brand: brandSel, createdBy: person, ...decided },
+    }),
+    db.product.findMany({
+      where: { stage: "KILLED", stageBeforeKill: { in: [...EARLY] } },
+      orderBy: { killedAt: "desc" },
+      take: 100,
+      include: { brand: brandSel, createdBy: person, ...decided },
+    }),
+    getMarginThresholds(),
   ]);
 
   const drafts = inResearch.map((p) => {
     const task = p.tasks[0];
-    const margin = computeMargin({
-      chinaPriceRmb: p.chinaPriceRmb?.toString() ?? null,
-      shippingPerUnitRmb: p.shippingPerUnitRmb?.toString() ?? null,
-      sellingPriceBdt: p.sellingPriceBdt?.toString() ?? null,
-      rmbToBdtRate: p.rmbToBdtRate.toString(),
-      courierChargePct: p.courierChargePct.toString(),
-    });
-    const filled = [p.supplierUrl, p.chinaPriceRmb, p.shippingPerUnitRmb, p.sellingPriceBdt].filter((v) => v !== null && v !== "").length + 1;
+    const filled = [p.supplierUrl, p.chinaPriceBdt, p.shippingPerUnitBdt, p.sellingPriceBdt].filter((v) => v !== null && v !== "").length + 1;
     return {
       id: p.id,
       ref: productRef(p.number),
@@ -75,27 +109,45 @@ export async function getResearchBoard(user: { id: string; role: Role; jobRole: 
       fieldsTotal: 5,
       checklistDone: task?.checklist.filter((c) => c.checked).length ?? 0,
       checklistTotal: task?.checklist.length ?? 0,
-      marginPct: margin?.marginPct ?? null,
-      marginBand: margin?.marginPct && thresholds ? marginBand(margin.marginPct, thresholds) : null,
+      ...marginOf(p, thresholds),
     };
   });
 
+  const decision = (p: { events: { createdAt: Date; data: unknown; actor: { id: string; name: string } | null }[] }) => {
+    const e = p.events[0];
+    const note = e && e.data && typeof e.data === "object" && "note" in e.data ? String((e.data as { note?: unknown }).note ?? "") : "";
+    return { decidedAt: e?.createdAt.toISOString() ?? null, decidedBy: e?.actor?.name ?? null, decisionNote: note || null };
+  };
+
+  const base = (p: (typeof approved)[number] | (typeof inReview)[number]) => ({
+    id: p.id,
+    ref: productRef(p.number),
+    name: p.name,
+    imageUrl: p.imageUrl,
+    brand: p.brand,
+    stage: p.stage,
+    sellingPriceBdt: p.sellingPriceBdt?.toString() ?? null,
+    submittedBy: p.createdBy,
+    ...marginOf(p, thresholds),
+  });
+
   return {
-    sentBack: drafts.filter((d) => d.sentBack),
-    drafts: drafts.filter((d) => !d.sentBack),
-    submitted: submitted.filter((p) => p.stage !== "REVIEW").map((p) => ({ ...p, ref: productRef(p.number), updatedAt: p.updatedAt.toISOString() })),
-    inReview: inReview.map((p) => ({
-      id: p.id,
-      ref: productRef(p.number),
-      name: p.name,
-      imageUrl: p.imageUrl,
-      brand: p.brand,
+    drafts,
+    pending: inReview.map((p) => ({
+      ...base(p),
       since: p.stageEnteredAt.toISOString(),
-      taskId: p.tasks[0]?.id ?? null,
       dueAt: p.tasks[0]?.dueAt?.toISOString() ?? null,
       reviewer: p.tasks[0]?.assignee ?? null,
+    })),
+    approved: approved.map((p) => ({ ...base(p), ...decision(p), at: (decision(p).decidedAt ?? p.stageEnteredAt.toISOString()) })),
+    notApproved: notApproved.map((p) => ({
+      ...base(p),
+      ...decision(p),
+      at: (p.killedAt ?? p.updatedAt).toISOString(),
+      killNote: p.killNote,
     })),
   };
 }
 
 export type ResearchDraft = Awaited<ReturnType<typeof getResearchBoard>>["drafts"][number];
+export type ResearchBoard = Awaited<ReturnType<typeof getResearchBoard>>;

@@ -1,40 +1,54 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { FlaskConicalIcon } from "lucide-react";
+import { redirect } from "next/navigation";
+import { BadgeCheckIcon, FlaskConicalIcon, HourglassIcon, XCircleIcon } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
-import { Thumbnail } from "@/components/common/thumbnail";
 import { AddProductButton } from "@/components/research/add-product-button";
+import { ApprovedList, NotApprovedList, PendingList } from "@/components/research/decided-list";
 import { ResearchList } from "@/components/research/research-list";
-import { formatRelative } from "@/lib/format";
-import { BrandPill, DuePill, StagePill } from "@/components/common/pills";
-import { UserAvatar } from "@/components/common/user-avatar";
 import { can, canSeeEarlyStages } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
 import { getBrands } from "@/lib/server/queries/product";
 import { getResearchBoard } from "@/lib/server/queries/research";
-import { redirect } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Research" };
 
-export default async function ResearchPage() {
+const TABS = [
+  { key: "pending", label: "Pending approval" },
+  { key: "approved", label: "Approved" },
+  { key: "drafts", label: "In research" },
+  { key: "not-approved", label: "Not approved" },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
+
+export default async function ResearchPage({ searchParams }: PageProps<"/research">) {
   const user = await requireUser();
   if (!canSeeEarlyStages(user.role)) redirect("/dashboard");
-  const [board, brands] = await Promise.all([getResearchBoard(user), getBrands()]);
-  const admin = user.role !== "RESEARCHER";
+  const [board, brands, sp] = await Promise.all([getResearchBoard(user), getBrands(), searchParams]);
   const canAdd = can(user.role, "product.create");
   const canApprove = can(user.role, "product.approve");
-  const nothing = board.drafts.length + board.sentBack.length === 0;
+  const counts: Record<TabKey, number> = {
+    pending: board.pending.length,
+    approved: board.approved.length,
+    drafts: board.drafts.length,
+    "not-approved": board.notApproved.length,
+  };
+  const requested = typeof sp.tab === "string" ? sp.tab : "";
+  const tab: TabKey = (TABS.find((t) => t.key === requested)?.key ?? "pending") as TabKey;
+  const sentBack = board.drafts.filter((d) => d.sentBack);
+  const drafts = board.drafts.filter((d) => !d.sentBack);
 
   return (
     <>
       <PageHeader
         title="Research"
         description={
-          admin
-            ? "Every product still in research. Researchers add products here, fill in prices and the SOP checklist, then submit to start Creative."
-            : "Add products you've found, fill in the prices and SOP checklist, then submit to start Creative."
+          canApprove
+            ? "New products waiting for your decision, and everything already approved or killed. Approved products move to Creative."
+            : "Add products you've found and submit them for approval. Approved products move to Creative."
         }
         actions={
           canAdd ? (
@@ -45,85 +59,91 @@ export default async function ResearchPage() {
         }
       />
 
-      <div className="grid gap-6">
-        {board.inReview.length ? (
-          <section aria-labelledby="r-review">
-            <h2 id="r-review" className="mb-2 text-section text-indigo-800">
-              Waiting for product review <span className="num text-meta text-slate-500">{board.inReview.length}</span>
-            </h2>
-            <ul className="surface divide-y divide-slate-100 overflow-hidden rounded-panel">
-              {board.inReview.map((p) => (
-                <li key={p.id}>
-                  <Link href={`/products/${p.id}`} className="flex items-center gap-3 px-3 py-3 hover:bg-slate-50/80 sm:px-4">
-                    <Thumbnail src={p.imageUrl} alt="" />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <BrandPill brand={p.brand} />
-                        <span className="truncate text-body font-medium text-slate-900">{p.name}</span>
-                      </span>
-                      <span className="text-meta font-normal text-slate-500">
-                        <span className="num">{p.ref}</span> · {canApprove ? "Open to approve or not approve" : `Waiting for ${p.reviewer?.name ?? "a reviewer"}`}
-                      </span>
-                    </span>
-                    <DuePill dueAt={p.dueAt} />
-                    {p.reviewer ? <UserAvatar name={p.reviewer.name} color={p.reviewer.avatarColor} imageId={p.reviewer.avatarAssetId} size="sm" /> : null}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+      <nav aria-label="Research lists" className="relative mb-5 max-w-full overflow-x-auto">
+        <ul className="inline-flex rounded-control bg-slate-900/[0.04] p-1">
+          {TABS.map((t) => {
+            const active = t.key === tab;
+            return (
+              <li key={t.key}>
+                <Link
+                  href={t.key === "pending" ? "/research" : `/research?tab=${t.key}`}
+                  aria-current={active ? "page" : undefined}
+                  scroll={false}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-body font-medium whitespace-nowrap transition-colors",
+                    active ? "bg-white text-slate-900 shadow-[0_1px_2px_rgb(15_23_42/0.08)]" : "text-slate-600 hover:text-slate-900",
+                  )}
+                >
+                  {t.label}
+                  <span className={cn("num rounded-full px-1.5 text-meta", t.key === "pending" && counts.pending ? "bg-indigo-600 text-white" : "text-slate-500")}>
+                    {counts[t.key]}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
 
-        {board.sentBack.length ? (
-          <section aria-labelledby="r-sent-back">
-            <h2 id="r-sent-back" className="mb-2 text-section text-rose-700">
-              Sent back to research <span className="num text-meta text-slate-500">{board.sentBack.length}</span>
-            </h2>
-            <ResearchList items={board.sentBack} showOwner={admin} />
-          </section>
-        ) : null}
+      {tab === "pending" ? (
+        board.pending.length ? (
+          <PendingList items={board.pending} canApprove={canApprove} />
+        ) : (
+          <EmptyState
+            icon={HourglassIcon}
+            title="Nothing waiting for approval"
+            description={
+              canApprove
+                ? "When a researcher submits a product it appears here for you to approve or kill."
+                : "Products you submit appear here until the reviewer approves or kills them."
+            }
+          />
+        )
+      ) : null}
 
-        <section aria-labelledby="r-drafts">
-          <h2 id="r-drafts" className="mb-2 text-section text-slate-900">
-            {admin ? "In research" : "My research"} <span className="num text-meta text-slate-500">{board.drafts.length}</span>
-          </h2>
-          {nothing ? (
+      {tab === "approved" ? (
+        board.approved.length ? (
+          <ApprovedList items={board.approved} />
+        ) : (
+          <EmptyState icon={BadgeCheckIcon} title="No approved products yet" description="Products appear here once the reviewer approves them. They then show up on the Creative page for the designers." />
+        )
+      ) : null}
+
+      {tab === "not-approved" ? (
+        board.notApproved.length ? (
+          <NotApprovedList items={board.notApproved} />
+        ) : (
+          <EmptyState icon={XCircleIcon} title="No killed products" description="Products the reviewer kills (or that are killed during research) are kept here with the reason." />
+        )
+      ) : null}
+
+      {tab === "drafts" ? (
+        <div className="grid gap-6">
+          {sentBack.length ? (
+            <section aria-labelledby="r-sent-back">
+              <h2 id="r-sent-back" className="mb-2 text-section text-rose-700">
+                Sent back for changes <span className="num text-meta text-slate-500">{sentBack.length}</span>
+              </h2>
+              <ResearchList items={sentBack} showOwner />
+            </section>
+          ) : null}
+          {drafts.length ? (
+            <section aria-labelledby="r-drafts">
+              <h2 id="r-drafts" className="mb-2 text-section text-slate-900">
+                Drafts <span className="num text-meta text-slate-500">{drafts.length}</span>
+              </h2>
+              <ResearchList items={drafts} showOwner />
+            </section>
+          ) : null}
+          {board.drafts.length === 0 ? (
             <EmptyState
               icon={FlaskConicalIcon}
               title="No products in research"
-              description={canAdd ? "Click “Add product” to start researching a new product. You can save a draft and finish it later." : "Products appear here while the researcher works on them."}
+              description={canAdd ? "Click “Add product” to start a new one. You can save a draft and finish it later." : "Products appear here while the researcher is filling them in."}
             />
-          ) : board.drafts.length ? (
-            <ResearchList items={board.drafts} showOwner={admin} />
-          ) : (
-            <p className="text-body text-slate-600">No other drafts.</p>
-          )}
-        </section>
-
-        {board.submitted.length ? (
-          <section aria-labelledby="r-submitted">
-            <h2 id="r-submitted" className="mb-2 text-section text-slate-900">
-              {admin ? "Recently submitted" : "Submitted by me"}
-            </h2>
-            <ul className="surface divide-y divide-slate-100 overflow-hidden rounded-panel">
-              {board.submitted.map((p) => (
-                <li key={p.id}>
-                  <Link href={`/products/${p.id}`} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50/80 sm:px-4">
-                    <Thumbnail src={p.imageUrl} alt="" className="size-8" />
-                    <BrandPill brand={p.brand} />
-                    <span className="min-w-0 flex-1 truncate text-body text-slate-900">{p.name}</span>
-                    <span className="num hidden text-meta text-slate-500 sm:inline">{p.ref}</span>
-                    <span className="hidden text-meta font-normal text-slate-500 sm:inline" suppressHydrationWarning>
-                      {formatRelative(new Date(p.updatedAt))}
-                    </span>
-                    <StagePill stage={p.stage} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }

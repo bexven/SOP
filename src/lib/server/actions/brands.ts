@@ -5,9 +5,10 @@ import { z } from "zod";
 import { idSchema } from "@/lib/validation/common";
 import { ActionError, defineAction } from "../action";
 import { db } from "../db";
+import { HEX_COLOR } from "@/lib/brand-color";
 
 const name = z.string().trim().min(2, "Brand name is too short").max(40);
-const color = z.enum(["sky", "amber", "violet", "emerald", "rose", "orange", "indigo", "slate"]);
+const color = z.string().trim().regex(HEX_COLOR, "Pick a colour like #15803D").transform((c) => c.toUpperCase());
 
 export const saveBrandAction = defineAction({
   capability: "settings.manage",

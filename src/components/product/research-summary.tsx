@@ -1,24 +1,23 @@
-import { ExternalLinkIcon } from "lucide-react";
+import { ExternalLinkIcon, LinkIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { ProductDetail } from "@/lib/server/queries/product";
-import { formatBdt, formatDate, formatRmb } from "@/lib/format";
+import { formatBdt, formatDate } from "@/lib/format";
+import { Thumbnail } from "@/components/common/thumbnail";
 
+function host(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.replace(/^https?:\/\/(www\.)?/, "");
+  }
+}
+
+/** Read-only product details: picture, prices in BDT, links (brand-coloured) and the researcher's notes. */
 export function ResearchSummary({ product }: { product: ProductDetail }) {
-  const rows: [string, React.ReactNode][] = [
-    [
-      "Supplier",
-      product.supplierUrl ? (
-        <a href={product.supplierUrl} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-1 truncate text-indigo-700 hover:underline">
-          <span className="truncate">{product.supplierUrl.replace(/^https?:\/\//, "")}</span>
-          <ExternalLinkIcon className="size-3 shrink-0" />
-        </a>
-      ) : (
-        "—"
-      ),
-    ],
-    ["China price", product.chinaPriceRmb ? <span className="num">{formatRmb(product.chinaPriceRmb)}</span> : "—"],
-    ["Shipping / unit", product.shippingPerUnitRmb ? <span className="num">{formatRmb(product.shippingPerUnitRmb)}</span> : "—"],
-    ["Selling price", product.sellingPriceBdt ? <span className="num">{formatBdt(product.sellingPriceBdt)}</span> : "—"],
-    ["Target launch", product.targetLaunchDate ? <span className="num">{formatDate(new Date(`${product.targetLaunchDate}T00:00:00Z`))}</span> : "—"],
+  const prices: [string, string | null][] = [
+    ["China price / unit", product.chinaPriceBdt],
+    ["Shipping / unit", product.shippingPerUnitBdt],
+    ["Selling price", product.sellingPriceBdt],
   ];
   const texts: [string, string | null][] = [
     ["Target customer", product.targetCustomer],
@@ -26,42 +25,53 @@ export function ResearchSummary({ product }: { product: ProductDetail }) {
     ["Selling angle", product.sellingAngle],
   ];
   return (
-    <section className="surface rounded-panel p-4 sm:p-5" aria-label="Research">
-      <h2 className="text-section text-slate-900">Research</h2>
-      <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-        {rows.map(([k, val]) => (
-          <div key={k} className="min-w-0">
-            <dt className="text-meta text-slate-500">{k}</dt>
-            <dd className="mt-0.5 truncate text-body text-slate-900">{val}</dd>
-          </div>
-        ))}
-      </dl>
-      {texts.some(([, t]) => t) ? (
-        <dl className="mt-4 grid gap-3 border-t border-slate-100 pt-4">
-          {texts.map(([k, t]) =>
-            t ? (
-              <div key={k}>
+    <section className="surface grid gap-5 rounded-panel p-4 sm:p-5" aria-label="Product details">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-[9rem_minmax(0,1fr)]">
+        <Thumbnail src={product.imageUrl} alt={product.name} className="aspect-square size-auto w-full max-w-[9rem] rounded-panel" />
+        <div className="grid content-start gap-3">
+          <dl className="grid grid-cols-3 gap-2">
+            {prices.map(([k, v]) => (
+              <div key={k} className="rounded-control bg-slate-50 px-3 py-2.5 ring-1 ring-slate-900/[0.04] ring-inset">
                 <dt className="text-meta text-slate-500">{k}</dt>
-                <dd className="mt-0.5 text-body whitespace-pre-line text-slate-800">{t}</dd>
+                <dd className="num mt-0.5 text-[15px] font-semibold text-slate-900">{v ? formatBdt(v) : "—"}</dd>
               </div>
-            ) : null,
-          )}
-        </dl>
-      ) : null}
-      {product.referenceLinks.length ? (
-        <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className="text-meta text-slate-500">Reference links</p>
-          <ul className="mt-1.5 flex flex-wrap gap-2">
-            {product.referenceLinks.map((l, i) => (
-              <li key={l + i}>
-                <a href={l} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-[16rem] items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-meta text-slate-700 hover:bg-slate-200/80">
-                  <span className="truncate">{l.replace(/^https?:\/\/(www\.)?/, "")}</span>
-                  <ExternalLinkIcon className="size-3 shrink-0" />
-                </a>
-              </li>
             ))}
-          </ul>
+          </dl>
+          <p className="text-meta font-normal text-slate-600">
+            Target launch:{" "}
+            <span className="num font-medium text-slate-800">
+              {product.targetLaunchDate ? formatDate(new Date(`${product.targetLaunchDate}T00:00:00Z`)) : "not set"}
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {product.supplierUrl ? (
+              <Button asChild size="sm">
+                <a href={product.supplierUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLinkIcon /> Supplier · {host(product.supplierUrl)}
+                </a>
+              </Button>
+            ) : (
+              <span className="text-meta text-slate-500">No supplier link yet</span>
+            )}
+            {product.referenceLinks.map((l, i) => (
+              <Button key={l + i} asChild size="sm" variant="brandSoft">
+                <a href={l} target="_blank" rel="noopener noreferrer" className="max-w-[16rem]">
+                  <LinkIcon /> <span className="truncate">{host(l)}</span>
+                </a>
+              </Button>
+            ))}
+          </div>
         </div>
+      </div>
+      {texts.some(([, t]) => t) ? (
+        <dl className="grid gap-4 border-t border-slate-100 pt-4 md:grid-cols-3">
+          {texts.map(([k, t]) => (
+            <div key={k} className="min-w-0">
+              <dt className="text-meta text-slate-500">{k}</dt>
+              <dd className="mt-1 text-body whitespace-pre-line text-slate-800 [overflow-wrap:anywhere]">{t || "—"}</dd>
+            </div>
+          ))}
+        </dl>
       ) : null}
     </section>
   );

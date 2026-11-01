@@ -9,6 +9,7 @@ import {
 } from "@/lib/domain/labels";
 import type { MarginBand } from "@/lib/domain/margin";
 import { Pill, type PillTone } from "./pill";
+import { brandText, brandTint, HEX_COLOR } from "@/lib/brand-color";
 
 export const STAGE_TONE: Record<ProductStage, PillTone> = {
   RESEARCH: "sky",
@@ -134,13 +135,19 @@ export function MarginBadge({
   );
 }
 
-const BRAND_TONES: Record<string, PillTone> = { sky: "sky", amber: "amber", violet: "violet", emerald: "emerald", rose: "rose", orange: "orange", indigo: "indigo", slate: "slate" };
-
-/** Which store brand a product is for (Timtom, Mr.WOW, …). */
 export function BrandPill({ brand, className }: { brand: { name: string; color: string } | null | undefined; className?: string }) {
   if (!brand) return null;
+  const valid = HEX_COLOR.test(brand.color);
   return (
-    <Pill tone={BRAND_TONES[brand.color] ?? "slate"} className={`font-semibold ${className ?? ""}`}>
+    <Pill
+      tone="slate"
+      className={`font-semibold ${className ?? ""}`}
+      style={
+        valid
+          ? ({ backgroundColor: brandTint(brand.color), color: brandText(brand.color), "--tw-ring-color": `${brand.color}40` } as React.CSSProperties)
+          : undefined
+      }
+    >
       {brand.name}
     </Pill>
   );

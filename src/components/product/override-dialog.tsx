@@ -29,10 +29,9 @@ function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: (
     name: product.name,
     supplierUrl: product.supplierUrl ?? "",
     imageUrl: product.imageUrl ?? "",
-    chinaPriceRmb: product.chinaPriceRmb ?? "",
-    shippingPerUnitRmb: product.shippingPerUnitRmb ?? "",
+    chinaPriceBdt: product.chinaPriceBdt ?? "",
+    shippingPerUnitBdt: product.shippingPerUnitBdt ?? "",
     sellingPriceBdt: product.sellingPriceBdt ?? "",
-    rmbToBdtRate: product.rmbToBdtRate,
     courierChargePct: product.courierChargePct,
     targetCustomer: product.targetCustomer ?? "",
     problemSolved: product.problemSolved ?? "",
@@ -106,11 +105,10 @@ function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: (
         </Field>
         {text("supplierUrl", "Supplier link")}
         {text("imageUrl", "Image URL")}
-        {text("chinaPriceRmb", "China price (¥)", { mono: true })}
-        {text("shippingPerUnitRmb", "Shipping per unit (¥)", { mono: true })}
+        {text("chinaPriceBdt", "China price / unit (BDT)", { mono: true })}
+        {text("shippingPerUnitBdt", "Shipping per unit (BDT)", { mono: true })}
         {text("sellingPriceBdt", "Selling price (BDT)", { mono: true })}
         {text("targetLaunchDate", "Target launch (YYYY-MM-DD)", { mono: true })}
-        {text("rmbToBdtRate", "Rate snapshot (BDT per ¥)", { mono: true })}
         {text("courierChargePct", "Courier % snapshot", { mono: true })}
         <Field id="ov-mb" label="Media buyer">
           <Select value={v.mediaBuyerId || "none"} onValueChange={(id) => setV({ ...v, mediaBuyerId: id === "none" ? "" : id })}>

@@ -13,20 +13,3 @@ export async function getChecklistTemplates() {
 }
 
 export type TemplateGroup = Awaited<ReturnType<typeof getChecklistTemplates>>[number];
-
-export async function getStepGuides() {
-  const rows = await db.taskTypeConfig.findMany();
-  const byType = new Map(rows.map((r) => [r.taskType, r]));
-  return TASK_TYPES.map((taskType) => {
-    const r = byType.get(taskType);
-    return {
-      taskType,
-      configured: Boolean(r),
-      body: r?.guideBody ?? "",
-      links: Array.isArray(r?.guideLinks) ? (r!.guideLinks as { label: string; url: string }[]) : [],
-      updatedAt: r?.updatedAt.toISOString() ?? null,
-    };
-  });
-}
-
-export type GuideRow = Awaited<ReturnType<typeof getStepGuides>>[number];

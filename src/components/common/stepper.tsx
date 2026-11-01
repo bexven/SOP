@@ -16,8 +16,8 @@ export function PipelineStepper({ stepper, className }: { stepper: Stepper; clas
               <span
                 className={cn(
                   "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ring-1 transition-colors",
-                  done && "bg-indigo-600 text-white ring-indigo-600",
-                  current && "bg-white text-indigo-700 ring-2 ring-indigo-500",
+                  done && "bg-primary text-white ring-primary",
+                  current && "bg-white text-primary ring-2 ring-primary",
                   killed && "bg-rose-600 text-white ring-rose-600",
                   step.state === "upcoming" && "bg-white text-slate-500 ring-slate-300",
                 )}
@@ -25,7 +25,7 @@ export function PipelineStepper({ stepper, className }: { stepper: Stepper; clas
                 {done ? <CheckIcon className="size-3" /> : killed ? <XIcon className="size-3" /> : i + 1}
               </span>
               {i < stepper.steps.length - 1 ? (
-                <span className={cn("h-px flex-1 rounded-full", done ? "bg-indigo-500" : "bg-slate-200")} aria-hidden />
+                <span className={cn("h-px flex-1 rounded-full", done ? "bg-primary" : "bg-slate-200")} aria-hidden />
               ) : null}
             </div>
             <span

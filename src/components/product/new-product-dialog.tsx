@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandPicker } from "@/components/common/brand-picker";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/domain/labels";
 import { createProductAction } from "@/lib/server/actions/product";
-import { cn } from "@/lib/utils";
 
 /** "Add product" dialog on the Research page (also opened by the `C` shortcut via /research?add=1). */
 export function NewProductDialog({ open, onOpenChange, brands }: { open: boolean; onOpenChange: (o: boolean) => void; brands: { id: string; name: string; color: string }[] }) {
@@ -54,23 +55,7 @@ function NewProductForm({ onDone, brands }: { onDone: () => void; brands: { id: 
       </DialogHeader>
       <fieldset className="grid gap-1.5">
         <legend className="mb-1.5 text-meta text-slate-700">Brand *</legend>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Brand">
-          {brands.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              role="radio"
-              aria-checked={brandId === b.id}
-              onClick={() => setBrandId(b.id)}
-              className={cn(
-                "rounded-control px-4 py-2 text-body font-semibold ring-1 ring-inset transition-colors",
-                brandId === b.id ? "bg-indigo-600 text-white ring-indigo-600" : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50",
-              )}
-            >
-              {b.name}
-            </button>
-          ))}
-        </div>
+        <BrandPicker brands={brands} value={brandId} onChange={setBrandId} />
         {errors.brandId?.[0] ? <p className="text-meta text-rose-700">{errors.brandId[0]}</p> : null}
       </fieldset>
       <Field id="np-name" label="Product name" error={errors.name?.[0]}>

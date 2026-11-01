@@ -40,8 +40,8 @@ const TEAM: { name: string; role: Role; avatarColor: string; adminAccess?: boole
 ];
 
 const BRANDS = [
-  { name: "Timtom", color: "sky" },
-  { name: "Mr.WOW", color: "amber" },
+  { name: "Timtom", color: "#0369A1" },
+  { name: "Mr.WOW", color: "#15803D" },
 ];
 
 // Starting values only — Admin should confirm them in Settings.

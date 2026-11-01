@@ -29,7 +29,6 @@ import { ChecklistPanel } from "./checklist-panel";
 import { DueOverride } from "./due-override";
 import { ReassignMenu } from "./reassign-menu";
 import { ReviewActions } from "./review-actions";
-import { StepGuidePanel } from "./step-guide-panel";
 import { RoundGallery } from "./round-gallery";
 import { Decision, RoundHeader, SubmissionHistory } from "./submission-history";
 
@@ -228,7 +227,6 @@ export function TaskCard({
                   <CircleDashedIcon className="size-4" /> Cancelled — no further work needed.
                 </p>
               )}
-              <StepGuidePanel guide={product.guides[task.type]} />
               {extra}
               {latest ? (
                 <section className="grid gap-2 rounded-control border border-slate-200/80 bg-white p-3" aria-label="Latest version">

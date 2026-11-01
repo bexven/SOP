@@ -72,7 +72,7 @@ function ApproveDialog({
                 onClick={() => setKind(k)}
                 className={cn(
                   "rounded-full px-3 py-1.5 text-body ring-1 ring-inset transition-colors",
-                  kind === k ? "bg-indigo-600 text-white ring-indigo-600" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
+                  kind === k ? "bg-primary text-white ring-primary" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
                 )}
               >
                 {k ? FOLLOW_UP_LABELS[k] : "Nothing more"}

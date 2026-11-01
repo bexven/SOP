@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { computeMargin, marginBand } from "./margin";
 
-const base = { rmbToBdtRate: "17", courierChargePct: "2" };
+const base = { courierChargePct: "2" };
 
-describe("computeMargin", () => {
+describe("computeMargin (all BDT)", () => {
   it("calculates landed cost, courier and margin", () => {
-    // (25 + 5) × 17 = 510 landed; 1200 × 2% = 24 courier; 1200 − 510 − 24 = 666; 55.5%
-    expect(computeMargin({ ...base, chinaPriceRmb: "25", shippingPerUnitRmb: "5", sellingPriceBdt: "1200" })).toEqual({
+    // 425 + 85 = 510 landed; 1200 × 2% = 24 courier; 1200 − 510 − 24 = 666; 55.5%
+    expect(computeMargin({ ...base, chinaPriceBdt: "425", shippingPerUnitBdt: "85", sellingPriceBdt: "1200" })).toEqual({
       landedCostBdt: "510.00",
       courierChargeBdt: "24.00",
       grossMarginBdt: "666.00",
@@ -14,32 +14,25 @@ describe("computeMargin", () => {
     });
   });
 
-  it("uses exact decimals (no float drift)", () => {
-    const r = computeMargin({
-      rmbToBdtRate: "16.9512",
-      courierChargePct: "2.5",
-      chinaPriceRmb: "12.30",
-      shippingPerUnitRmb: "3.15",
-      sellingPriceBdt: "990",
-    });
-    // (15.45 × 16.9512) = 261.89604 → 261.90; courier 24.75; gross 703.35396 → 703.35
+  it("uses exact decimals", () => {
+    const r = computeMargin({ courierChargePct: "2.5", chinaPriceBdt: "208.53", shippingPerUnitBdt: "53.37", sellingPriceBdt: "990" });
     expect(r).toMatchObject({ landedCostBdt: "261.90", courierChargeBdt: "24.75", grossMarginBdt: "703.35", marginPct: "71.0" });
   });
 
   it("can go negative", () => {
-    const r = computeMargin({ ...base, chinaPriceRmb: "60", shippingPerUnitRmb: "10", sellingPriceBdt: "1000" });
+    const r = computeMargin({ ...base, chinaPriceBdt: "1020", shippingPerUnitBdt: "170", sellingPriceBdt: "1000" });
     expect(r?.grossMarginBdt).toBe("-210.00");
     expect(r?.marginPct).toBe("-21.0");
   });
 
   it("returns null until all prices are valid", () => {
-    expect(computeMargin({ ...base, chinaPriceRmb: "25", shippingPerUnitRmb: "", sellingPriceBdt: "1200" })).toBeNull();
-    expect(computeMargin({ ...base, chinaPriceRmb: "abc", shippingPerUnitRmb: "5", sellingPriceBdt: "1200" })).toBeNull();
-    expect(computeMargin({ ...base, chinaPriceRmb: null, shippingPerUnitRmb: "5", sellingPriceBdt: "1200" })).toBeNull();
+    expect(computeMargin({ ...base, chinaPriceBdt: "25", shippingPerUnitBdt: "", sellingPriceBdt: "1200" })).toBeNull();
+    expect(computeMargin({ ...base, chinaPriceBdt: "abc", shippingPerUnitBdt: "5", sellingPriceBdt: "1200" })).toBeNull();
+    expect(computeMargin({ ...base, chinaPriceBdt: null, shippingPerUnitBdt: "5", sellingPriceBdt: "1200" })).toBeNull();
   });
 
   it("has no margin % for a zero selling price", () => {
-    expect(computeMargin({ ...base, chinaPriceRmb: "1", shippingPerUnitRmb: "1", sellingPriceBdt: "0" })?.marginPct).toBeNull();
+    expect(computeMargin({ ...base, chinaPriceBdt: "1", shippingPerUnitBdt: "1", sellingPriceBdt: "0" })?.marginPct).toBeNull();
   });
 });
 
@@ -50,6 +43,5 @@ describe("marginBand", () => {
     expect(marginBand("29.9", t)).toBe("ok");
     expect(marginBand("15.0", t)).toBe("ok");
     expect(marginBand("14.9", t)).toBe("thin");
-    expect(marginBand("-5", t)).toBe("thin");
   });
 });

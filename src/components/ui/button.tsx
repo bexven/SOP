@@ -9,12 +9,14 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(15_23_42/0.12),inset_0_1px_0_rgb(255_255_255/0.18)] hover:bg-indigo-700",
+          "bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(15_23_42/0.12),inset_0_1px_0_rgb(255_255_255/0.18)] hover:bg-primary/90",
         destructive: "bg-rose-600 text-white shadow-sm hover:bg-rose-700",
         outline: "border border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgb(15_23_42/0.04)] hover:bg-slate-50",
         secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200/80",
         ghost: "text-slate-600 hover:bg-slate-900/[0.05] hover:text-slate-900",
         link: "text-primary underline-offset-4 hover:underline",
+        /** Soft tint of the primary (brand) colour, for secondary links. */
+        brandSoft: "bg-accent text-accent-foreground ring-1 ring-primary/15 ring-inset hover:bg-primary/15",
       },
       size: {
         default: "h-9 px-3.5",

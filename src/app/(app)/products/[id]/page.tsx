@@ -38,7 +38,7 @@ export default async function ProductPage({ params, searchParams }: PageProps<"/
           </ol>
         </nav>
       </div>
-      <ProductView product={product} viewer={{ id: user.id, role: user.role, name: user.name }} focusTaskId={task} />
+      <ProductView product={product} viewer={{ id: user.id, role: user.role, name: user.name, jobRole: user.jobRole }} focusTaskId={task} />
     </>
   );
 }
