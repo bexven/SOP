@@ -37,26 +37,31 @@ then asked to choose their own PIN.
 
 ## What's in the app
 
-| Area | What it does |
-|---|---|
-| **My Queue** (home) | Only what's waiting on you: Overdue · Due today · Upcoming · In revision. Media Buyers also see *Waiting for my review*; Admins see *Unassigned*. |
-| **Pipeline** | Kanban by stage (read-only — stages change only through gated actions). |
-| **Products** | Searchable, sortable table with stage / priority / assignee / overdue / killed filters. |
-| **Product slide-over** | Opens on any list via `?product=<id>` (linkable). Tabs: Overview (research, margin, campaign) · Tasks (brief, batches, phases) · Discussion (@mentions) · Timeline (every event + time in each stage). |
-| **Research** | Draft → live margin check → SOP checklist → Submit (creates Creative Batch #1: 7 tasks, auto-assigned). |
-| **Creative** | Phase 1 unlocks Phase 2; submissions keep every version; approve / request revision (note required); creative brief. |
-| **Launch & live** | Campaign Launch task → Live; campaign status (Running/Scaling/Paused/Stopped); new creative batches while live; Mark completed. |
-| **Exceptions** | Kill (reason + note), Send back (note; pick tasks to reopen), Admin override (logged old → new), Admin due-date override. |
-| **Admin** | Overview (stage counts, overdue, workload, bottleneck, kill reasons), Team, Settings (rates, thresholds, SLAs, checklist templates, step guides). |
+Navigation is a menu bar across the top. Each person only sees the menus for their role.
 
-**Keyboard:** `⌘K` / `Ctrl K` command palette · `C` new product · `G` then `Q` My Queue · `G` then `P` Pipeline · `Esc` closes sheets and dialogs.
+| Menu | Who | What it does |
+|---|---|---|
+| **Dashboard** (home) | Everyone | Summary counts, then only your pending work: Overdue · Waiting for my review · Needs changes · Due today · Upcoming. |
+| **Research** | Researcher, Admin | Your products in research and those sent back. **Add product** lives here (shortcut `C`). |
+| **Creative** | Image designer, Video editor, Media buyer, Admin | Open creative work in two lanes: **Images** and **Videos** (designers see only their lane). |
+| **Pipeline** | Everyone | Kanban by stage. |
+| **Products** | Everyone | Searchable, sortable table with filters (stage, priority, person, overdue, killed). |
+| **Admin ▾** | Admin | Overview (workload, bottleneck, kill reasons) · Team · Settings (rates, SLAs, checklists, step guides). |
+| **Account menu** (your photo) | Everyone | My profile & photo · Change PIN · Switch user · Sign out. |
+
+**Product page** (`/products/<id>`): Overview (research, margin, campaign) · Tasks (brief, then **Images** and
+**Videos** lanes) · Discussion (@mentions) · Timeline (every event and time in each stage).
+
+**Creative review:** designers upload several images per task (compressed automatically). The media buyer or
+Admin can 👍 / 👎 each image and comment on it. **Approve** can also ask for a *different angle*, *different
+size* or *something else*: this creates a follow-up task for the same designer. Videos are Google Drive links.
+
+**Keyboard:** `⌘K` / `Ctrl K` search · `C` add product · `G` then `D` Dashboard · `G` then `P` Pipeline · `Esc` closes dialogs.
 
 **Notifications** are in-app (bell, refreshed every 30 s and when the tab regains focus).
 
 After deploying, an Admin should add SOP checklist items and step guides for each creative task type
-(Settings → Checklists / Step guides) — only the research checklist is seeded.
-
----
+(Admin ▾ → Settings → Checklists / Step guides). Only the research checklist is seeded.
 
 ## Vercel + Neon setup (testing environment)
 

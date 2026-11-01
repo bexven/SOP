@@ -28,7 +28,9 @@ Prisma 7 + PostgreSQL via `@prisma/adapter-pg` · zod v4 · Vitest · Geist font
 ## Portability (non-negotiable)
 - Standard Next.js + Prisma + Postgres only. **No Vercel-only services** (KV, Blob, Edge Config, Vercel Postgres SDK).
 - `output: "standalone"` stays on; the app must run with `node .next/standalone/server.js` on a VPS.
-- No file uploads: every asset is a link (Drive, store URL, image URL).
+- Uploads: images (creative work, profile photos) are compressed in the browser (WebP, ≤2000 px; avatars
+  384 px square) and stored in Postgres (`Asset.bytes`), served by `/api/assets/[id]`. No object storage
+  service, so it stays portable. Videos stay as Drive links (too large). Can move to S3/R2 later.
 - Do not add Docker/VPS files until asked.
 
 ## Rendering model
@@ -93,6 +95,20 @@ src/generated/     Prisma client (generated, git-ignored)
 - `npm run typecheck` runs `next typegen` first (route types for `PageProps<"/route">`).
 - A `"use server"` file may only export async functions.
 
+## Owner's redesign (after first test) — supersedes the brief where they differ
+- **Top menu bar**, no sidebar. Items: Dashboard · Research (researcher/admin) · Creative (designers,
+  editor, media buyer, admin) · Pipeline · Products · Admin ▾ (Overview, Team, Settings). Labels + hints.
+- **No slide-over panel.** Products open as a full page `/products/[id]` (back link + breadcrumb);
+  `?task=<id>` opens and scrolls to a task.
+- **No global "New product".** Only the **Research** page has "Add product" (shortcut `C` → `/research?add=1`).
+- **Dashboard** (`/dashboard`, was My Queue) per person: summary counts + their pending tasks.
+- **Creative** split into **Images** (image designer: website image, 3 ads, store listing) and **Videos**
+  (video editor). Designers upload multiple images per task; Media Buyer/Admin 👍/👎 and comment on each
+  image or link. **Approve can also ask for a different angle / different size / something else**, which
+  creates a follow-up task (same type, person and batch; keeps the batch open).
+- **Profile photos** (`/profile`).
+- **No "Scaling" step** in the stepper and SCALING isn't offered as a campaign status (enum kept in DB).
+
 ## Agreed decisions (from the brief review)
 - Q1 Each product has an owning Media Buyer (`Product.mediaBuyerId`), auto-assigned at research submit;
   they write the brief, get review notifications and launch. Any Media Buyer or Admin may still review.
@@ -110,7 +126,7 @@ src/generated/     Prisma client (generated, git-ignored)
 - Q10 Batch #N may include any of the 6 creative types (never the store listing); it snapshots the brief.
 - Q11 Seeded non-admins and admin PIN resets set `mustChangePin`.
 - Q12 Everyone can view all products/pipeline; mutations are role-gated.
-- Q13 Stepper shows "Creative · Phase 2 & Store" once both Phase 1 tasks are approved.
+- Q13 Stepper shows "Creative: step 2 & store" once both Phase 1 tasks are approved.
 - Q14 Campaign STOPPED ≠ COMPLETED; completion is an explicit action.
 - Auto-assignment counts LOCKED + TODO + REVISION + SUBMITTED as open; tie → least recently assigned.
 - Research task belongs to its creator (Admin-created → auto-assigned to a Researcher).
