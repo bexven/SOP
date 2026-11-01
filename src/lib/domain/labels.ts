@@ -1,4 +1,12 @@
-import type { Role, TaskType } from "@/generated/prisma/enums";
+import type {
+  CampaignStatus,
+  KillReason,
+  Priority,
+  ProductStage,
+  Role,
+  TaskStatus,
+  TaskType,
+} from "@/generated/prisma/enums";
 
 export const ROLES = [
   "RESEARCHER",
@@ -82,3 +90,98 @@ export function initials(name: string): string {
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
+
+
+export const STAGES = [
+  "RESEARCH",
+  "CREATIVE",
+  "READY_TO_LAUNCH",
+  "LIVE",
+  "COMPLETED",
+  "KILLED",
+] as const satisfies readonly ProductStage[];
+
+export const STAGE_LABELS: Record<ProductStage, string> = {
+  RESEARCH: "Research",
+  CREATIVE: "Creative",
+  READY_TO_LAUNCH: "Ready to Launch",
+  LIVE: "Live",
+  COMPLETED: "Completed",
+  KILLED: "Killed",
+};
+
+export const PRIORITIES = ["URGENT", "HIGH", "MEDIUM", "LOW"] as const satisfies readonly Priority[];
+
+export const PRIORITY_LABELS: Record<Priority, string> = {
+  URGENT: "Urgent",
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+};
+
+export const PRIORITY_RANK: Record<Priority, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  LOCKED: "Locked",
+  TODO: "To do",
+  SUBMITTED: "In review",
+  REVISION: "Revision",
+  APPROVED: "Approved",
+  CANCELLED: "Cancelled",
+};
+
+export const CAMPAIGN_STATUSES = ["RUNNING", "SCALING", "PAUSED", "STOPPED"] as const satisfies readonly CampaignStatus[];
+
+export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
+  NOT_LAUNCHED: "Not launched",
+  RUNNING: "Running",
+  SCALING: "Scaling",
+  PAUSED: "Paused",
+  STOPPED: "Stopped",
+};
+
+export const KILL_REASONS = [
+  "LOW_MARGIN",
+  "SUPPLIER_ISSUE",
+  "WEAK_CREATIVE",
+  "POOR_AD_PERFORMANCE",
+  "OTHER",
+] as const satisfies readonly KillReason[];
+
+export const KILL_REASON_LABELS: Record<KillReason, string> = {
+  LOW_MARGIN: "Low margin",
+  SUPPLIER_ISSUE: "Supplier issue",
+  WEAK_CREATIVE: "Weak creative",
+  POOR_AD_PERFORMANCE: "Poor ad performance",
+  OTHER: "Other",
+};
+
+/** Creative formats a Media Buyer can request in a new batch (never the store listing). */
+export const CREATIVE_TYPES = [
+  "WEBSITE_IMAGE",
+  "AD_IMAGE_LANDSCAPE",
+  "AD_IMAGE_SQUARE",
+  "AD_IMAGE_VERTICAL",
+  "VIDEO_MAIN",
+  "VIDEO_SQUARE",
+] as const satisfies readonly TaskType[];
+
+/** Task types whose work is submitted as a link and reviewed by a Media Buyer. */
+export const REVIEWED_TYPES = [...CREATIVE_TYPES, "STORE_LISTING"] as const satisfies readonly TaskType[];
+
+export function isReviewedType(type: TaskType): boolean {
+  return (REVIEWED_TYPES as readonly TaskType[]).includes(type);
+}
+
+/** Short labels for compact UI (cards, toasts). */
+export const TASK_TYPE_SHORT: Record<TaskType, string> = {
+  RESEARCH: "Research",
+  WEBSITE_IMAGE: "Website image",
+  AD_IMAGE_LANDSCAPE: "Landscape ad",
+  AD_IMAGE_SQUARE: "Square ad",
+  AD_IMAGE_VERTICAL: "Vertical ad",
+  STORE_LISTING: "Store listing",
+  VIDEO_MAIN: "Main video",
+  VIDEO_SQUARE: "Square video",
+  CAMPAIGN_LAUNCH: "Campaign launch",
+};

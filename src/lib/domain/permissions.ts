@@ -19,6 +19,7 @@ export const CAPABILITIES = {
   "campaign.manage": ["MEDIA_BUYER"],
   "batch.request": ["MEDIA_BUYER"],
   "task.reassignAny": [],
+  "product.sendBack": ["MEDIA_BUYER"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Capability = keyof typeof CAPABILITIES;
