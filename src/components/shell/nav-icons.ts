@@ -5,6 +5,8 @@ import {
   LayoutDashboardIcon,
   type LucideIcon,
   PackageIcon,
+  ShieldCheckIcon,
+  TruckIcon,
   PieChartIcon,
   SettingsIcon,
   UsersIcon,
@@ -17,7 +19,9 @@ export const NAV_ICONS: Record<NavKey, LucideIcon> = {
   creative: ImagesIcon,
   pipeline: KanbanSquareIcon,
   products: PackageIcon,
+  orders: TruckIcon,
   overview: PieChartIcon,
   team: UsersIcon,
+  roles: ShieldCheckIcon,
   settings: SettingsIcon,
 };

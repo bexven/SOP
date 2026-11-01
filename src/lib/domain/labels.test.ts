@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { laneOf, submissionError } from "./labels";
+import { boardGroupOf, laneOf, submissionError } from "./labels";
 
 describe("creative lanes", () => {
   it("splits image and video work", () => {
@@ -11,16 +11,28 @@ describe("creative lanes", () => {
 });
 
 describe("submissionError", () => {
-  it("image tasks need the lane's Drive folder (previews optional)", () => {
-    expect(submissionError("AD_IMAGE_SQUARE", { images: 3, links: 0 })).not.toBeNull();
-    expect(submissionError("AD_IMAGE_SQUARE", { images: 0, links: 1 })).toBeNull();
+  it("every creative task needs at least one link", () => {
+    expect(submissionError("AD_IMAGE_VERTICAL", { links: 0 })).not.toBeNull();
+    expect(submissionError("AD_IMAGE_VERTICAL", { links: 3 })).toBeNull();
+    expect(submissionError("VIDEO_MAIN", { links: 0 })).not.toBeNull();
+    expect(submissionError("VIDEO_MAIN", { links: 1 })).toBeNull();
   });
-  it("video tasks need a link", () => {
-    expect(submissionError("VIDEO_MAIN", { images: 2, links: 0 })).not.toBeNull();
-    expect(submissionError("VIDEO_MAIN", { images: 0, links: 1 })).toBeNull();
+  it("website images need exactly one product page URL", () => {
+    expect(submissionError("WEBSITE_IMAGE", { links: 0 })).not.toBeNull();
+    expect(submissionError("WEBSITE_IMAGE", { links: 1 })).toBeNull();
+    expect(submissionError("WEBSITE_IMAGE", { links: 2 })).not.toBeNull();
   });
-  it("store listing needs the store URL", () => {
-    expect(submissionError("STORE_LISTING", { images: 4, links: 0 })).not.toBeNull();
-    expect(submissionError("STORE_LISTING", { images: 0, links: 1 })).toBeNull();
+  it("non-creative tasks aren't submitted this way", () => {
+    expect(submissionError("CAMPAIGN_LAUNCH", { links: 1 })).not.toBeNull();
+  });
+});
+
+describe("board groups", () => {
+  it("puts website images, Meta ads and videos in their own sections", () => {
+    expect(boardGroupOf("WEBSITE_IMAGE")).toBe("website");
+    expect(boardGroupOf("AD_IMAGE_VERTICAL")).toBe("metaAds");
+    expect(boardGroupOf("AD_IMAGE_SQUARE")).toBe("metaAds");
+    expect(boardGroupOf("VIDEO_SQUARE")).toBe("videos");
+    expect(boardGroupOf("RESEARCH")).toBeNull();
   });
 });

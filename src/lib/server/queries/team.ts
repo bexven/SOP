@@ -20,6 +20,7 @@ export async function getTeam() {
       active: true,
       adminAccess: true,
       isMaster: true,
+      permissions: true,
       mustChangePin: true,
       pinHash: true,
       lockedUntil: true,

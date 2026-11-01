@@ -143,11 +143,11 @@ function TopLink({ item, active, badge }: { item: NavItem; active: boolean; badg
       aria-current={active ? "page" : undefined}
       title={item.hint}
       className={cn(
-        "inline-flex h-9 items-center gap-1.5 rounded-control px-3 text-body font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40",
+        "inline-flex h-9 items-center gap-1.5 rounded-control px-2.5 text-body font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 active:scale-[0.97] xl:px-3",
         active ? "bg-white text-slate-900 shadow-[0_1px_2px_rgb(15_23_42/0.08)]" : "text-slate-700 hover:bg-white/70 hover:text-slate-900",
       )}
     >
-      <Icon className={cn("size-4", active ? "text-indigo-600" : "text-slate-500")} />
+      <Icon className={cn("size-4 lg:hidden xl:block", active ? "text-indigo-600" : "text-slate-500")} />
       {item.label}
       {badge ? <Badge n={badge} /> : null}
     </Link>

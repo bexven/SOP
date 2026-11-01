@@ -19,11 +19,6 @@ export async function getCreativeBoard(user: { id: string; role: Role; jobRole: 
     include: {
       product: { select: { id: true, number: true, name: true, imageUrl: true, priority: true } },
       assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } },
-      submissions: {
-        orderBy: { version: "desc" },
-        take: 1,
-        select: { items: { where: { kind: "IMAGE" }, orderBy: { order: "asc" }, take: 4, select: { id: true, assetId: true } } },
-      },
     },
   });
   const rows = tasks.map((t) => ({
@@ -34,7 +29,6 @@ export async function getCreativeBoard(user: { id: string; role: Role; jobRole: 
     dueAt: t.dueAt?.toISOString() ?? null,
     revisionNote: t.revisionNote,
     assignee: t.assignee,
-    thumbs: (t.submissions[0]?.items ?? []).map((i) => i.assetId!).filter(Boolean),
     product: { id: t.product.id, ref: productRef(t.product.number), name: t.product.name, imageUrl: t.product.imageUrl, priority: t.product.priority },
     lane: (IMAGE_LANE as readonly string[]).includes(t.type) ? ("images" as const) : ("videos" as const),
   }));

@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MessageSquareIcon, PencilIcon, ReplyIcon } from "lucide-react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/common/empty-state";
+import type { DiscussionPhase } from "@/generated/prisma/enums";
 import { UserAvatar } from "@/components/common/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,14 +18,30 @@ import type { Viewer } from "./product-view";
 type CommentDTO = ProductDetail["comments"][number];
 type Person = ProductDetail["people"][number];
 
-export function Discussion({ product, viewer }: { product: ProductDetail; viewer: Viewer }) {
-  const top = product.comments.filter((c) => !c.parentId);
-  const replies = (id: string) => product.comments.filter((c) => c.parentId === id);
+export const PHASE_DISCUSSION_LABEL: Record<DiscussionPhase, string> = {
+  REVIEW: "Product review",
+  IMAGES: "Image creative",
+  VIDEOS: "Video creative",
+  ADS: "Meta ads",
+  ORDERS: "Orders",
+};
+
+/** One phase's discussion. Comments never leak between phases. */
+export function Discussion({ product, viewer, phase }: { product: ProductDetail; viewer: Viewer; phase: DiscussionPhase }) {
+  const mine = product.comments.filter((c) => c.phase === phase);
+  const top = mine.filter((c) => !c.parentId);
+  const replies = (id: string) => mine.filter((c) => c.parentId === id);
   return (
-    <div className="grid gap-4">
-      <Composer productId={product.id} people={product.people} placeholder="Write a comment… use @ to mention someone" />
+    <section aria-labelledby={`discussion-${phase}`} className="grid gap-3">
+      <h2 id={`discussion-${phase}`} className="text-section text-slate-900">
+        Discussion · {PHASE_DISCUSSION_LABEL[phase]} {mine.length ? <span className="num text-meta text-slate-500">{mine.length}</span> : null}
+      </h2>
+      <Composer productId={product.id} phase={phase} people={product.people} placeholder="Write a comment… use @ to mention someone" />
       {top.length === 0 ? (
-        <EmptyState icon={MessageSquareIcon} title="No comments yet" description="Questions, decisions and context live here so nothing gets lost in chat." />
+        <p className="rounded-panel border border-dashed border-slate-200 px-4 py-5 text-center text-meta font-normal text-slate-500">
+          <MessageSquareIcon className="mx-auto mb-1.5 size-4 text-slate-400" aria-hidden />
+          No comments in {PHASE_DISCUSSION_LABEL[phase]} yet. Questions and decisions for this step go here.
+        </p>
       ) : (
         <ol className="grid gap-3">
           {[...top].reverse().map((c) => (
@@ -36,7 +52,7 @@ export function Discussion({ product, viewer }: { product: ProductDetail; viewer
           ))}
         </ol>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -147,6 +163,7 @@ function CommentItem({ comment, people, viewer, small }: { comment: CommentDTO; 
 /** Textarea with a lightweight @mention picker. */
 function Composer({
   productId,
+  phase = "REVIEW",
   parentId,
   people,
   placeholder,
@@ -154,6 +171,7 @@ function Composer({
   onDone,
 }: {
   productId: string;
+  phase?: DiscussionPhase;
   parentId?: string;
   people: Person[];
   placeholder: string;
@@ -192,7 +210,7 @@ function Composer({
 
   function post() {
     startTransition(async () => {
-      const r = await addCommentAction({ productId, body: text, parentId });
+      const r = await addCommentAction({ productId, body: text, parentId, phase });
       if (!r.ok) {
         toast.error(r.error);
         return;

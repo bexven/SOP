@@ -38,7 +38,7 @@ export function defineAction<S extends z.ZodType, T = undefined>(options: Option
     if (options.masterOnly && !user.isMaster) {
       return { ok: false, error: "Only the Master Admin can manage the team." };
     }
-    if (options.capability && !can(user.role, options.capability)) {
+    if (options.capability && !can(user, options.capability)) {
       return { ok: false, error: "You don't have permission to do that." };
     }
     const parsed = options.schema.safeParse(raw);

@@ -1,68 +1,72 @@
 import { describe, expect, it } from "vitest";
+import type { Role } from "@/generated/prisma/enums";
 import { ROLES } from "./labels";
 import { navItemsFor } from "./nav";
-import { CAPABILITIES, can, type Capability } from "./permissions";
+import { CAPABILITY_KEYS, can, canSeeProduct, defaultPermissions, normalizePermissions } from "./permissions";
+
+const as = (role: Role, permissions: string[] = defaultPermissions(role)) => ({ role, permissions });
 
 describe("permissions", () => {
-  it("gives Admin every capability", () => {
-    for (const cap of Object.keys(CAPABILITIES) as Capability[]) {
-      expect(can("ADMIN", cap)).toBe(true);
-    }
+  it("gives Admin every capability whatever is ticked", () => {
+    for (const cap of CAPABILITY_KEYS) expect(can({ role: "ADMIN", permissions: [] }, cap)).toBe(true);
   });
 
-  it("restricts team and settings management to Admin", () => {
+  it("follows the ticked permissions, not the job role", () => {
+    expect(can(as("IMAGE_DESIGNER"), "task.review")).toBe(false);
+    expect(can(as("IMAGE_DESIGNER", ["task.review"]), "task.review")).toBe(true);
+    expect(can(as("MEDIA_BUYER", []), "campaign.manage")).toBe(false);
+  });
+
+  it("role defaults: admin-only areas stay off for everyone else", () => {
     for (const role of ROLES.filter((r) => r !== "ADMIN")) {
-      expect(can(role, "team.manage")).toBe(false);
-      expect(can(role, "settings.manage")).toBe(false);
-      expect(can(role, "overview.view")).toBe(false);
+      for (const cap of ["settings.manage", "overview.view", "product.override", "task.reassignAny"] as const) {
+        expect(can(as(role), cap)).toBe(false);
+      }
     }
   });
 
-  it("lets only Researchers (and Admin) create products", () => {
-    expect(can("RESEARCHER", "product.create")).toBe(true);
-    expect(can("IMAGE_DESIGNER", "product.create")).toBe(false);
-    expect(can("MEDIA_BUYER", "product.create")).toBe(false);
+  it("role defaults match the agreed matrix", () => {
+    expect(can(as("RESEARCHER"), "product.create")).toBe(true);
+    expect(can(as("MEDIA_BUYER"), "product.create")).toBe(false);
+    for (const cap of ["task.review", "brief.edit", "campaign.manage", "orders.manage", "product.kill"] as const) {
+      expect(can(as("MEDIA_BUYER"), cap)).toBe(true);
+      expect(can(as("IMAGE_DESIGNER"), cap)).toBe(false);
+    }
+    expect(can(as("REVIEWER"), "product.approve")).toBe(true);
+    expect(can(as("REVIEWER"), "task.review")).toBe(true);
+    expect(can(as("MEDIA_BUYER"), "product.approve")).toBe(false);
   });
 
-  it("lets Media Buyers review, brief, launch and kill", () => {
-    for (const cap of ["task.review", "brief.edit", "campaign.manage", "product.kill"] as const) {
-      expect(can("MEDIA_BUYER", cap)).toBe(true);
-      expect(can("IMAGE_DESIGNER", cap)).toBe(false);
-    }
+  it("normalises unknown keys away and keeps a stable order", () => {
+    expect(normalizePermissions(["orders.manage", "nope", "research.view"])).toEqual(["research.view", "orders.manage"]);
   });
 });
 
 describe("navigation", () => {
-  const keys = (r: Parameters<typeof navItemsFor>[0], isMaster = false) => navItemsFor(r, { isMaster }).map((i) => i.key);
+  const keys = (s: ReturnType<typeof as>, isMaster = false) => navItemsFor(s, { isMaster }).map((i) => i.key);
   it("gives the Master Admin every menu", () => {
-    expect(keys("ADMIN", true)).toEqual(["dashboard", "research", "creative", "pipeline", "products", "overview", "team", "settings"]);
+    expect(keys(as("ADMIN"), true)).toEqual(["dashboard", "research", "creative", "pipeline", "products", "orders", "overview", "team", "roles", "settings"]);
   });
-  it("hides Team from admins who aren't the master", () => {
-    expect(keys("ADMIN")).toEqual(["dashboard", "research", "creative", "pipeline", "products", "overview", "settings"]);
+  it("hides Team and Roles from admins who aren't the master", () => {
+    expect(keys(as("ADMIN"))).toEqual(["dashboard", "research", "creative", "pipeline", "products", "orders", "overview", "settings"]);
   });
-  it("shows all main tabs to everyone except Research for image/video makers", () => {
+  it("shows Research only to people allowed to see it", () => {
     for (const r of ["RESEARCHER", "MEDIA_BUYER", "REVIEWER"] as const) {
-      expect(keys(r)).toEqual(["dashboard", "research", "creative", "pipeline", "products"]);
+      expect(keys(as(r))).toEqual(["dashboard", "research", "creative", "pipeline", "products", "orders"]);
     }
     for (const r of ["IMAGE_DESIGNER", "VIDEO_EDITOR"] as const) {
-      expect(keys(r)).toEqual(["dashboard", "creative", "pipeline", "products"]);
+      expect(keys(as(r))).toEqual(["dashboard", "creative", "pipeline", "products", "orders"]);
     }
+    expect(keys(as("VIDEO_EDITOR", ["research.view"]))).toContain("research");
   });
 });
 
-import { canSeeProduct } from "./permissions";
 describe("early-stage visibility", () => {
-  it("hides research and review from image/video makers until approved", () => {
-    expect(canSeeProduct("IMAGE_DESIGNER", "RESEARCH", null)).toBe(false);
-    expect(canSeeProduct("VIDEO_EDITOR", "REVIEW", null)).toBe(false);
-    expect(canSeeProduct("VIDEO_EDITOR", "KILLED", "REVIEW")).toBe(false);
-    expect(canSeeProduct("VIDEO_EDITOR", "CREATIVE", null)).toBe(true);
-    expect(canSeeProduct("MEDIA_BUYER", "RESEARCH", null)).toBe(true);
-    expect(canSeeProduct("REVIEWER", "REVIEW", null)).toBe(true);
-  });
-  it("lets reviewers approve and review creative", () => {
-    expect(can("REVIEWER", "product.approve")).toBe(true);
-    expect(can("REVIEWER", "task.review")).toBe(true);
-    expect(can("MEDIA_BUYER", "product.approve")).toBe(false);
+  it("hides research and review from people without Research access until approved", () => {
+    expect(canSeeProduct(as("IMAGE_DESIGNER"), "RESEARCH", null)).toBe(false);
+    expect(canSeeProduct(as("VIDEO_EDITOR"), "REVIEW", null)).toBe(false);
+    expect(canSeeProduct(as("VIDEO_EDITOR"), "KILLED", "REVIEW")).toBe(false);
+    expect(canSeeProduct(as("VIDEO_EDITOR"), "CREATIVE", null)).toBe(true);
+    expect(canSeeProduct(as("MEDIA_BUYER"), "RESEARCH", null)).toBe(true);
   });
 });

@@ -12,8 +12,8 @@ import { CreativeCard } from "./creative-card";
 
 type Col = "todo" | "revision" | "review";
 const COLS: { key: Col; title: string; hint: string }[] = [
-  { key: "todo", title: "To do", hint: "Drag to “In review” when it's in the Drive folder" },
-  { key: "revision", title: "Needs changes", hint: "Fix it, then drag to “In review”" },
+  { key: "todo", title: "To do", hint: "Drag to “In review” when it's ready — you'll add the links" },
+  { key: "revision", title: "Needs changes", hint: "Fix it, then drag to “In review” again" },
   { key: "review", title: "In review", hint: "Drag back to take it back" },
 ];
 
@@ -45,6 +45,11 @@ export function MyBoard({ rows }: { rows: CreativeRow[] }) {
     if (from === to) return;
     const ready = to === "review";
     if (!ready && from !== "review") return; // only "In review" changes anything
+    if (ready) {
+      // Sending for review needs the links: open the task on its board with the ready form open.
+      router.push(`/products/${row.product.id}?task=${row.id}&ready=1`);
+      return;
+    }
     setBusy(row.id);
     startTransition(async () => {
       const r = await markReadyAction({ taskId: row.id, ready });

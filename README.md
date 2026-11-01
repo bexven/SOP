@@ -46,17 +46,22 @@ Navigation is a menu bar across the top. Each person only sees the menus for the
 | **Creative** | Image designer, Video editor, Media buyer, Admin | Open creative work in two lanes: **Images** and **Videos** (designers see only their lane). |
 | **Pipeline** | Everyone | Kanban by stage. |
 | **Products** | Everyone | Searchable, sortable table with filters (stage, priority, person, overdue, killed). |
-| **Admin ▾** | Admin | Overview (workload, bottleneck, kill reasons) · Team · Settings (rates, SLAs, checklists, brands & colours). |
+| **Orders** | Everyone | Products moved to ordering: orders, units, expected profit, scaling plan. |
+| **Admin ▾** | Admin | Overview · Team (Master) · Roles & permissions (Master) · Settings (rates, SLAs, checklists, brands & colours). |
 | **Account menu** (your photo) | Everyone | My profile & photo · Change PIN · Switch user · Sign out. |
 
-**Product page** (`/products/<id>`): coloured in the product's brand colour. While a product is in research or
-review (and always for researchers) it is one simple page: details, prices in BDT, margin, the review decision
-and the discussion. From Creative on, others get tabs: Overview · Tasks (brief, **Images** and **Videos** lanes) ·
-Discussion (@mentions) · Timeline.
+**Product page** (`/products/<id>`): coloured in the product's brand colour, one tab per phase —
+**Product review** (research, margin, review decision, creative brief once approved) · **Image creative** and
+**Video creative** (brief on top, Kanban board: drag a card to *In review* and add the links; a Senior approves) ·
+**Meta ads** (campaign status, launch, Image/Video asset buttons) · **Orders** (order history with each order's
+own prices, scaling plan). Every phase has its own discussion. Researchers see only Product review.
 
-**Creative review:** designers upload several images per task (compressed automatically). The media buyer or
-Admin can 👍 / 👎 each image and comment on it. **Approve** can also ask for a *different angle*, *different
-size* or *something else*: this creates a follow-up task for the same designer. Videos are Google Drive links.
+**Creative workflow:** Website product images (tick ready → product page URL) → Meta ad images portrait (links)
+→ square (links); Main video → Square video. Each step unlocks when a **Senior** (anyone with the
+“Senior: approve creative” permission) approves the one before. **Approve + ask for…** a different angle or size
+creates a follow-up task for the same person.
+
+**Permissions:** the Master Admin ticks what each person may do on Admin ▾ → Roles & permissions.
 
 **Keyboard:** `⌘K` / `Ctrl K` search · `C` add product · `G` then `D` Dashboard · `G` then `P` Pipeline · `Esc` closes dialogs.
 

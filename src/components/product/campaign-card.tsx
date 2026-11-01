@@ -1,6 +1,7 @@
 import Decimal from "decimal.js";
 import { ExternalLinkIcon } from "lucide-react";
 import { CampaignPill } from "@/components/common/pills";
+import { Button } from "@/components/ui/button";
 import { CampaignEditButton } from "./campaign-edit";
 import { formatBdt, formatDateTime, formatUsd } from "@/lib/format";
 import type { ProductDetail } from "@/lib/server/queries/product";
@@ -34,9 +35,11 @@ export function CampaignCard({ product, canEdit = false }: { product: ProductDet
           <div>
             <dt className="text-meta text-slate-500">Ads Manager</dt>
             <dd className="mt-0.5">
-              <a href={c.adsManagerUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-indigo-700 hover:underline">
-                Open campaign <ExternalLinkIcon className="size-3.5" />
-              </a>
+              <Button asChild size="sm" className="mt-0.5">
+                <a href={c.adsManagerUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLinkIcon /> Open in Ads Manager
+                </a>
+              </Button>
               {c.metaCampaignId ? <span className="num ml-2 text-meta text-slate-500">ID {c.metaCampaignId}</span> : null}
             </dd>
           </div>
@@ -47,10 +50,10 @@ export function CampaignCard({ product, canEdit = false }: { product: ProductDet
             <dd className="mt-0.5 whitespace-pre-line text-slate-800">{c.strategyNotes}</dd>
           </div>
         ) : null}
-        <div className="text-meta font-normal text-slate-500">
-          Launched{c.launchedBy ? ` by ${c.launchedBy}` : ""} · <span className="num">{formatDateTime(new Date(c.launchedAt))}</span>
-        </div>
       </dl>
+      <p className="mt-3 text-meta font-normal text-slate-500">
+        Launched{c.launchedBy ? ` by ${c.launchedBy}` : ""} · <span className="num">{formatDateTime(new Date(c.launchedAt))}</span>
+      </p>
     </section>
   );
 }

@@ -136,6 +136,22 @@
   transform: translateY(-1px);
 }
 
+/* Clickable cards: lift on hover, settle on press. */
+@utility raised-hover {
+  transition:
+    box-shadow 180ms var(--ease-out-soft),
+    transform 180ms var(--ease-out-soft),
+    border-color 180ms var(--ease-out-soft);
+  &:hover {
+    box-shadow: var(--raised-shadow);
+    transform: translateY(-2px);
+    border-color: rgb(148 163 184 / 0.55);
+  }
+  &:active {
+    transform: translateY(0);
+  }
+}
+
 /* ---------- Base ---------- */
 
 @layer base {

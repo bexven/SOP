@@ -18,8 +18,8 @@ const CLOSED_LIMIT = 8;
 
 export default async function PipelinePage() {
   const user = await requireUser();
-  const products = await listProducts(user.role);
-  const canCreate = can(user.role, "product.create");
+  const products = await listProducts(user);
+  const canCreate = can(user, "product.create");
 
   const byStage = (stage: ProductStage): ProductRow[] => {
     const list = products.filter((p) => p.stage === stage);

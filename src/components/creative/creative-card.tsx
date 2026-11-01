@@ -7,7 +7,7 @@ import type { CreativeRow } from "@/lib/server/queries/creative";
 
 export function CreativeCard({ t }: { t: CreativeRow }) {
   return (
-    <Link href={`/products/${t.product.id}?task=${t.id}`} className="surface block rounded-panel p-3 transition-all duration-200 hover:-translate-y-px hover:shadow-[var(--raised-shadow)]">
+    <Link href={`/products/${t.product.id}?task=${t.id}`} className="surface raised-hover block rounded-panel p-3">
       <div className="flex items-start gap-2.5">
         <Thumbnail src={t.product.imageUrl} alt="" className="size-9" />
         <div className="min-w-0 flex-1">
@@ -21,14 +21,6 @@ export function CreativeCard({ t }: { t: CreativeRow }) {
         </div>
         {t.assignee ? <UserAvatar name={t.assignee.name} color={t.assignee.avatarColor} imageId={t.assignee.avatarAssetId} size="sm" /> : null}
       </div>
-      {t.thumbs.length ? (
-        <div className="mt-2.5 flex gap-1.5" aria-hidden>
-          {t.thumbs.map((id) => (
-            // eslint-disable-next-line @next/next/no-img-element -- protected asset
-            <img key={id} src={`/api/assets/${id}`} alt="" loading="lazy" className="size-12 rounded-md object-cover ring-1 ring-slate-200" />
-          ))}
-        </div>
-      ) : null}
       {t.status === "REVISION" && t.revisionNote ? <p className="mt-2 line-clamp-2 text-meta text-rose-700">“{t.revisionNote}”</p> : null}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <PriorityPill priority={t.product.priority} />

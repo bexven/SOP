@@ -9,7 +9,7 @@ import { logEvents, notify } from "../services/events";
 
 export const addCommentAction = defineAction({
   schema: addCommentSchema,
-  run: async ({ productId, body, parentId }, { user }) => {
+  run: async ({ productId, body, parentId, phase }, { user }) => {
     await db.$transaction(async (tx) => {
       const product = await tx.product.findUnique({ where: { id: productId }, select: { id: true, name: true } });
       if (!product) throw new ActionError("This product no longer exists.");
@@ -19,6 +19,7 @@ export const addCommentAction = defineAction({
         if (!parent || parent.productId !== productId) throw new ActionError("That comment no longer exists.");
         // One level of replies: replying to a reply attaches to its thread.
         if (parent.parentId) parentId = parent.parentId;
+        phase = parent.phase; // a reply stays in its thread's phase
         parentAuthor = parent.authorId;
       }
       const people = await tx.user.findMany({ where: { active: true }, select: { id: true, name: true } });
@@ -29,10 +30,11 @@ export const addCommentAction = defineAction({
           authorId: user.id,
           parentId,
           body,
+          phase,
           mentions: { create: mentioned.map((userId) => ({ userId })) },
         },
       });
-      await logEvents(tx, [{ type: "COMMENT_ADDED", actorId: user.id, productId, data: { commentId: comment.id } }]);
+      await logEvents(tx, [{ type: "COMMENT_ADDED", actorId: user.id, productId, data: { commentId: comment.id, phase } }]);
       const preview = body.length > 90 ? `${body.slice(0, 90)}…` : body;
       await notify(tx, user.id, [
         ...mentioned.map((userId) => ({

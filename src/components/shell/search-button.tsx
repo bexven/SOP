@@ -8,12 +8,12 @@ export function SearchButton() {
     <button
       type="button"
       onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
-      className="inline-flex h-9 items-center gap-2 rounded-control px-2.5 text-body text-slate-600 transition-colors hover:bg-white/70 sm:w-56 sm:border sm:border-white/70 sm:bg-white/50"
+      className="group inline-flex h-9 items-center gap-2 rounded-control px-2.5 text-body text-slate-600 transition-[background-color,border-color,box-shadow] duration-150 hover:bg-white sm:w-44 lg:w-9 lg:justify-center lg:px-0 2xl:w-60 2xl:justify-start 2xl:px-2.5 sm:border sm:border-slate-300/80 sm:bg-white sm:shadow-[0_1px_2px_rgb(15_23_42/0.06),inset_0_1px_0_rgb(255_255_255)] sm:hover:border-slate-400 sm:hover:shadow-[0_2px_6px_-1px_rgb(15_23_42/0.12)]"
       aria-label="Search (⌘K)"
     >
-      <SearchIcon className="size-4" />
-      <span className="hidden flex-1 text-left sm:inline">Search…</span>
-      <kbd className="num hidden rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-500 sm:inline">⌘K</kbd>
+      <SearchIcon className="size-4 text-slate-500 transition-colors group-hover:text-slate-800" />
+      <span className="hidden flex-1 text-left text-slate-600 sm:inline lg:hidden 2xl:inline">Search products…</span>
+      <kbd className="num hidden rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-600 sm:inline lg:hidden 2xl:inline">⌘K</kbd>
     </button>
   );
 }

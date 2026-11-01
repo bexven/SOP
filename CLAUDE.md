@@ -22,7 +22,7 @@ every page.
 ## Stack (pinned)
 Next.js 16 App Router + TypeScript strict · Tailwind CSS v4 · shadcn-style components on `radix-ui`
 (hand-written in `src/components/ui`, the shadcn registry is not reachable from cloud sessions) ·
-lucide-react · motion · sonner · cmdk · TanStack Table **v8** (v9 is a different API) · @dnd-kit (checklist reordering only) ·
+lucide-react · motion · sonner · cmdk · TanStack Table **v8** (v9 is a different API) · @dnd-kit (checklist reordering + creative Kanban boards) ·
 Prisma 7 + PostgreSQL via `@prisma/adapter-pg` · zod v4 · Vitest · Geist fonts via the `geist` package.
 
 ## Portability (non-negotiable)
@@ -49,7 +49,10 @@ Prisma 7 + PostgreSQL via `@prisma/adapter-pg` · zod v4 · Vitest · Geist font
   capability → validate with zod → transaction → ActivityEvent → notifications → revalidate.
 - **Never trust the client** for identity, role or permissions. UI hiding is cosmetic. Pages call
   `requireUser()` / `requireCapability()`; actions declare a `capability`.
-- The role × capability matrix is `src/lib/domain/permissions.ts`. Admin has every capability.
+- Permissions are **per person** (`User.permissions`, capability keys ticked by the Master Admin on
+  `/team/roles`). `src/lib/domain/permissions.ts` lists the capabilities with labels and each job role's
+  defaults (used for new people, a job-role change and the one-off migration). Admin access / Master = all.
+  `can(subject, cap)` takes `{ role, permissions }` (CurrentUser or Viewer), never a bare role.
 - State changes use guarded updates (`updateMany where status = <expected>`) so races fail cleanly.
 - Money is `Decimal` in the DB (never Float); pass it to the client as strings; do maths with `decimal.js`.
 - Zod schemas live in `src/lib/validation/` and are shared by forms and actions.
@@ -121,6 +124,34 @@ src/generated/     Prisma client (generated, git-ignored)
   and for everyone while a product is in Research / Product review (or killed there). Tasks and Timeline
   tabs appear only from Creative on, and never for researchers.
 - **Step guides ("How we do this") removed** from the UI; the `TaskTypeConfig.guide*` columns are kept but unused.
+
+## Round 5 (phases, boards, orders, permissions) — supersedes earlier rounds where they differ
+- **Product page = phase tabs**: Product review · Image creative · Video creative · Meta ads · Orders
+  (`phasesFor()` in `product-view.tsx`; `?phase=` selects one; `?task=<id>` opens that task's phase;
+  `&ready=1` opens its "ready" form). Researchers and early-stage products get only Product review (no tabs).
+  **No Timeline and no Tasks tab** anywhere on the product page (events are still logged).
+- **Creative brief** sits between the header and Research on Product review — hidden until approved —
+  and at the top of both creative tabs.
+- **Each phase has its own discussion** (`Comment.phase`: REVIEW, IMAGES, VIDEOS, ADS, ORDERS; replies keep
+  their thread's phase). Never show one phase's comments in another.
+- **Creative chain** (new batches): Website product images (one product-page URL) → Meta ads portrait
+  (links) → Meta ads square (links); Main video → Square video (links). Each step unlocks when a **Senior**
+  (`task.review` permission) approves the previous one. Landscape ads and the store listing are no longer
+  created (enum values kept; a data migration cancelled unapproved ones on products in Creative).
+  No image uploads / previews / per-image reactions for creative any more; "Something else" follow-up removed
+  (angle / size remain as "Approve + ask for…").
+- **Kanban board** (`components/creative/product-board.tsx`): rows = sections, columns = To do · In review ·
+  Needs changes · Approved. Drag = the same action as the card's buttons (ready → opens the link form;
+  Senior: approve / needs changes; maker: take back). Every drag has a button equivalent.
+- **Meta ads tab**: campaign status + running info, launch panel, "Move to ordering", floating
+  **Image assets / Video assets** buttons (bottom-left; links the makers submitted).
+- **Orders**: `Product.orderingSince` (set by "Move to ordering", live products only), `ProductOrder`
+  (per-unit buying / shipping / selling prices, independent of research prices, courier % snapshot),
+  scaling (`scalable` YES/NO/NOT_SURE + `scalePlans`). Maths in `domain/orders.ts`. `/orders` page lists them.
+- **Stepper**: Research · Product review · Image creative · Video creative · Meta ads · Ordering.
+- **Dashboard**: Admin tiles = whole team (open tasks on running products), others = their own queue; the
+  menu badge uses the same queries. Tiles link to the matching list/filter. Auto-refresh every 30 s.
+- Floating UI on the product page sits bottom-left because toasts are bottom-right.
 
 ## Agreed decisions (from the brief review)
 - Q1 Each product has an owning Media Buyer (`Product.mediaBuyerId`), auto-assigned at research submit;

@@ -7,7 +7,7 @@ import { getQueueCount } from "@/lib/server/queries/queue";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const items = navItemsFor(user.role, { isMaster: user.isMaster });
+  const items = navItemsFor(user, { isMaster: user.isMaster });
   const shellUser = { name: user.name, role: user.jobRole, avatarColor: user.avatarColor, avatarAssetId: user.avatarAssetId };
   const badges = { dashboard: await getQueueCount(user) };
 
@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main id="main" className="mx-auto w-full max-w-7xl min-w-0 flex-1 px-4 pt-6 sm:px-6 lg:pt-8">
         {children}
       </main>
-      <CommandPalette items={items} canCreate={can(user.role, "product.create")} />
+      <CommandPalette items={items} canCreate={can(user, "product.create")} />
     </div>
   );
 }

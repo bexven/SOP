@@ -1,5 +1,6 @@
 import "server-only";
-import type { ProductStage } from "@/generated/prisma/enums";
+import type { ProductStage, TaskType } from "@/generated/prisma/enums";
+import { laneOf } from "@/lib/domain/labels";
 import { computeMargin, marginBand, type MarginBand, type MarginResult } from "@/lib/domain/margin";
 import { deriveStepper, type Stepper } from "@/lib/domain/stepper";
 import { latestBatch } from "@/lib/domain/workflow";
@@ -25,14 +26,18 @@ export async function getMarginThresholds() {
     : null;
 }
 
-/** Phase 1 progress of the current batch, for the stepper. */
-export function phase1Progress(
-  tasks: { phase: number; status: string; batchId: string | null }[],
+/** Image / video progress of the current batch, for the stepper. */
+export function laneProgress(
+  tasks: { type: TaskType; status: string; batchId: string | null }[],
   batches: { id: string; number: number }[],
 ) {
   const batch = latestBatch({ batches } as never);
-  const phase1 = tasks.filter((t) => batch && t.batchId === batch.id && t.phase === 1 && t.status !== "CANCELLED");
-  return { approved: phase1.filter((t) => t.status === "APPROVED").length, total: phase1.length };
+  const live = tasks.filter((t) => batch && t.batchId === batch.id && t.status !== "CANCELLED");
+  const of = (lane: "images" | "videos") => {
+    const l = live.filter((t) => laneOf(t.type) === lane);
+    return { approved: l.filter((t) => t.status === "APPROVED").length, total: l.length };
+  };
+  return { images: of("images"), videos: of("videos") };
 }
 
 export async function getProductDetail(id: string) {
@@ -46,6 +51,7 @@ export async function getProductDetail(id: string) {
         campaign: true,
         batches: { orderBy: { number: "asc" } },
         transitions: { orderBy: { at: "asc" } },
+        orders: { orderBy: { number: "desc" }, include: { createdBy: person } },
         tasks: {
           orderBy: [{ createdAt: "asc" }],
           include: {
@@ -56,10 +62,7 @@ export async function getProductDetail(id: string) {
               include: {
                 submittedBy: person,
                 decidedBy: person,
-                items: {
-                  orderBy: { order: "asc" },
-                  include: { comments: { orderBy: { createdAt: "asc" }, include: { author: person } } },
-                },
+                items: { where: { kind: "LINK" }, orderBy: { order: "asc" } },
               },
             },
           },
@@ -74,20 +77,11 @@ export async function getProductDetail(id: string) {
   const people = await db.user.findMany({ select: { id: true, name: true, avatarColor: true, avatarAssetId: true, role: true, active: true } });
   const nameOf = (uid: string | null | undefined) => (uid ? (people.find((u) => u.id === uid)?.name ?? null) : null);
 
-  const [comments, events] = await Promise.all([
-    db.comment.findMany({
-      where: { productId: id },
-      orderBy: { createdAt: "asc" },
-      include: { author: person },
-    }),
-    db.activityEvent.findMany({
-      where: { productId: id },
-      // Events from one transaction share a timestamp; cuid ids break the tie in insertion order.
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: 300,
-      include: { actor: person, task: { select: { type: true } } },
-    }),
-  ]);
+  const comments = await db.comment.findMany({
+    where: { productId: id },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    include: { author: person },
+  });
 
 
   const margin: MarginResult | null = computeMargin({
@@ -102,7 +96,8 @@ export async function getProductDetail(id: string) {
     stage: p.stage,
     stageBeforeKill: p.stageBeforeKill,
     campaignStatus: p.campaign?.status ?? null,
-    phase1: phase1Progress(p.tasks, p.batches),
+    lanes: laneProgress(p.tasks, p.batches),
+    ordering: Boolean(p.orderingSince),
   });
 
   return {
@@ -197,33 +192,34 @@ export async function getProductDetail(id: string) {
         decisionNote: s.decisionNote,
         decidedBy: s.decidedBy,
         decidedAt: iso(s.decidedAt),
-        items: s.items.map((it) => ({
-          id: it.id,
-          kind: it.kind,
-          assetId: it.assetId,
-          url: it.url,
-          label: it.label,
-          reaction: it.reaction,
-          reactedBy: nameOf(it.reactedById),
-          comments: it.comments.map((c) => ({ id: c.id, body: c.body, author: c.author, createdAt: c.createdAt.toISOString() })),
-        })),
+        links: s.items.map((it) => it.url).filter((u): u is string => Boolean(u)),
       })),
     })),
     comments: comments.map((c) => ({
       id: c.id,
       parentId: c.parentId,
+      phase: c.phase,
       body: c.body,
       author: c.author,
       createdAt: c.createdAt.toISOString(),
       editedAt: iso(c.editedAt),
     })),
-    events: events.map((e) => ({
-      id: e.id,
-      type: e.type,
-      actor: e.actor,
-      taskType: e.task?.type ?? null,
-      data: (e.data ?? null) as Record<string, unknown> | null,
-      createdAt: e.createdAt.toISOString(),
+    orderingSince: iso(p.orderingSince),
+    scalable: p.scalable,
+    scalePlans: p.scalePlans,
+    scaleNote: p.scaleNote,
+    orders: p.orders.map((o) => ({
+      id: o.id,
+      number: o.number,
+      quantity: o.quantity,
+      buyingPriceBdt: o.buyingPriceBdt.toString(),
+      shippingCostBdt: o.shippingCostBdt.toString(),
+      sellingPriceBdt: o.sellingPriceBdt.toString(),
+      courierChargePct: o.courierChargePct.toString(),
+      orderedOn: o.orderedOn.toISOString().slice(0, 10),
+      note: o.note,
+      createdBy: o.createdBy,
+      createdAt: o.createdAt.toISOString(),
     })),
     brands,
     margin,
@@ -236,6 +232,7 @@ export async function getProductDetail(id: string) {
 
 export type ProductDetail = NonNullable<Awaited<ReturnType<typeof getProductDetail>>>;
 export type TaskDTO = ProductDetail["tasks"][number];
+export type OrderDTO = ProductDetail["orders"][number];
 export type StageKey = ProductStage;
 
 export async function getBrands() {

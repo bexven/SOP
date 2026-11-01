@@ -103,8 +103,7 @@ function toCreative(): ProductSnap {
 
 function toReadyToLaunch(): ProductSnap {
   let p = toCreative();
-  for (const type of ["WEBSITE_IMAGE", "VIDEO_MAIN"] as const) p = submitAndApprove(p, type);
-  for (const type of ["AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL", "STORE_LISTING", "VIDEO_SQUARE"] as const) {
+  for (const type of ["WEBSITE_IMAGE", "AD_IMAGE_VERTICAL", "AD_IMAGE_SQUARE", "VIDEO_MAIN", "VIDEO_SQUARE"] as const) {
     p = submitAndApprove(p, type);
   }
   return p;
@@ -149,26 +148,21 @@ describe("research", () => {
     expect(planApproveProduct(back).ok).toBe(false);
   });
 
-  it("approval creates Batch #1 with the 7 creative/store tasks and moves to CREATIVE", () => {
+  it("approval creates Batch #1 (website → portrait ads → square ads; main → square video) and moves to CREATIVE", () => {
     const p = toCreative();
     expect(p.stage).toBe("CREATIVE");
     expect(p.batches).toEqual([{ id: "b1", number: 1 }]);
     const batch = p.tasks.filter((t) => t.batchId === "b1");
     expect(batch.map((t) => [t.type, t.role, t.phase, t.status])).toEqual([
       ["WEBSITE_IMAGE", "IMAGE_DESIGNER", 1, "TODO"],
-      ["AD_IMAGE_LANDSCAPE", "IMAGE_DESIGNER", 2, "LOCKED"],
-      ["AD_IMAGE_SQUARE", "IMAGE_DESIGNER", 2, "LOCKED"],
       ["AD_IMAGE_VERTICAL", "IMAGE_DESIGNER", 2, "LOCKED"],
-      ["STORE_LISTING", "IMAGE_DESIGNER", 2, "LOCKED"],
+      ["AD_IMAGE_SQUARE", "IMAGE_DESIGNER", 3, "LOCKED"],
       ["VIDEO_MAIN", "VIDEO_EDITOR", 1, "TODO"],
       ["VIDEO_SQUARE", "VIDEO_EDITOR", 2, "LOCKED"],
     ]);
-    const website = byType(p, "WEBSITE_IMAGE");
-    const video = byType(p, "VIDEO_MAIN");
-    for (const type of ["AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL", "STORE_LISTING"] as const) {
-      expect(byType(p, type).dependsOnId).toBe(website.id);
-    }
-    expect(byType(p, "VIDEO_SQUARE").dependsOnId).toBe(video.id);
+    expect(byType(p, "AD_IMAGE_VERTICAL").dependsOnId).toBe(byType(p, "WEBSITE_IMAGE").id);
+    expect(byType(p, "AD_IMAGE_SQUARE").dependsOnId).toBe(byType(p, "AD_IMAGE_VERTICAL").id);
+    expect(byType(p, "VIDEO_SQUARE").dependsOnId).toBe(byType(p, "VIDEO_MAIN").id);
     expect(byType(p, "RESEARCH").status).toBe("APPROVED");
   });
 
@@ -180,25 +174,22 @@ describe("research", () => {
 });
 
 describe("creative phase gating", () => {
-  it("phase 2 stays locked until its phase 1 task is approved", () => {
+  it("each step stays locked until the Senior approves the one before it", () => {
     let p = toCreative();
-    const landscape = byType(p, "AD_IMAGE_LANDSCAPE");
-    expect(planSubmitTask(p, landscape.id)).toEqual({ ok: false, error: "This task is still locked." });
+    const portrait = byType(p, "AD_IMAGE_VERTICAL");
+    expect(planSubmitTask(p, portrait.id)).toEqual({ ok: false, error: "This task is still locked." });
 
     // Main video approval only unlocks the square video
     p = submitAndApprove(p, "VIDEO_MAIN");
     expect(byType(p, "VIDEO_SQUARE").status).toBe("TODO");
-    expect(byType(p, "AD_IMAGE_LANDSCAPE").status).toBe("LOCKED");
+    expect(byType(p, "AD_IMAGE_VERTICAL").status).toBe("LOCKED");
 
-    // Website image unlocks 3 ads + store listing
-    const website = byType(p, "WEBSITE_IMAGE");
-    p = apply(p, planSubmitTask(p, website.id));
-    const approval = planApprove(p, website.id);
-    expect(approval.ok && approval.plan.changes.filter((c) => c.kind === "unlock")).toHaveLength(4);
-    p = apply(p, approval);
-    for (const type of ["AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL", "STORE_LISTING"] as const) {
-      expect(byType(p, type).status).toBe("TODO");
-    }
+    // Website images unlock the portrait ads only; portrait ads unlock the square ads
+    p = submitAndApprove(p, "WEBSITE_IMAGE");
+    expect(byType(p, "AD_IMAGE_VERTICAL").status).toBe("TODO");
+    expect(byType(p, "AD_IMAGE_SQUARE").status).toBe("LOCKED");
+    p = submitAndApprove(p, "AD_IMAGE_VERTICAL");
+    expect(byType(p, "AD_IMAGE_SQUARE").status).toBe("TODO");
     expect(p.stage).toBe("CREATIVE");
   });
 
@@ -263,6 +254,12 @@ describe("launch & live", () => {
     expect(batch2.map((t) => [t.type, t.status, t.dependsOnId])).toEqual([
       ["AD_IMAGE_SQUARE", "TODO", null],
       ["VIDEO_SQUARE", "TODO", null],
+    ]);
+    // portrait + square together: square waits for portrait
+    const both = planNewBatch(p, { types: ["AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL"], dueAt: null, reason: null });
+    expect(both.ok && both.plan.newTasks.map((t) => [t.type, t.status, t.dependsOnKey])).toEqual([
+      ["AD_IMAGE_VERTICAL", "TODO", null],
+      ["AD_IMAGE_SQUARE", "LOCKED", "AD_IMAGE_VERTICAL"],
     ]);
     // approving batch #2 work never changes the stage
     p = submitAndApprove(p, "AD_IMAGE_SQUARE");
@@ -342,17 +339,17 @@ describe("send back", () => {
     expect(p.stage).toBe("CREATIVE");
     expect(p.batches.map((b) => b.number)).toEqual([1, 2]);
     const b2 = p.tasks.filter((t) => t.batchId === "b2");
-    expect(b2).toHaveLength(7);
-    expect(b2.filter((t) => t.status === "LOCKED")).toHaveLength(5);
+    expect(b2).toHaveLength(5);
+    expect(b2.filter((t) => t.status === "LOCKED")).toHaveLength(3);
   });
 
   it("Ready to Launch → Creative reopens chosen tasks and cancels the launch task", () => {
     let p = toReadyToLaunch();
-    const landscape = byType(p, "AD_IMAGE_LANDSCAPE");
+    const landscape = byType(p, "AD_IMAGE_SQUARE");
     expect(planSendBack(p, { target: "CREATIVE", actorRole: "MEDIA_BUYER", note: "x", reopenTaskIds: [] }).ok).toBe(false);
     p = apply(p, planSendBack(p, { target: "CREATIVE", actorRole: "MEDIA_BUYER", note: "Wrong size", reopenTaskIds: [landscape.id] }));
     expect(p.stage).toBe("CREATIVE");
-    expect(byType(p, "AD_IMAGE_LANDSCAPE").status).toBe("REVISION");
+    expect(byType(p, "AD_IMAGE_SQUARE").status).toBe("REVISION");
     expect(byType(p, "CAMPAIGN_LAUNCH").status).toBe("CANCELLED");
     // fixing it brings the product back to READY_TO_LAUNCH with a fresh launch task
     p = apply(p, planSubmitTask(p, landscape.id));
@@ -364,16 +361,16 @@ describe("send back", () => {
   it("reopening a Phase 1 task together with its dependent relocks the dependent (Q3)", () => {
     let p = toReadyToLaunch();
     const website = byType(p, "WEBSITE_IMAGE");
-    const store = byType(p, "STORE_LISTING");
+    const portrait = byType(p, "AD_IMAGE_VERTICAL");
     p = apply(
       p,
-      planSendBack(p, { target: "CREATIVE", actorRole: "ADMIN", note: "Rebrand", reopenTaskIds: [website.id, store.id] }),
+      planSendBack(p, { target: "CREATIVE", actorRole: "ADMIN", note: "Rebrand", reopenTaskIds: [website.id, portrait.id] }),
     );
     expect(byType(p, "WEBSITE_IMAGE").status).toBe("REVISION");
-    expect(byType(p, "STORE_LISTING").status).toBe("LOCKED");
+    expect(byType(p, "AD_IMAGE_VERTICAL").status).toBe("LOCKED");
     expect(byType(p, "AD_IMAGE_SQUARE").status).toBe("APPROVED"); // approved dependents stay approved
     p = submitAndApprove(p, "WEBSITE_IMAGE");
-    expect(byType(p, "STORE_LISTING").status).toBe("TODO");
+    expect(byType(p, "AD_IMAGE_VERTICAL").status).toBe("TODO");
   });
 
   it("only approved tasks of the current batch can be reopened", () => {
@@ -427,12 +424,12 @@ describe("approve with a follow-up (different angle / size)", () => {
       assigneeId: website.assigneeId,
       followUp: { ofTaskId: website.id, kind: "DIFFERENT_ANGLE", note: "Show it folded" },
     });
-    expect(r.plan.changes.filter((c) => c.kind === "unlock")).toHaveLength(4);
+    expect(r.plan.changes.filter((c) => c.kind === "unlock")).toHaveLength(1);
   });
 
   it("a follow-up on the last task keeps the product in Creative", () => {
     let p = toCreative();
-    for (const type of ["WEBSITE_IMAGE", "VIDEO_MAIN", "AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL", "STORE_LISTING"] as const) {
+    for (const type of ["WEBSITE_IMAGE", "AD_IMAGE_VERTICAL", "AD_IMAGE_SQUARE", "VIDEO_MAIN"] as const) {
       p = submitAndApprove(p, type);
     }
     const sq = byType(p, "VIDEO_SQUARE");
@@ -443,7 +440,7 @@ describe("approve with a follow-up (different angle / size)", () => {
 
   it("is only for creative work", () => {
     const p = toReadyToLaunch();
-    expect(planApprove(p, byType(p, "CAMPAIGN_LAUNCH").id, { followUp: { kind: "OTHER", note: null } }).ok).toBe(false);
+    expect(planApprove(p, byType(p, "CAMPAIGN_LAUNCH").id, { followUp: { kind: "DIFFERENT_ANGLE", note: null } }).ok).toBe(false);
   });
 });
 

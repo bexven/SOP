@@ -10,7 +10,9 @@ import {
   setActiveSchema,
   unlockSchema,
   updateMemberSchema,
+  accessSchema,
 } from "@/lib/validation/team";
+import { defaultPermissions, normalizePermissions } from "@/lib/domain/permissions";
 import { ActionError, defineAction } from "../action";
 import { hashPin } from "../auth/pin-hash";
 import { db } from "../db";
@@ -50,6 +52,7 @@ export const createMemberAction = defineAction({
         role: input.role,
         avatarColor: input.avatarColor,
         adminAccess: input.role === "ADMIN" ? false : input.adminAccess,
+        permissions: defaultPermissions(input.role),
         pinHash: await hashPin(input.pin),
         mustChangePin: true,
       },
@@ -75,6 +78,8 @@ export const updateMemberAction = defineAction({
         role: input.role,
         avatarColor: input.avatarColor,
         adminAccess: input.role === "ADMIN" ? false : input.adminAccess,
+        // A new job role starts from that role's default permissions (fine-tune on the Roles page).
+        ...(input.role !== target.role ? { permissions: defaultPermissions(input.role) } : {}),
         // Permissions are read fresh from the DB on every request; bump only when access is reduced.
         ...(target.adminAccess && !input.adminAccess ? { sessionVersion: { increment: 1 } } : {}),
       },
@@ -145,5 +150,26 @@ export const unlockMemberAction = defineAction({
       select: { name: true },
     });
     return done(`${target.name} unlocked`);
+  },
+});
+
+/** Roles & permissions: the Master Admin ticks what each person may do. */
+export const setAccessAction = defineAction({
+  masterOnly: true,
+  schema: accessSchema,
+  run: async ({ id, role, adminAccess, permissions }, { user }) => {
+    const target = await db.user.findUnique({ where: { id } });
+    if (!target) throw new ActionError("That person no longer exists.");
+    if (target.isMaster) throw new ActionError("The Master Admin always has every permission.");
+    if (role !== target.role) {
+      const guard = canChangeRole(user.id, target, role, await teamSnapshot());
+      if (!guard.ok) throw new ActionError(guard.reason);
+    }
+    await db.user.update({
+      where: { id },
+      data: { role, adminAccess: role === "ADMIN" ? false : adminAccess, permissions: normalizePermissions(permissions) },
+    });
+    revalidatePath("/", "layout");
+    return done(`${target.name}'s access saved`);
   },
 });

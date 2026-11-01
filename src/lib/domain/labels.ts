@@ -43,13 +43,13 @@ export const TASK_TYPES = [
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   RESEARCH: "Product Research",
   PRODUCT_APPROVAL: "Product approval",
-  WEBSITE_IMAGE: "Website Product Image",
-  AD_IMAGE_LANDSCAPE: "Ad Image 1200×628 (Landscape)",
-  AD_IMAGE_SQUARE: "Ad Image 1080×1080 (Square)",
-  AD_IMAGE_VERTICAL: "Ad Image 1080×1920 (Vertical)",
-  STORE_LISTING: "Store Product Listing",
-  VIDEO_MAIN: "Main Video 16:9",
-  VIDEO_SQUARE: "Square Video 1:1",
+  WEBSITE_IMAGE: "Website product images",
+  AD_IMAGE_LANDSCAPE: "Meta ad images · Landscape",
+  AD_IMAGE_SQUARE: "Meta ad images · Square",
+  AD_IMAGE_VERTICAL: "Meta ad images · Portrait",
+  STORE_LISTING: "Store product listing",
+  VIDEO_MAIN: "Main video",
+  VIDEO_SQUARE: "Square video",
   CAMPAIGN_LAUNCH: "Campaign Launch",
 };
 
@@ -167,18 +167,17 @@ export const KILL_REASON_LABELS: Record<KillReason, string> = {
   OTHER: "Other",
 };
 
-/** Creative formats a Media Buyer can request in a new batch (never the store listing). */
+/** Creative formats a Media Buyer can request in a new batch. (Landscape ads and the store listing are no longer made.) */
 export const CREATIVE_TYPES = [
   "WEBSITE_IMAGE",
-  "AD_IMAGE_LANDSCAPE",
-  "AD_IMAGE_SQUARE",
   "AD_IMAGE_VERTICAL",
+  "AD_IMAGE_SQUARE",
   "VIDEO_MAIN",
   "VIDEO_SQUARE",
 ] as const satisfies readonly TaskType[];
 
-/** Task types whose work is submitted as a link and reviewed by a Media Buyer. */
-export const REVIEWED_TYPES = [...CREATIVE_TYPES, "STORE_LISTING"] as const satisfies readonly TaskType[];
+/** Task types whose work is submitted as links and approved by a Senior. Legacy types stay reviewable. */
+export const REVIEWED_TYPES = [...CREATIVE_TYPES, "AD_IMAGE_LANDSCAPE", "STORE_LISTING"] as const satisfies readonly TaskType[];
 
 export function isReviewedType(type: TaskType): boolean {
   return (REVIEWED_TYPES as readonly TaskType[]).includes(type);
@@ -188,10 +187,10 @@ export function isReviewedType(type: TaskType): boolean {
 export const TASK_TYPE_SHORT: Record<TaskType, string> = {
   RESEARCH: "Research",
   PRODUCT_APPROVAL: "Approval",
-  WEBSITE_IMAGE: "Website image",
-  AD_IMAGE_LANDSCAPE: "Landscape ad",
-  AD_IMAGE_SQUARE: "Square ad",
-  AD_IMAGE_VERTICAL: "Vertical ad",
+  WEBSITE_IMAGE: "Website images",
+  AD_IMAGE_LANDSCAPE: "Landscape ads",
+  AD_IMAGE_SQUARE: "Square ads",
+  AD_IMAGE_VERTICAL: "Portrait ads",
   STORE_LISTING: "Store listing",
   VIDEO_MAIN: "Main video",
   VIDEO_SQUARE: "Square video",
@@ -208,7 +207,8 @@ export function laneOf(type: TaskType): "images" | "videos" | null {
   return null;
 }
 
-export const FOLLOW_UP_KINDS = ["DIFFERENT_ANGLE", "DIFFERENT_SIZE", "OTHER"] as const satisfies readonly FollowUpKind[];
+/** Follow-ups a Senior can ask for when approving. ("Something else" was removed; the enum value stays for old data.) */
+export const FOLLOW_UP_KINDS = ["DIFFERENT_ANGLE", "DIFFERENT_SIZE"] as const satisfies readonly FollowUpKind[];
 
 export const FOLLOW_UP_LABELS: Record<FollowUpKind, string> = {
   DIFFERENT_ANGLE: "Different angle",
@@ -216,14 +216,31 @@ export const FOLLOW_UP_LABELS: Record<FollowUpKind, string> = {
   OTHER: "Something else",
 };
 
-/**
- * What must exist before a format can be marked "ready for review" (pure).
- * Images/videos: the lane's Drive folder link (set once per batch); preview images are optional.
- * Store listing: the live store URL.
- */
-export function submissionError(type: TaskType, counts: { images: number; links: number }): string | null {
-  if (type === "STORE_LISTING") return counts.links > 0 ? null : "Add the live store product URL.";
-  if (laneOf(type) === "videos") return counts.links > 0 ? null : "Add the Google Drive folder for videos first.";
-  if (laneOf(type) === "images") return counts.links > 0 ? null : "Add the Google Drive folder for images first.";
-  return "This task isn't submitted for review.";
+/** Which group a creative task belongs to on the board. */
+export type BoardGroup = "website" | "metaAds" | "videos";
+export function boardGroupOf(type: TaskType): BoardGroup | null {
+  if (type === "WEBSITE_IMAGE" || type === "STORE_LISTING") return "website";
+  if (type === "AD_IMAGE_VERTICAL" || type === "AD_IMAGE_SQUARE" || type === "AD_IMAGE_LANDSCAPE") return "metaAds";
+  if (laneOf(type) === "videos") return "videos";
+  return null;
+}
+
+/** What the maker adds when marking a task ready. */
+export const SUBMIT_PROMPT: Partial<Record<TaskType, { ready: string; field: string; placeholder: string; many: boolean }>> = {
+  WEBSITE_IMAGE: { ready: "Website product images ready", field: "Product page URL on the website", placeholder: "https://yourstore.com/products/…", many: false },
+  STORE_LISTING: { ready: "Store listing ready", field: "Store product URL", placeholder: "https://yourstore.com/products/…", many: false },
+  AD_IMAGE_VERTICAL: { ready: "Portrait ad images ready", field: "Portrait image links", placeholder: "https://drive.google.com/…", many: true },
+  AD_IMAGE_SQUARE: { ready: "Square ad images ready", field: "Square image links", placeholder: "https://drive.google.com/…", many: true },
+  AD_IMAGE_LANDSCAPE: { ready: "Landscape ad images ready", field: "Landscape image links", placeholder: "https://drive.google.com/…", many: true },
+  VIDEO_MAIN: { ready: "Main video ready", field: "Video links", placeholder: "https://drive.google.com/…", many: true },
+  VIDEO_SQUARE: { ready: "Square video ready", field: "Video links", placeholder: "https://drive.google.com/…", many: true },
+};
+
+/** What must exist before a task can be marked ready (pure): at least one link (one for the website URL). */
+export function submissionError(type: TaskType, counts: { links: number }): string | null {
+  if (!isReviewedType(type)) return "This task isn't submitted for review.";
+  const prompt = SUBMIT_PROMPT[type];
+  if (counts.links < 1) return `Add the ${prompt?.field.toLowerCase() ?? "link"} first.`;
+  if (prompt && !prompt.many && counts.links > 1) return `Add one ${prompt.field.toLowerCase()}.`;
+  return null;
 }

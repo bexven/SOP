@@ -35,9 +35,9 @@ export function PipelineStepper({ stepper, className }: { stepper: Stepper; clas
               )}
             >
               {step.label}
-              {current && stepper.phase1Progress && stepper.phase1Progress.total > 0 ? (
+              {current && stepper.progress ? (
                 <span className="num block font-normal text-slate-500">
-                  {stepper.phase1Progress.approved}/{stepper.phase1Progress.total} approved
+                  {stepper.progress.approved}/{stepper.progress.total} approved
                 </span>
               ) : null}
               {killed ? <span className="block font-normal">Killed here</span> : null}
@@ -64,8 +64,8 @@ export function MiniStepper({ stepper, className }: { stepper: Stepper; classNam
           key={s.label}
           className={cn(
             "h-1 w-3.5 rounded-full",
-            s.state === "done" && "bg-indigo-500",
-            s.state === "current" && "bg-indigo-300",
+            s.state === "done" && "bg-primary",
+            s.state === "current" && "bg-primary/40",
             s.state === "killed" && "bg-rose-500",
             s.state === "upcoming" && "bg-slate-200",
           )}

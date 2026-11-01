@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { Role } from "@/generated/prisma/enums";
-import { can, type Capability } from "@/lib/domain/permissions";
+import { can, normalizePermissions, type Capability } from "@/lib/domain/permissions";
 import { db } from "../db";
 import { readSession } from "./session";
 
@@ -16,6 +16,8 @@ export type CurrentUser = {
   adminAccess: boolean;
   /** The Master Admin manages the team. */
   isMaster: boolean;
+  /** Ticked permissions (ignored for ADMIN access, which has everything). */
+  permissions: string[];
   avatarColor: string;
   avatarAssetId: string | null;
   mustChangePin: boolean;
@@ -31,7 +33,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!session) return null;
   const user = await db.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, name: true, role: true, adminAccess: true, isMaster: true, avatarColor: true, avatarAssetId: true, mustChangePin: true, active: true, sessionVersion: true },
+    select: { id: true, name: true, role: true, permissions: true, adminAccess: true, isMaster: true, avatarColor: true, avatarAssetId: true, mustChangePin: true, active: true, sessionVersion: true },
   });
   if (!user || !user.active || user.sessionVersion !== session.version) return null;
   return {
@@ -41,6 +43,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     jobRole: user.role,
     adminAccess: user.adminAccess,
     isMaster: user.isMaster,
+    permissions: normalizePermissions(user.permissions),
     avatarColor: user.avatarColor,
     avatarAssetId: user.avatarAssetId,
     mustChangePin: user.mustChangePin,
@@ -65,6 +68,6 @@ export async function requireMaster(): Promise<CurrentUser> {
 /** For pages: require a capability, otherwise send the user home. */
 export async function requireCapability(capability: Capability): Promise<CurrentUser> {
   const user = await requireUser();
-  if (!can(user.role, capability)) redirect("/dashboard");
+  if (!can(user, capability)) redirect("/dashboard");
   return user;
 }

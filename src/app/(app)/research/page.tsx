@@ -26,10 +26,10 @@ type TabKey = (typeof TABS)[number]["key"];
 
 export default async function ResearchPage({ searchParams }: PageProps<"/research">) {
   const user = await requireUser();
-  if (!canSeeEarlyStages(user.role)) redirect("/dashboard");
+  if (!canSeeEarlyStages(user)) redirect("/dashboard");
   const [board, brands, sp] = await Promise.all([getResearchBoard(user), getBrands(), searchParams]);
-  const canAdd = can(user.role, "product.create");
-  const canApprove = can(user.role, "product.approve");
+  const canAdd = can(user, "product.create");
+  const canApprove = can(user, "product.approve");
   const counts: Record<TabKey, number> = {
     pending: board.pending.length,
     approved: board.approved.length,

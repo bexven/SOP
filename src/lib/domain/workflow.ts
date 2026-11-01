@@ -141,7 +141,7 @@ export function isTerminalStage(stage: ProductStage): boolean {
 
 // ── Blueprints ──────────────────────────────────────────────────────────────
 
-/** Batch #1 (and any batch created by a research resubmit): Phase 1 gates Phase 2. */
+/** Batch #1 (created when the product is approved for testing): each step gates the next. */
 export function firstBatchBlueprint(): NewTask[] {
   const t = (
     key: string,
@@ -157,12 +157,12 @@ export function firstBatchBlueprint(): NewTask[] {
     dependsOnKey,
     inNewBatch: true,
   });
+  // Images: website product images → Meta ads portrait → Meta ads square (each unlocks after the Senior approves the previous one).
+  // Videos: main video → square video.
   return [
     t("website", "WEBSITE_IMAGE", 1, null),
-    t("adLandscape", "AD_IMAGE_LANDSCAPE", 2, "website"),
-    t("adSquare", "AD_IMAGE_SQUARE", 2, "website"),
-    t("adVertical", "AD_IMAGE_VERTICAL", 2, "website"),
-    t("store", "STORE_LISTING", 2, "website"),
+    t("adPortrait", "AD_IMAGE_VERTICAL", 2, "website"),
+    t("adSquare", "AD_IMAGE_SQUARE", 3, "adPortrait"),
     t("videoMain", "VIDEO_MAIN", 1, null),
     t("videoSquare", "VIDEO_SQUARE", 2, "videoMain"),
   ];
@@ -370,16 +370,22 @@ export function planNewBatch(
   }
   const plan = emptyPlan();
   plan.newBatch = { number: nextBatchNumber(p), reason: input.reason?.trim() || null, dueAt: input.dueAt };
-  plan.newTasks = CREATIVE_TYPES.filter((t) => types.includes(t)).map((type) => ({
-    key: type,
-    type,
-    role: TASK_TYPE_ROLE[type],
-    phase: 1,
-    status: "TODO" as const,
-    dependsOnKey: null,
-    inNewBatch: true,
-    dueAt: input.dueAt ?? undefined,
-  }));
+  // Square versions wait for the portrait / main version when both are requested.
+  const parentOf: Partial<Record<TaskType, TaskType>> = { AD_IMAGE_SQUARE: "AD_IMAGE_VERTICAL", VIDEO_SQUARE: "VIDEO_MAIN" };
+  plan.newTasks = CREATIVE_TYPES.filter((t) => types.includes(t)).map((type) => {
+    const parent = parentOf[type];
+    const dependsOnKey = parent && types.includes(parent) ? parent : null;
+    return {
+      key: type,
+      type,
+      role: TASK_TYPE_ROLE[type],
+      phase: dependsOnKey ? 2 : 1,
+      status: dependsOnKey ? ("LOCKED" as const) : ("TODO" as const),
+      dependsOnKey,
+      inNewBatch: true,
+      dueAt: input.dueAt ?? undefined,
+    };
+  });
   return ok(plan);
 }
 

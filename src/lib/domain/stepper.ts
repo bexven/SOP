@@ -1,29 +1,27 @@
 import type { CampaignStatus, ProductStage } from "@/generated/prisma/enums";
 
 /**
- * Pipeline stepper (pure). Derived from stage, Phase 1 progress and campaign
- * status — never stored.
- *   Research → Creative · Phase 1 → Creative · Phase 2 & Store → Ready to Launch → Live
- * (A "Scaling" step was removed at the owner's request.)
+ * Pipeline stepper (pure). Derived from stage, creative progress per lane and
+ * ordering — never stored.
+ *   Research → Product review → Image creative → Video creative → Meta ads → Ordering
+ * Image and video work run side by side; the stepper shows Image creative until
+ * every image task of the current batch is approved, then Video creative.
  */
 
-export const STEPPER_STEPS = [
-  "Research",
-  "Product review",
-  "Creative: step 1",
-  "Creative: step 2 & store",
-  "Ready to launch",
-  "Live",
-] as const;
+export const STEPPER_STEPS = ["Research", "Product review", "Image creative", "Video creative", "Meta ads", "Ordering"] as const;
 
 export type StepState = "done" | "current" | "upcoming" | "killed";
+
+type Progress = { approved: number; total: number };
 
 export type StepperInput = {
   stage: ProductStage;
   stageBeforeKill: ProductStage | null;
   campaignStatus: CampaignStatus | null;
-  /** Phase 1 tasks of the current batch (non-cancelled). */
-  phase1: { approved: number; total: number };
+  /** Current batch, non-cancelled tasks, per lane. */
+  lanes: { images: Progress; videos: Progress };
+  /** The product was moved to ordering. */
+  ordering: boolean;
 };
 
 export type Stepper = {
@@ -32,9 +30,11 @@ export type Stepper = {
   index: number;
   killed: boolean;
   completed: boolean;
-  /** Shown under "Creative · Phase 1" while it is current. */
-  phase1Progress: { approved: number; total: number } | null;
+  /** "2/3 approved" under the current creative step. */
+  progress: Progress | null;
 };
+
+const done = (p: Progress) => p.total > 0 && p.approved >= p.total;
 
 function indexFor(stage: ProductStage, input: StepperInput): number {
   switch (stage) {
@@ -43,11 +43,11 @@ function indexFor(stage: ProductStage, input: StepperInput): number {
     case "REVIEW":
       return 1;
     case "CREATIVE":
-      return input.phase1.total > 0 && input.phase1.approved >= input.phase1.total ? 3 : 2;
+      return done(input.lanes.images) || input.lanes.images.total === 0 ? 3 : 2;
     case "READY_TO_LAUNCH":
       return 4;
     case "LIVE":
-      return 5;
+      return input.ordering ? 5 : 4;
     case "COMPLETED":
       return STEPPER_STEPS.length;
     case "KILLED":
@@ -66,11 +66,6 @@ export function deriveStepper(input: StepperInput): Stepper {
     else state = "upcoming";
     return { label, state };
   });
-  return {
-    steps,
-    index,
-    killed,
-    completed,
-    phase1Progress: index === 2 && !killed ? input.phase1 : null,
-  };
+  const progress = killed ? null : index === 2 ? input.lanes.images : index === 3 ? input.lanes.videos : null;
+  return { steps, index, killed, completed, progress: progress && progress.total > 0 ? progress : null };
 }

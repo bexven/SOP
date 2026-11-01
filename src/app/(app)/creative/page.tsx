@@ -27,13 +27,13 @@ export default async function CreativePage() {
       <PageHeader
         title="Creative"
         description={
-          "Your own creative tasks first — drag a card to “In review” when it's in the Drive folder, or click it to open the product. The whole team's work is below."
+          "Your own creative tasks first — drag a card to “In review” when it's ready (you'll add the links), or click it to open its board. The whole team's work is below."
         }
       />
       <section aria-labelledby="my-tasks" className="mb-10">
         <h2 id="my-tasks" className="mb-3 text-section text-slate-900">
           My tasks <span className="num text-meta text-slate-500">{myRows.length}</span>
-          {lockedMine ? <span className="ml-2 text-meta font-normal text-slate-500">· {lockedMine} more unlock after step 1 is approved</span> : null}
+          {lockedMine ? <span className="ml-2 text-meta font-normal text-slate-500">· {lockedMine} more unlock after the step before is approved</span> : null}
         </h2>
         {myRows.length ? (
           <MyBoard rows={myRows} />
@@ -47,7 +47,7 @@ export default async function CreativePage() {
         <EmptyState
           icon={ImagesIcon}
           title="No creative work in progress"
-          description="Creative tasks appear here as soon as a product's research is submitted."
+          description="Creative tasks appear here as soon as a product is approved for testing."
         />
       ) : (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-8">
@@ -61,7 +61,7 @@ export default async function CreativePage() {
                   <Icon className="size-4 text-slate-500" /> {lane === "images" ? "Images" : "Videos"}
                   {waiting ? (
                     <span className="text-meta font-normal text-slate-500">
-                      · {waiting} more waiting for step 1 to be approved
+                      · {waiting} more waiting for the step before to be approved
                     </span>
                   ) : null}
                 </h3>

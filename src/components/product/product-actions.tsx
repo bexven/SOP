@@ -51,11 +51,11 @@ export function ProductActions({ product, viewer }: { product: ProductDetail; vi
   const [dialog, setDialog] = useState<DialogKey>(null);
   const live = product.stage === "LIVE";
   const terminal = isTerminalStage(product.stage);
-  const canCampaign = can(viewer.role, "campaign.manage");
-  const canBatch = can(viewer.role, "batch.request");
-  const canKill = can(viewer.role, "product.kill") && !terminal;
-  const targets = can(viewer.role, "product.sendBack") ? sendBackTargets(product.stage, viewer.role) : [];
-  const canOverride = can(viewer.role, "product.override");
+  const canCampaign = can(viewer, "campaign.manage");
+  const canBatch = can(viewer, "batch.request");
+  const canKill = can(viewer, "product.kill") && !terminal;
+  const targets = can(viewer, "product.sendBack") ? sendBackTargets(product.stage, viewer.role) : [];
+  const canOverride = can(viewer, "product.override");
 
   const menuItems = [
     live && canCampaign ? { key: "status" as const, label: "Change campaign status", icon: ArrowUpRightIcon } : null,

@@ -17,6 +17,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import type { Role, TaskType } from "../src/generated/prisma/enums";
 import { isValidPinFormat, isWeakPin } from "../src/lib/domain/pin";
+import { defaultPermissions } from "../src/lib/domain/permissions";
 
 const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
 if (!url) throw new Error("Set DIRECT_URL (or DATABASE_URL) before seeding.");
@@ -96,6 +97,7 @@ async function seedTeam() {
         role: person.role,
         avatarColor: person.avatarColor,
         adminAccess: Boolean(person.adminAccess),
+        permissions: defaultPermissions(person.role),
         isMaster,
         pinHash: isMaster ? adminHash : defaultHash,
         mustChangePin: !isMaster,

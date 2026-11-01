@@ -1,16 +1,15 @@
 import "server-only";
 import { isOpenStatus } from "@/lib/domain/assignment";
 import { computeMargin, marginBand } from "@/lib/domain/margin";
-import type { Role } from "@/generated/prisma/enums";
-import { canSeeProduct } from "@/lib/domain/permissions";
+import { canSeeProduct, type Subject } from "@/lib/domain/permissions";
 import { deriveStepper } from "@/lib/domain/stepper";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
-import { getMarginThresholds, phase1Progress } from "./product";
+import { getMarginThresholds, laneProgress } from "./product";
 
 /** Every product as a compact row (pipeline cards, products table, palette). */
 /** Every product the viewer may see, as a compact row (pipeline, table, dashboard). */
-export async function listProducts(viewerRole: Role) {
+export async function listProducts(viewer: Subject) {
   const [products, thresholds] = await Promise.all([
     db.product.findMany({
       orderBy: [{ updatedAt: "desc" }],
@@ -35,7 +34,7 @@ export async function listProducts(viewerRole: Role) {
     getMarginThresholds(),
   ]);
   const now = Date.now();
-  return products.filter((p) => canSeeProduct(viewerRole, p.stage, p.stageBeforeKill)).map((p) => {
+  return products.filter((p) => canSeeProduct(viewer, p.stage, p.stageBeforeKill)).map((p) => {
     const margin = computeMargin({
       chinaPriceBdt: p.chinaPriceBdt?.toString() ?? null,
       shippingPerUnitBdt: p.shippingPerUnitBdt?.toString() ?? null,
@@ -69,11 +68,13 @@ export async function listProducts(viewerRole: Role) {
         stage: p.stage,
         stageBeforeKill: p.stageBeforeKill,
         campaignStatus: p.campaign?.status ?? null,
-        phase1: phase1Progress(p.tasks, p.batches),
+        lanes: laneProgress(p.tasks, p.batches),
+        ordering: Boolean(p.orderingSince),
       }),
       assignees,
       nextDueAt: nextDue?.toISOString() ?? null,
-      overdue: nextDue ? nextDue.getTime() < now : false,
+      // Overdue = work not yet done (to do / needs changes) past its due time — same rule as the dashboard counters.
+      overdue: open.some((t) => (t.status === "TODO" || t.status === "REVISION") && t.dueAt !== null && t.dueAt.getTime() < now),
       openTaskCount: open.length,
     };
   });

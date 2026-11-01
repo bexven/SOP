@@ -25,7 +25,7 @@ export default async function OverviewPage() {
 
       <section aria-label="Products per stage" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {STAGES.map((s) => (
-          <Link key={s} href={`/products?stage=${s}`} className="surface rounded-panel p-4 transition-shadow hover:shadow-[var(--raised-shadow)]">
+          <Link key={s} href={`/products?stage=${s}`} className="surface raised-hover rounded-panel p-4">
             <span className="flex items-center gap-2 text-meta text-slate-600">
               <span className={`size-2 rounded-full ${STAGE_DOT[s]}`} aria-hidden /> {STAGE_LABELS[s]}
             </span>

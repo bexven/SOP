@@ -17,11 +17,11 @@ export const metadata: Metadata = { title: "Products" };
 export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
   const user = await requireUser();
   const [products, sp, people] = await Promise.all([
-    listProducts(user.role),
+    listProducts(user),
     searchParams,
     db.user.findMany({ where: { active: true }, select: { id: true, name: true, avatarColor: true, avatarAssetId: true }, orderBy: { name: "asc" } }),
   ]);
-  const canCreate = can(user.role, "product.create");
+  const canCreate = can(user, "product.create");
   const stage = typeof sp.stage === "string" && (STAGES as readonly string[]).includes(sp.stage) ? (sp.stage as ProductStage) : undefined;
   return (
     <>

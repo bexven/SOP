@@ -18,7 +18,7 @@ export const paletteProductsAction = defineAction({
     return {
       ok: true,
       data: products
-        .filter((p) => canSeeProduct(user.role, p.stage, p.stageBeforeKill))
+        .filter((p) => canSeeProduct(user, p.stage, p.stageBeforeKill))
         .map((p) => ({ id: p.id, number: p.number, name: p.name, stage: p.stage, imageUrl: p.imageUrl, ref: productRef(p.number) })),
     };
   },

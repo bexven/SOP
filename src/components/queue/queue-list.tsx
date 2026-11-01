@@ -23,7 +23,7 @@ export function QueueGroup({ group, items, showAssignee }: { group: QueueGroupKe
   const g = GROUPS[group];
   return (
     <section aria-labelledby={`q-${group}`}>
-      <h2 id={`q-${group}`} className="mb-2 flex items-center gap-2 text-section text-slate-900">
+      <h2 id={`q-${group}`} className="mb-2 flex scroll-mt-24 items-center gap-2 text-section text-slate-900">
         <g.icon className={cn("size-4", g.tone)} /> {g.title} <span className="num text-meta text-slate-500">{items.length}</span>
       </h2>
       <ul className="surface divide-y divide-slate-100 overflow-hidden rounded-panel">

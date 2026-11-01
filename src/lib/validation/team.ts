@@ -12,6 +12,13 @@ export const updateMemberSchema = z.object({ id: idSchema, name, role, avatarCol
 export const setActiveSchema = z.object({ id: idSchema, active: z.boolean() });
 export const resetPinSchema = z.object({ id: idSchema, pin: pinSchema, requireChange: z.boolean().default(false) });
 export const unlockSchema = z.object({ id: idSchema });
+/** Roles page: job role, admin access and individual permissions for one person. */
+export const accessSchema = z.object({
+  id: idSchema,
+  role,
+  adminAccess: z.boolean(),
+  permissions: z.array(z.string().max(40)).max(40),
+});
 
 export type CreateMemberInput = z.infer<typeof createMemberSchema>;
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;

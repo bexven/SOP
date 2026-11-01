@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { Role } from "@/generated/prisma/enums";
 import { can } from "@/lib/domain/permissions";
 import { groupQueue } from "@/lib/domain/queue";
+import { dueBucket } from "@/lib/domain/due";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
 
@@ -35,28 +36,37 @@ function toItem(t: Row) {
 export type QueueItem = Omit<ReturnType<typeof toItem>, "dueAt"> & { dueAt: string | null };
 const ser = (i: ReturnType<typeof toItem>): QueueItem => ({ ...i, dueAt: i.dueAt?.toISOString() ?? null });
 
-/** Only what is waiting on this person. */
-export async function getQueue(user: { id: string; role: Role }) {
-  const now = new Date();
-  const mine = (await loadRows({ assigneeId: user.id, status: { in: ["TODO", "REVISION"] } })).map(toItem);
-  const groups = groupQueue(mine, now);
+type QueueUser = { id: string; role: Role; jobRole: Role; permissions: readonly string[] };
 
-  let review: QueueItem[] = [];
-  if (user.role === "MEDIA_BUYER" || user.role === "REVIEWER" || user.role === "ADMIN") {
-    // Media buyers: products they own, plus products without an owner. Admin: everything.
-    review = (
-      await loadRows({
-        status: "SUBMITTED",
-        type: { in: [...REVIEWED] },
-        ...(user.role === "MEDIA_BUYER" ? { product: { OR: [{ mediaBuyerId: user.id }, { mediaBuyerId: null }] } } : {}),
-      })
-    )
+/** Submitted creative work this person should review (Senior permission). Media buyers: their products + unowned. */
+function reviewWhere(user: QueueUser): Prisma.TaskWhereInput | null {
+  if (!can(user, "task.review")) return null;
+  const ownOnly = user.role !== "ADMIN" && user.jobRole === "MEDIA_BUYER";
+  return {
+    status: "SUBMITTED",
+    type: { in: [...REVIEWED] },
+    product: { stage: { notIn: ["COMPLETED", "KILLED"] }, ...(ownOnly ? { OR: [{ mediaBuyerId: user.id }, { mediaBuyerId: null }] } : {}) },
+  };
+}
+
+const MINE = (userId: string): Prisma.TaskWhereInput => ({
+  assigneeId: userId,
+  status: { in: ["TODO", "REVISION"] },
+  product: { stage: { notIn: ["COMPLETED", "KILLED"] } },
+});
+
+/** Only what is waiting on this person. Every dashboard number is counted from these same lists. */
+export async function getQueue(user: QueueUser) {
+  const now = new Date();
+  const mine = (await loadRows(MINE(user.id))).map(toItem);
+  const groups = groupQueue(mine, now);
+  const rw = reviewWhere(user);
+  const review = rw ? (await loadRows(rw)).map(toItem).map(ser) : [];
+  let unassigned: QueueItem[] = [];
+  if (can(user, "task.reassignAny")) {
+    unassigned = (await loadRows({ assigneeId: null, status: { in: ["TODO", "REVISION", "SUBMITTED"] }, product: { stage: { notIn: ["COMPLETED", "KILLED"] } } }))
       .map(toItem)
       .map(ser);
-  }
-  let unassigned: QueueItem[] = [];
-  if (can(user.role, "task.reassignAny")) {
-    unassigned = (await loadRows({ assigneeId: null, status: { in: ["TODO", "REVISION", "SUBMITTED", "LOCKED"] } })).map(toItem).map(ser);
   }
   return {
     overdue: groups.overdue.map(ser),
@@ -68,16 +78,26 @@ export async function getQueue(user: { id: string; role: Role }) {
   };
 }
 
-/** Sidebar badge: actionable items for this person. */
-export async function getQueueCount(user: { id: string; role: Role }): Promise<number> {
-  const mine = await db.task.count({ where: { assigneeId: user.id, status: { in: ["TODO", "REVISION"] } } });
-  if (user.role !== "MEDIA_BUYER" && user.role !== "REVIEWER") return mine;
-  const review = await db.task.count({
-    where: {
-      status: "SUBMITTED",
-      type: { in: [...REVIEWED] },
-      ...(user.role === "MEDIA_BUYER" ? { product: { OR: [{ mediaBuyerId: user.id }, { mediaBuyerId: null }] } } : {}),
-    },
-  });
+/** Menu badge: the same numbers the dashboard shows (my open tasks + reviews waiting on me). */
+export async function getQueueCount(user: QueueUser): Promise<number> {
+  const rw = reviewWhere(user);
+  const [mine, review] = await Promise.all([db.task.count({ where: MINE(user.id) }), rw ? db.task.count({ where: rw }) : Promise.resolve(0)]);
   return mine + review;
+}
+
+/** Whole-team numbers for the Admin dashboard (open tasks on running products). */
+export async function getTeamStats() {
+  const now = new Date();
+  const open = await db.task.findMany({
+    where: { status: { in: ["TODO", "REVISION", "SUBMITTED"] }, product: { stage: { notIn: ["COMPLETED", "KILLED"] } } },
+    select: { status: true, dueAt: true },
+  });
+  const notDone = open.filter((t) => t.status !== "SUBMITTED");
+  return {
+    pending: notDone.length,
+    overdue: notDone.filter((t) => dueBucket(t.dueAt, now) === "overdue").length,
+    today: notDone.filter((t) => dueBucket(t.dueAt, now) === "today").length,
+    revision: open.filter((t) => t.status === "REVISION").length,
+    review: open.filter((t) => t.status === "SUBMITTED").length,
+  };
 }

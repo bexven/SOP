@@ -18,8 +18,9 @@ export default async function ProductPage({ params, searchParams }: PageProps<"/
   const user = await requireUser();
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const product = await getProductDetail(id);
-  if (!product || !canSeeProduct(user.role, product.stage, product.stageBeforeKill)) notFound();
+  if (!product || !canSeeProduct(user, product.stage, product.stageBeforeKill)) notFound();
   const task = typeof sp.task === "string" ? sp.task : undefined;
+  const phase = typeof sp.phase === "string" ? sp.phase : undefined;
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -38,7 +39,14 @@ export default async function ProductPage({ params, searchParams }: PageProps<"/
           </ol>
         </nav>
       </div>
-      <ProductView product={product} viewer={{ id: user.id, role: user.role, name: user.name, jobRole: user.jobRole }} focusTaskId={task} />
+      <ProductView
+        key={product.id}
+        product={product}
+        viewer={{ id: user.id, role: user.role, name: user.name, jobRole: user.jobRole, permissions: user.permissions }}
+        focusTaskId={task}
+        initialPhase={phase}
+        openReady={sp.ready === "1"}
+      />
     </>
   );
 }
