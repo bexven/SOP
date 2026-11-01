@@ -35,6 +35,29 @@ then asked to choose their own PIN.
 
 ---
 
+## What's in the app
+
+| Area | What it does |
+|---|---|
+| **My Queue** (home) | Only what's waiting on you: Overdue · Due today · Upcoming · In revision. Media Buyers also see *Waiting for my review*; Admins see *Unassigned*. |
+| **Pipeline** | Kanban by stage (read-only — stages change only through gated actions). |
+| **Products** | Searchable, sortable table with stage / priority / assignee / overdue / killed filters. |
+| **Product slide-over** | Opens on any list via `?product=<id>` (linkable). Tabs: Overview (research, margin, campaign) · Tasks (brief, batches, phases) · Discussion (@mentions) · Timeline (every event + time in each stage). |
+| **Research** | Draft → live margin check → SOP checklist → Submit (creates Creative Batch #1: 7 tasks, auto-assigned). |
+| **Creative** | Phase 1 unlocks Phase 2; submissions keep every version; approve / request revision (note required); creative brief. |
+| **Launch & live** | Campaign Launch task → Live; campaign status (Running/Scaling/Paused/Stopped); new creative batches while live; Mark completed. |
+| **Exceptions** | Kill (reason + note), Send back (note; pick tasks to reopen), Admin override (logged old → new), Admin due-date override. |
+| **Admin** | Overview (stage counts, overdue, workload, bottleneck, kill reasons), Team, Settings (rates, thresholds, SLAs, checklist templates, step guides). |
+
+**Keyboard:** `⌘K` / `Ctrl K` command palette · `C` new product · `G` then `Q` My Queue · `G` then `P` Pipeline · `Esc` closes sheets and dialogs.
+
+**Notifications** are in-app (bell, refreshed every 30 s and when the tab regains focus).
+
+After deploying, an Admin should add SOP checklist items and step guides for each creative task type
+(Settings → Checklists / Step guides) — only the research checklist is seeded.
+
+---
+
 ## Vercel + Neon setup (testing environment)
 
 ### 1. Neon database

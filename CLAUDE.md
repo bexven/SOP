@@ -13,10 +13,16 @@ Not an accounting or analytics product. English UI, Asia/Dhaka time, BDT with la
 - **No fake data in production code paths.** Demo/initial data lives only in `prisma/seed.ts`.
 - Small, meaningful commits. No model names in commits, PRs or code.
 
+## Status
+All six phases are built (foundation, research & SOP engine, creative & review, launch & live,
+collaboration & views, overview & polish). The owner asked to build straight through and test at the end.
+Browser acceptance scripts were run per phase against a local Postgres; Lighthouse accessibility = 100 on
+every page.
+
 ## Stack (pinned)
 Next.js 16 App Router + TypeScript strict · Tailwind CSS v4 · shadcn-style components on `radix-ui`
 (hand-written in `src/components/ui`, the shadcn registry is not reachable from cloud sessions) ·
-lucide-react · motion · sonner · cmdk · TanStack Table · @dnd-kit (checklist reordering only) ·
+lucide-react · motion · sonner · cmdk · TanStack Table **v8** (v9 is a different API) · @dnd-kit (checklist reordering only) ·
 Prisma 7 + PostgreSQL via `@prisma/adapter-pg` · zod v4 · Vitest · Geist fonts via the `geist` package.
 
 ## Portability (non-negotiable)
@@ -76,6 +82,16 @@ src/generated/     Prisma client (generated, git-ignored)
   darker same-hue text (`Pill` component), never solid saturated blocks.
 - Motion 150–250 ms ease-out; respect `prefers-reduced-motion`. Skeletons, not spinners, for page content.
 - Every empty state says what will appear and what to do next. WCAG AA contrast, visible focus.
+
+## Gotchas learned the hard way
+- Horizontal scroll containers must be `relative`: `sr-only` text inside them is `position:absolute`
+  and otherwise escapes the scroller and widens the whole page on mobile.
+- Grid/flex children that hold wide content need `min-w-0` / `grid-cols-[minmax(0,1fr)]`.
+- Never dim content with `opacity` (fails AA contrast); use a muted background instead.
+- `--color-slate-500` is overridden (darker) in `globals.css` so tertiary text passes AA on glass.
+- Events written in one transaction share a timestamp: order timelines by `createdAt` then `id`.
+- `npm run typecheck` runs `next typegen` first (route types for `PageProps<"/route">`).
+- A `"use server"` file may only export async functions.
 
 ## Agreed decisions (from the brief review)
 - Q1 Each product has an owning Media Buyer (`Product.mediaBuyerId`), auto-assigned at research submit;
