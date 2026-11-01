@@ -1,34 +1,152 @@
 "use client";
 
-import { ListTodoIcon } from "lucide-react";
+import { useState } from "react";
+import { ChevronDownIcon, ListTodoIcon } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
-import { DuePill, TaskStatusPill } from "@/components/common/pills";
-import { UserAvatar } from "@/components/common/user-avatar";
-import { TASK_TYPE_LABELS } from "@/lib/domain/labels";
-import type { ProductDetail } from "@/lib/server/queries/product";
+import { DuePill } from "@/components/common/pills";
+import { can } from "@/lib/domain/permissions";
+import { isTerminalStage } from "@/lib/domain/workflow";
+import { formatDate } from "@/lib/format";
+import type { ProductDetail, TaskDTO } from "@/lib/server/queries/product";
+import { cn } from "@/lib/utils";
+import { TaskCard } from "@/components/task/task-card";
+import { BriefCard } from "./brief-card";
 import type { Viewer } from "./product-view";
 
-export function TasksTab({ product }: { product: ProductDetail; viewer: Viewer }) {
-  const tasks = product.tasks.filter((t) => t.type !== "RESEARCH");
-  if (tasks.length === 0) {
+export function TasksTab({
+  product,
+  viewer,
+  launchPanel,
+}: {
+  product: ProductDetail;
+  viewer: Viewer;
+  /** Rendered inside the Campaign Launch task (Phase 4). */
+  launchPanel?: (task: TaskDTO) => React.ReactNode;
+}) {
+  const creative = product.tasks.filter((t) => t.batchId);
+  const launch = product.tasks.filter((t) => t.type === "CAMPAIGN_LAUNCH");
+  const research = product.tasks.filter((t) => t.type === "RESEARCH");
+  const batches = [...product.batches].sort((a, b) => b.number - a.number);
+  const showBrief = product.stage !== "RESEARCH" || Boolean(product.creativeBrief);
+  const canEditBrief = can(viewer.role, "brief.edit") && !isTerminalStage(product.stage);
+
+  if (creative.length === 0 && launch.length === 0) {
     return (
-      <EmptyState
-        icon={ListTodoIcon}
-        title="No creative tasks yet"
-        description="Creative tasks are created automatically when research is submitted."
-      />
+      <div className="grid gap-4">
+        {showBrief ? (
+          <BriefCard productId={product.id} brief={product.creativeBrief} updatedAt={product.creativeBriefUpdatedAt} canEdit={canEditBrief} />
+        ) : null}
+        <EmptyState
+          icon={ListTodoIcon}
+          title="No creative tasks yet"
+          description="Seven creative and store tasks are created and assigned automatically when research is submitted."
+        />
+      </div>
     );
   }
+
   return (
-    <ul className="surface divide-y divide-slate-100 rounded-panel">
-      {tasks.map((t) => (
-        <li key={t.id} className="flex items-center gap-3 px-4 py-3">
-          <span className="min-w-0 flex-1 truncate text-body text-slate-900">{TASK_TYPE_LABELS[t.type]}</span>
-          <DuePill dueAt={t.dueAt} />
-          <TaskStatusPill status={t.status} />
-          {t.assignee ? <UserAvatar name={t.assignee.name} color={t.assignee.avatarColor} size="sm" /> : null}
-        </li>
-      ))}
-    </ul>
+    <div className="grid gap-6">
+      {showBrief ? (
+        <BriefCard productId={product.id} brief={product.creativeBrief} updatedAt={product.creativeBriefUpdatedAt} canEdit={canEditBrief} />
+      ) : null}
+
+      {launch.length ? (
+        <Group title="Campaign launch">
+          {launch.map((t) => (
+            <TaskCard key={t.id} task={t} product={product} viewer={viewer} extra={launchPanel?.(t)} />
+          ))}
+        </Group>
+      ) : null}
+
+      {batches.map((b, i) => {
+        const tasks = creative.filter((t) => t.batchId === b.id);
+        return <BatchSection key={b.id} batch={b} tasks={tasks} product={product} viewer={viewer} defaultOpen={i === 0} />;
+      })}
+
+      {research.length ? (
+        <Group title="Research">
+          {research.map((t) => (
+            <TaskCard key={t.id} task={t} product={product} viewer={viewer} />
+          ))}
+        </Group>
+      ) : null}
+    </div>
+  );
+}
+
+function BatchSection({
+  batch,
+  tasks,
+  product,
+  viewer,
+  defaultOpen,
+}: {
+  batch: ProductDetail["batches"][number];
+  tasks: TaskDTO[];
+  product: ProductDetail;
+  viewer: Viewer;
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const live = tasks.filter((t) => t.status !== "CANCELLED");
+  const approved = live.filter((t) => t.status === "APPROVED").length;
+  const phased = tasks.some((t) => t.phase === 2);
+  const phase1 = tasks.filter((t) => t.phase === 1);
+  const phase2 = tasks.filter((t) => t.phase === 2);
+
+  return (
+    <section aria-labelledby={`batch-${batch.id}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="mb-2 flex w-full items-center gap-2 text-left"
+      >
+        <h2 id={`batch-${batch.id}`} className="text-section text-slate-900">
+          Creative batch #{batch.number}
+        </h2>
+        <span className="num text-meta text-slate-500">
+          {approved}/{live.length} approved
+        </span>
+        {batch.dueAt ? <DuePill dueAt={batch.dueAt} /> : null}
+        <span className="ml-auto flex items-center gap-2 text-meta font-normal text-slate-500">
+          <span className="hidden sm:inline">
+            {batch.requestedBy ? `${batch.requestedBy} · ` : ""}
+            <span className="num">{formatDate(new Date(batch.createdAt))}</span>
+          </span>
+          <ChevronDownIcon className={cn("size-4 transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {batch.reason ? <p className="-mt-1 mb-2 text-meta font-normal text-slate-600">“{batch.reason}”</p> : null}
+      {open ? (
+        phased ? (
+          <div className="grid gap-4">
+            <SubGroup label="Phase 1">{phase1.map((t) => <TaskCard key={t.id} task={t} product={product} viewer={viewer} />)}</SubGroup>
+            <SubGroup label="Phase 2 & store">{phase2.map((t) => <TaskCard key={t.id} task={t} product={product} viewer={viewer} />)}</SubGroup>
+          </div>
+        ) : (
+          <div className="grid gap-2">{tasks.map((t) => <TaskCard key={t.id} task={t} product={product} viewer={viewer} />)}</div>
+        )
+      ) : null}
+    </section>
+  );
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="mb-2 text-section text-slate-900">{title}</h2>
+      <div className="grid gap-2">{children}</div>
+    </section>
+  );
+}
+
+function SubGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-meta text-slate-500">{label}</p>
+      <div className="grid gap-2">{children}</div>
+    </div>
   );
 }

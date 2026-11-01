@@ -56,7 +56,7 @@ export function DuePill({ dueAt, className }: { dueAt: string | Date | null; cla
   const tone: PillTone = bucket === "overdue" ? "rose" : bucket === "today" ? "amber" : "slate";
   return (
     <Pill tone={tone} className={className} suppressHydrationWarning>
-      <span className="num" suppressHydrationWarning>
+      <span className="num text-[11px]" suppressHydrationWarning>
         {dueLabel(due, now)}
       </span>
     </Pill>
@@ -80,12 +80,21 @@ const STATUS_ICON: Partial<Record<TaskStatus, React.ComponentType<{ className?: 
   CANCELLED: XIcon,
 };
 
-export function TaskStatusPill({ status, className }: { status: TaskStatus; className?: string }) {
+export function TaskStatusPill({
+  status,
+  className,
+  label,
+}: {
+  status: TaskStatus;
+  className?: string;
+  /** Override the label (e.g. "Done" for tasks without a reviewer). */
+  label?: string;
+}) {
   const Icon = STATUS_ICON[status];
   return (
     <Pill tone={STATUS_TONE[status]} className={className}>
       {Icon ? <Icon /> : <span className="size-1.5 rounded-full border border-slate-400" aria-hidden />}
-      {TASK_STATUS_LABELS[status]}
+      {label ?? TASK_STATUS_LABELS[status]}
     </Pill>
   );
 }
@@ -117,7 +126,7 @@ export function MarginBadge({
   if (!pct || !band) return null;
   return (
     <Pill tone={BAND_TONE[band]} className={className} title={`${BAND_LABEL[band]} margin`}>
-      <span className="num">{pct}%</span>
+      <span className="num text-[11px]">{pct}%</span>
       <span className="sr-only"> margin, {BAND_LABEL[band]}</span>
     </Pill>
   );
