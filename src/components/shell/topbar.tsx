@@ -7,6 +7,7 @@ import { ChevronRightIcon, MenuIcon, XIcon } from "lucide-react";
 import type { Role } from "@/generated/prisma/enums";
 import { Logo } from "@/components/common/logo";
 import type { NavItem } from "@/lib/domain/nav";
+import { NewProductButton } from "@/components/product/new-product-dialog";
 import { NavLinks } from "./nav-links";
 import { UserMenu } from "./user-menu";
 
@@ -16,11 +17,24 @@ function useBreadcrumbs(items: NavItem[]) {
   const root = items.find((i) => i.href === `/${segments[0] ?? ""}`);
   const crumbs: string[] = [];
   if (root) crumbs.push(root.label);
-  for (const seg of segments.slice(1)) crumbs.push(seg.charAt(0).toUpperCase() + seg.slice(1));
+  for (const seg of segments.slice(1)) {
+    if (/^c[a-z0-9]{20,}$/.test(seg)) continue; // record ids: the page itself shows the name
+    crumbs.push(seg.charAt(0).toUpperCase() + seg.slice(1));
+  }
   return crumbs;
 }
 
-export function Topbar({ items, user }: { items: NavItem[]; user: { name: string; role: Role; avatarColor: string } }) {
+export function Topbar({
+  items,
+  user,
+  canCreate,
+  right,
+}: {
+  items: NavItem[];
+  user: { name: string; role: Role; avatarColor: string };
+  canCreate: boolean;
+  right?: React.ReactNode;
+}) {
   const crumbs = useBreadcrumbs(items);
   const [open, setOpen] = useState(false);
 
@@ -68,6 +82,14 @@ export function Topbar({ items, user }: { items: NavItem[]; user: { name: string
           ))}
         </ol>
       </nav>
+      <div className="flex items-center gap-1.5">
+        {right}
+        {canCreate ? (
+          <span className="hidden sm:inline-flex">
+            <NewProductButton size="sm" />
+          </span>
+        ) : null}
+      </div>
     </header>
   );
 }

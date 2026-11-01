@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
 import { navItemsFor } from "@/lib/domain/nav";
+import { can } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -12,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-dvh lg:pl-[16.5rem]">
       <Sidebar items={items} user={shellUser} />
       <div className="flex min-h-dvh flex-col pb-6">
-        <Topbar items={items} user={shellUser} />
+        <Topbar items={items} user={shellUser} canCreate={can(user.role, "product.create")} />
         <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 sm:px-6 lg:pt-8">
           {children}
         </main>

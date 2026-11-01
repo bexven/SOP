@@ -148,7 +148,8 @@ function MemberRow({ member, isSelf }: { member: TeamRow; isSelf: boolean }) {
           <DialogHeader>
             <DialogTitle>Deactivate {member.name}?</DialogTitle>
             <DialogDescription>
-              They&apos;ll be signed out everywhere and removed from the login screen and auto-assignment. Their
+              They&apos;ll be signed out everywhere and removed from the login screen. Their open tasks are
+              reassigned automatically to others in the same role (or flagged to Admins if nobody is free). Their
               history stays intact, and you can reactivate them later.
             </DialogDescription>
           </DialogHeader>
