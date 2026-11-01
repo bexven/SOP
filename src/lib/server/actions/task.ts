@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { isChecklistComplete, missingRequiredCount } from "@/lib/domain/checklist";
 import { isOpenStatus } from "@/lib/domain/assignment";
-import { isReviewedType, TASK_TYPE_LABELS, TASK_TYPE_SHORT } from "@/lib/domain/labels";
+import { FOLLOW_UP_LABELS, isReviewedType, submissionError, TASK_TYPE_LABELS, TASK_TYPE_SHORT } from "@/lib/domain/labels";
+import { can } from "@/lib/domain/permissions";
 import {
   canWorkOnTask,
   isTerminalStage,
@@ -12,7 +13,15 @@ import {
   planSubmitTask,
   reassignError,
 } from "@/lib/domain/workflow";
-import { approveTaskSchema, briefSchema, reassignSchema, revisionSchema, submitTaskSchema } from "@/lib/validation/task";
+import {
+  approveTaskSchema,
+  briefSchema,
+  itemCommentSchema,
+  reactSchema,
+  reassignSchema,
+  revisionSchema,
+  submitTaskSchema,
+} from "@/lib/validation/task";
 import { ActionError, defineAction } from "../action";
 import { db, type Tx } from "../db";
 import { applyPlan } from "../services/apply-plan";
@@ -40,12 +49,22 @@ async function reviewers(tx: Tx, mediaBuyerId: string | null): Promise<string[]>
 
 export const submitTaskAction = defineAction({
   schema: submitTaskSchema,
-  run: async ({ taskId, url, note }, { user }) => {
+  run: async ({ taskId, images, links, note }, { user }) => {
     const now = new Date();
     const label = await db.$transaction(async (tx) => {
       const { product, snap } = await taskWithProduct(tx, taskId);
       const task = snap.tasks.find((t) => t.id === taskId)!;
       if (!canWorkOnTask(user, task)) throw new ActionError("Only the assignee or an Admin can submit this task.");
+      const imageIds = [...new Set(images)];
+      const missing = submissionError(task.type, { images: imageIds.length, links: links.length });
+      if (missing) throw new ActionError(missing);
+      if (imageIds.length) {
+        const owned = await tx.asset.findMany({
+          where: { id: { in: imageIds }, ...(user.role === "ADMIN" ? {} : { uploadedById: user.id }) },
+          select: { id: true },
+        });
+        if (owned.length !== imageIds.length) throw new ActionError("One of the images is missing. Upload it again.");
+      }
       const checklist = await tx.checklistItem.findMany({ where: { taskId } });
       if (!isChecklistComplete(checklist)) {
         const n = missingRequiredCount(checklist);
@@ -55,7 +74,19 @@ export const submitTaskAction = defineAction({
       if (!planned.ok) throw new ActionError(planned.error);
       const last = await tx.taskSubmission.aggregate({ where: { taskId }, _max: { version: true } });
       await tx.taskSubmission.create({
-        data: { taskId, version: (last._max.version ?? 0) + 1, url, note, submittedById: user.id, createdAt: now },
+        data: {
+          taskId,
+          version: (last._max.version ?? 0) + 1,
+          note,
+          submittedById: user.id,
+          createdAt: now,
+          items: {
+            create: [
+              ...imageIds.map((assetId, i) => ({ order: i, kind: "IMAGE" as const, assetId })),
+              ...links.map((l, i) => ({ order: imageIds.length + i, kind: "LINK" as const, url: l.url, label: l.label })),
+            ],
+          },
+        },
       });
       await applyPlan(tx, planned.plan, { actorId: user.id, product, now });
       const label = TASK_TYPE_LABELS[task.type];
@@ -80,13 +111,13 @@ export const submitTaskAction = defineAction({
 export const approveTaskAction = defineAction({
   capability: "task.review",
   schema: approveTaskSchema,
-  run: async ({ taskId, note }, { user }) => {
+  run: async ({ taskId, note, followUp }, { user }) => {
     const now = new Date();
     const out = await db.$transaction(async (tx) => {
       const { product, snap } = await taskWithProduct(tx, taskId);
       const task = snap.tasks.find((t) => t.id === taskId)!;
       if (!isReviewedType(task.type)) throw new ActionError("This task isn't reviewed.");
-      const planned = planApprove(snap, taskId);
+      const planned = planApprove(snap, taskId, { followUp });
       if (!planned.ok) throw new ActionError(planned.error);
       const latest = await tx.taskSubmission.findFirst({ where: { taskId }, orderBy: { version: "desc" } });
       if (latest) {
@@ -96,11 +127,17 @@ export const approveTaskAction = defineAction({
         });
       }
       const applied = await applyPlan(tx, planned.plan, { actorId: user.id, product, now });
+      if (followUp) {
+        await logEvents(tx, [
+          { type: "FOLLOW_UP_REQUESTED", actorId: user.id, productId: product.id, taskId, data: { kind: followUp.kind, note: followUp.note } },
+        ]);
+      }
       return { type: task.type, applied, stage: planned.plan.stage };
     });
     revalidate();
 
     const parts = [`${TASK_TYPE_SHORT[out.type]} approved`];
+    if (followUp) parts.push(`${FOLLOW_UP_LABELS[followUp.kind]} requested`);
     if (out.applied.unlocked.length) {
       const who = [...new Set(out.applied.unlocked.map((u) => u.assigneeName).filter(Boolean))];
       parts.push(`Phase 2 unlocked${who.length ? ` for ${who.join(" & ")}` : ""}`);
@@ -224,5 +261,78 @@ export const updateBriefAction = defineAction({
     });
     revalidate();
     return { ok: true, message: "Brief saved · designers notified" };
+  },
+});
+
+async function itemContext(tx: Tx, itemId: string) {
+  const item = await tx.submissionItem.findUnique({
+    where: { id: itemId },
+    include: {
+      submission: {
+        include: {
+          task: { select: { id: true, type: true, assigneeId: true, product: { select: { id: true, name: true, mediaBuyerId: true } } } },
+          items: { select: { id: true, kind: true }, orderBy: { order: "asc" } },
+        },
+      },
+    },
+  });
+  if (!item) throw new ActionError("That image no longer exists.");
+  const position = item.submission.items.filter((i) => i.kind === item.kind).findIndex((i) => i.id === item.id) + 1;
+  const what = `${item.kind === "IMAGE" ? "image" : "link"} ${position} of ${TASK_TYPE_SHORT[item.submission.task.type]}`;
+  return { item, task: item.submission.task, what };
+}
+
+/** Media Buyer / Admin: like or dislike one image (or link) in a submission. */
+export const reactToItemAction = defineAction({
+  capability: "task.review",
+  schema: reactSchema,
+  run: async ({ itemId, reaction }, { user }) => {
+    await db.$transaction(async (tx) => {
+      const { task, what } = await itemContext(tx, itemId);
+      await tx.submissionItem.update({
+        where: { id: itemId },
+        data: { reaction, reactedById: reaction ? user.id : null, reactedAt: reaction ? new Date() : null },
+      });
+      if (!reaction) return;
+      await logEvents(tx, [{ type: "ASSET_REACTED", actorId: user.id, productId: task.product.id, taskId: task.id, data: { reaction, what } }]);
+      await notify(tx, user.id, [
+        {
+          userId: task.assigneeId,
+          type: "FEEDBACK",
+          productId: task.product.id,
+          taskId: task.id,
+          message: `${user.name} ${reaction === "LIKED" ? "liked" : "didn't like"} ${what} on ${task.product.name}`,
+        },
+      ]);
+    });
+    revalidate();
+    return { ok: true, message: reaction === "LIKED" ? "Liked" : reaction === "DISLIKED" ? "Marked as not liked" : "Reaction removed" };
+  },
+});
+
+/** Anyone can comment on a single image or link; the other side is notified. */
+export const commentOnItemAction = defineAction({
+  schema: itemCommentSchema,
+  run: async ({ itemId, body }, { user }) => {
+    await db.$transaction(async (tx) => {
+      const { task, what } = await itemContext(tx, itemId);
+      await tx.assetComment.create({ data: { itemId, authorId: user.id, body } });
+      await logEvents(tx, [{ type: "ASSET_COMMENTED", actorId: user.id, productId: task.product.id, taskId: task.id, data: { what, body } }]);
+      const preview = body.length > 80 ? `${body.slice(0, 80)}…` : body;
+      const recipients = can(user.role, "task.review") && user.id !== task.assigneeId ? [task.assigneeId] : await reviewers(tx, task.product.mediaBuyerId);
+      await notify(
+        tx,
+        user.id,
+        recipients.map((id) => ({
+          userId: id,
+          type: "FEEDBACK" as const,
+          productId: task.product.id,
+          taskId: task.id,
+          message: `${user.name} commented on ${what} (${task.product.name}): “${preview}”`,
+        })),
+      );
+    });
+    revalidate();
+    return { ok: true, message: "Comment added" };
   },
 });

@@ -14,7 +14,7 @@ export async function listProducts() {
       include: {
         campaign: { select: { status: true } },
         batches: { select: { id: true, number: true } },
-        createdBy: { select: { id: true, name: true, avatarColor: true } },
+        createdBy: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } },
         tasks: {
           select: {
             id: true,
@@ -23,7 +23,7 @@ export async function listProducts() {
             status: true,
             batchId: true,
             dueAt: true,
-            assignee: { select: { id: true, name: true, avatarColor: true } },
+            assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } },
           },
         },
       },

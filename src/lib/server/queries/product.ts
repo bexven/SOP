@@ -6,8 +6,8 @@ import { latestBatch } from "@/lib/domain/workflow";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
 
-const person = { select: { id: true, name: true, avatarColor: true } } as const;
-export type PersonDTO = { id: string; name: string; avatarColor: string };
+const person = { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } } as const;
+export type PersonDTO = { id: string; name: string; avatarColor: string; avatarAssetId: string | null };
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 const str = (d: { toString(): string } | null | undefined) => (d === null || d === undefined ? null : d.toString());
@@ -52,7 +52,14 @@ export async function getProductDetail(id: string) {
             checklist: { orderBy: { order: "asc" } },
             submissions: {
               orderBy: { version: "desc" },
-              include: { submittedBy: person, decidedBy: person },
+              include: {
+                submittedBy: person,
+                decidedBy: person,
+                items: {
+                  orderBy: { order: "asc" },
+                  include: { comments: { orderBy: { createdAt: "asc" }, include: { author: person } } },
+                },
+              },
             },
           },
         },
@@ -62,7 +69,7 @@ export async function getProductDetail(id: string) {
   ]);
   if (!p) return null;
 
-  const people = await db.user.findMany({ select: { id: true, name: true, avatarColor: true, role: true, active: true } });
+  const people = await db.user.findMany({ select: { id: true, name: true, avatarColor: true, avatarAssetId: true, role: true, active: true } });
   const nameOf = (uid: string | null | undefined) => (uid ? (people.find((u) => u.id === uid)?.name ?? null) : null);
 
   const [comments, events] = await Promise.all([
@@ -164,6 +171,9 @@ export async function getProductDetail(id: string) {
       submittedAt: iso(t.submittedAt),
       approvedAt: iso(t.approvedAt),
       approvedBy: nameOf(t.approvedById),
+      followUpOfId: t.followUpOfId,
+      requestKind: t.requestKind,
+      requestNote: t.requestNote,
       createdAt: t.createdAt.toISOString(),
       checklist: t.checklist.map((c) => ({
         id: c.id,
@@ -184,6 +194,16 @@ export async function getProductDetail(id: string) {
         decisionNote: s.decisionNote,
         decidedBy: s.decidedBy,
         decidedAt: iso(s.decidedAt),
+        items: s.items.map((it) => ({
+          id: it.id,
+          kind: it.kind,
+          assetId: it.assetId,
+          url: it.url,
+          label: it.label,
+          reaction: it.reaction,
+          reactedBy: nameOf(it.reactedById),
+          comments: it.comments.map((c) => ({ id: c.id, body: c.body, author: c.author, createdAt: c.createdAt.toISOString() })),
+        })),
       })),
     })),
     guides: Object.fromEntries(
@@ -212,7 +232,7 @@ export async function getProductDetail(id: string) {
     marginBand: band,
     thresholds,
     stepper,
-    people: people.filter((u) => u.active).map(({ id, name, avatarColor, role }) => ({ id, name, avatarColor, role })),
+    people: people.filter((u) => u.active).map(({ id, name, avatarColor, avatarAssetId, role }) => ({ id, name, avatarColor, avatarAssetId, role })),
   };
 }
 

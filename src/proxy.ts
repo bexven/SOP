@@ -6,7 +6,8 @@ import { SESSION_COOKIE, verifySession } from "@/lib/server/auth/session-token";
  * present. The authoritative check (user active, sessionVersion, role) runs on
  * the server in every page loader and server action.
  */
-const PUBLIC_PATHS = ["/login"];
+// /api/assets checks access itself (profile photos are public for the login screen).
+const PUBLIC_PATHS = ["/login", "/api/assets"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

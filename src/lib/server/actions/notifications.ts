@@ -12,7 +12,7 @@ export type NotificationDTO = {
   productId: string | null;
   read: boolean;
   createdAt: string;
-  actor: { name: string; avatarColor: string } | null;
+  actor: { name: string; avatarColor: string; avatarAssetId: string | null } | null;
 };
 
 /** Polled by the bell (~30 s) — returns the latest notifications and the unread count. */
@@ -25,7 +25,7 @@ export const fetchNotificationsAction = defineAction({
     ]);
     const actorIds = [...new Set(items.map((i) => i.actorId).filter((x): x is string => Boolean(x)))];
     const actors = new Map(
-      (await db.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true, avatarColor: true } })).map((a) => [a.id, a]),
+      (await db.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true, avatarColor: true, avatarAssetId: true } })).map((a) => [a.id, a]),
     );
     const data: { items: NotificationDTO[]; unread: number } = {
       unread,

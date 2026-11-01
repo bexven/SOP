@@ -5,7 +5,7 @@ import { db } from "../db";
 export async function getLoginRoster() {
   return db.user.findMany({
     where: { active: true },
-    select: { id: true, name: true, role: true, avatarColor: true },
+    select: { id: true, name: true, role: true, avatarColor: true, avatarAssetId: true },
     orderBy: [{ name: "asc" }],
   });
 }
@@ -16,7 +16,7 @@ export async function getTeam() {
       id: true,
       name: true,
       role: true,
-      avatarColor: true,
+      avatarColor: true, avatarAssetId: true,
       active: true,
       mustChangePin: true,
       lockedUntil: true,

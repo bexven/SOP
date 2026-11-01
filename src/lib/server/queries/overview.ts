@@ -15,11 +15,11 @@ export async function getOverview() {
       orderBy: { dueAt: "asc" },
       take: 12,
       include: {
-        assignee: { select: { id: true, name: true, avatarColor: true } },
+        assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } },
         product: { select: { id: true, name: true, number: true } },
       },
     }),
-    db.user.findMany({ where: { active: true }, select: { id: true, name: true, avatarColor: true, role: true }, orderBy: { name: "asc" } }),
+    db.user.findMany({ where: { active: true }, select: { id: true, name: true, avatarColor: true, avatarAssetId: true, role: true }, orderBy: { name: "asc" } }),
     db.task.groupBy({ by: ["assigneeId", "status"], where: { status: { in: [...OPEN_STATUSES] } }, _count: { _all: true } }),
     db.stageTransition.findMany({ select: { productId: true, toStage: true, at: true }, orderBy: { at: "asc" } }),
     db.product.findMany({

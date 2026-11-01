@@ -168,7 +168,10 @@ export async function applyPlan(tx: Tx, plan: Plan, ctx: ApplyContext): Promise<
       const task = await tx.task.create({
         data: {
           productId: product.id,
-          batchId: nt.inNewBatch ? batchId : null,
+          batchId: nt.inNewBatch ? batchId : (nt.batchId ?? null),
+          followUpOfId: nt.followUp?.ofTaskId ?? null,
+          requestKind: nt.followUp?.kind ?? null,
+          requestNote: nt.followUp?.note ?? null,
           type: nt.type,
           role: nt.role,
           phase: nt.phase,
@@ -207,7 +210,9 @@ export async function applyPlan(tx: Tx, plan: Plan, ctx: ApplyContext): Promise<
           type: "TASK_ASSIGNED",
           productId: product.id,
           taskId: task.id,
-          message: `New task: ${TASK_TYPE_LABELS[nt.type]} for ${product.name}`,
+          message: nt.followUp
+            ? `Follow-up on ${TASK_TYPE_LABELS[nt.type]} for ${product.name}${nt.followUp.note ? `: ${nt.followUp.note}` : ""}`
+            : `New task: ${TASK_TYPE_LABELS[nt.type]} for ${product.name}`,
         });
       }
     }

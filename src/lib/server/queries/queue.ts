@@ -10,7 +10,7 @@ const REVIEWED = ["WEBSITE_IMAGE", "AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_
 
 const include = {
   product: { select: { id: true, number: true, name: true, imageUrl: true, stage: true, priority: true, mediaBuyerId: true } },
-  assignee: { select: { id: true, name: true, avatarColor: true } },
+  assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } },
 } as const;
 
 type Row = Awaited<ReturnType<typeof loadRows>>[number];
@@ -42,13 +42,13 @@ export async function getQueue(user: { id: string; role: Role }) {
   const groups = groupQueue(mine, now);
 
   let review: QueueItem[] = [];
-  if (user.role === "MEDIA_BUYER") {
-    // Products they own, plus products without an owner.
+  if (user.role === "MEDIA_BUYER" || user.role === "ADMIN") {
+    // Media buyers: products they own, plus products without an owner. Admin: everything.
     review = (
       await loadRows({
         status: "SUBMITTED",
         type: { in: [...REVIEWED] },
-        product: { OR: [{ mediaBuyerId: user.id }, { mediaBuyerId: null }] },
+        ...(user.role === "ADMIN" ? {} : { product: { OR: [{ mediaBuyerId: user.id }, { mediaBuyerId: null }] } }),
       })
     )
       .map(toItem)

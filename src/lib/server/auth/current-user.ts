@@ -11,6 +11,7 @@ export type CurrentUser = {
   name: string;
   role: Role;
   avatarColor: string;
+  avatarAssetId: string | null;
   mustChangePin: boolean;
 };
 
@@ -24,7 +25,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!session) return null;
   const user = await db.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, name: true, role: true, avatarColor: true, mustChangePin: true, active: true, sessionVersion: true },
+    select: { id: true, name: true, role: true, avatarColor: true, avatarAssetId: true, mustChangePin: true, active: true, sessionVersion: true },
   });
   if (!user || !user.active || user.sessionVersion !== session.version) return null;
   return {
@@ -32,6 +33,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     name: user.name,
     role: user.role,
     avatarColor: user.avatarColor,
+    avatarAssetId: user.avatarAssetId,
     mustChangePin: user.mustChangePin,
   };
 });
@@ -47,6 +49,6 @@ export async function requireUser(): Promise<CurrentUser> {
 /** For pages: require a capability, otherwise send the user home. */
 export async function requireCapability(capability: Capability): Promise<CurrentUser> {
   const user = await requireUser();
-  if (!can(user.role, capability)) redirect("/queue");
+  if (!can(user.role, capability)) redirect("/dashboard");
   return user;
 }
