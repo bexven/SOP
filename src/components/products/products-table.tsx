@@ -64,7 +64,7 @@ export function ProductsTable({
         header: "Product",
         accessorFn: (r) => r.name.toLowerCase(),
         cell: ({ row: { original: r } }) => (
-          <Link href={`?product=${r.id}`} scroll={false} className="flex min-w-0 items-center gap-3 outline-none after:absolute after:inset-0 focus-visible:after:rounded-md focus-visible:after:ring-2 focus-visible:after:ring-indigo-500/40">
+          <Link href={`/products/${r.id}`} className="flex min-w-0 items-center gap-3 outline-none after:absolute after:inset-0 focus-visible:after:rounded-md focus-visible:after:ring-2 focus-visible:after:ring-indigo-500/40">
             <Thumbnail src={r.imageUrl} alt="" className="size-9" />
             <span className="min-w-0">
               <span className="block max-w-[18rem] truncate font-medium text-slate-900">{r.name}</span>
@@ -100,7 +100,7 @@ export function ProductsTable({
           r.assignees.length ? (
             <span className="flex -space-x-1.5">
               {r.assignees.slice(0, 4).map((a) => (
-                <UserAvatar key={a.id} name={a.name} color={a.avatarColor} size="xs" className="ring-2 ring-white" />
+                <UserAvatar key={a.id} name={a.name} color={a.avatarColor} imageId={a.avatarAssetId} size="xs" className="ring-2 ring-white" />
               ))}
             </span>
           ) : (

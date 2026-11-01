@@ -164,7 +164,7 @@ export function Timeline({ product }: { product: ProductDetail }) {
             <div className="min-w-0 flex-1 pt-0.5">
               <p className="text-body text-slate-700">
                 <span className="inline-flex items-center gap-1.5 align-middle">
-                  <UserAvatar name={l.actor.name} color={l.actor.avatarColor} size="xs" />
+                  <UserAvatar name={l.actor.name} color={l.actor.avatarColor} imageId={l.actor.avatarAssetId} size="xs" />
                   <span className="font-medium text-slate-900">{l.actor.name}</span>
                 </span>{" "}
                 {l.text}

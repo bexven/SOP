@@ -10,7 +10,7 @@ import { UserAvatar } from "@/components/common/user-avatar";
 import { loginAction } from "@/lib/server/actions/auth";
 import { PinPad } from "./pin-pad";
 
-type Person = { id: string; name: string; role: Role; avatarColor: string };
+type Person = { id: string; name: string; role: Role; avatarColor: string; avatarAssetId?: string | null };
 
 export function LoginFlow({ roster }: { roster: Person[] }) {
   const router = useRouter();
@@ -41,7 +41,7 @@ export function LoginFlow({ roster }: { roster: Person[] }) {
         setErrorKey((k) => k + 1);
         return;
       }
-      router.replace(result.data?.mustChangePin ? "/change-pin" : "/queue");
+      router.replace(result.data?.mustChangePin ? "/change-pin" : "/dashboard");
       router.refresh();
     });
   }
@@ -81,7 +81,7 @@ export function LoginFlow({ roster }: { roster: Person[] }) {
                       }}
                       className="group flex w-full flex-col items-center gap-2 rounded-panel border border-transparent bg-white/60 px-2 py-4 text-center transition-all duration-150 ease-out hover:-translate-y-px hover:border-white hover:bg-white hover:shadow-[var(--raised-shadow)]"
                     >
-                      <UserAvatar name={p.name} color={p.avatarColor} size="lg" />
+                      <UserAvatar name={p.name} color={p.avatarColor} imageId={p.avatarAssetId} size="lg" />
                       <span className="w-full truncate text-body font-medium text-slate-900">{p.name}</span>
                       <RolePill role={p.role} />
                     </button>
@@ -104,7 +104,7 @@ export function LoginFlow({ roster }: { roster: Person[] }) {
                 <ArrowLeftIcon className="size-3.5" /> Not you?
               </button>
             </div>
-            <UserAvatar name={selected.name} color={selected.avatarColor} size="xl" className="mt-2" />
+            <UserAvatar name={selected.name} color={selected.avatarColor} imageId={selected.avatarAssetId} size="xl" className="mt-2" />
             <h1 className="mt-3 text-section text-slate-900">Hi, {selected.name}</h1>
             <p className="text-meta text-slate-600">Enter your PIN</p>
             <PinPad

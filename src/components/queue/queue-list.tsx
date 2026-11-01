@@ -29,7 +29,7 @@ export function QueueGroup({ group, items, showAssignee }: { group: QueueGroupKe
       <ul className="surface divide-y divide-slate-100 overflow-hidden rounded-panel">
         {items.map((t) => (
           <li key={t.id}>
-            <Link href={`?product=${t.product.id}`} scroll={false} className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-slate-50/80 sm:px-4">
+            <Link href={`/products/${t.product.id}?task=${t.id}`} className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-slate-50/80 sm:px-4">
               <Thumbnail src={t.product.imageUrl} alt="" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-body font-medium text-slate-900">{TASK_TYPE_LABELS[t.type]}</span>
@@ -50,7 +50,7 @@ export function QueueGroup({ group, items, showAssignee }: { group: QueueGroupKe
                 <DuePill dueAt={t.dueAt} />
                 <TaskStatusPill status={t.status} />
               </span>
-              {showAssignee && t.assignee ? <UserAvatar name={t.assignee.name} color={t.assignee.avatarColor} size="sm" /> : null}
+              {showAssignee && t.assignee ? <UserAvatar name={t.assignee.name} color={t.assignee.avatarColor} imageId={t.assignee.avatarAssetId} size="sm" /> : null}
             </Link>
           </li>
         ))}

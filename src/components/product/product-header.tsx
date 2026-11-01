@@ -28,7 +28,7 @@ export function ProductHeader({
             {product.campaign && product.campaign.status !== "NOT_LAUNCHED" ? <CampaignPill status={product.campaign.status} /> : null}
             {product.mediaBuyer ? (
               <span className="inline-flex items-center gap-1.5 pl-1 text-meta text-slate-600">
-                <UserAvatar name={product.mediaBuyer.name} color={product.mediaBuyer.avatarColor} size="xs" />
+                <UserAvatar name={product.mediaBuyer.name} color={product.mediaBuyer.avatarColor} imageId={product.mediaBuyer.avatarAssetId} size="xs" />
                 Media buyer: {product.mediaBuyer.name}
               </span>
             ) : null}

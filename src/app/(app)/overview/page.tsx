@@ -5,7 +5,6 @@ import { PageHeader } from "@/components/common/page-header";
 import { DuePill, STAGE_DOT, StagePill } from "@/components/common/pills";
 import { UserAvatar } from "@/components/common/user-avatar";
 import { BarList } from "@/components/overview/bar-list";
-import { ProductSheetSlot, sheetParam } from "@/components/product/product-sheet-slot";
 import { KILL_REASON_LABELS, ROLE_LABELS, STAGE_LABELS, STAGES, TASK_TYPE_LABELS } from "@/lib/domain/labels";
 import { formatDuration } from "@/lib/domain/stage-time";
 import { formatDate } from "@/lib/format";
@@ -14,9 +13,9 @@ import { getOverview } from "@/lib/server/queries/overview";
 
 export const metadata: Metadata = { title: "Overview" };
 
-export default async function OverviewPage({ searchParams }: PageProps<"/overview">) {
-  const user = await requireCapability("overview.view");
-  const [o, sp] = await Promise.all([getOverview(), searchParams]);
+export default async function OverviewPage() {
+  await requireCapability("overview.view");
+  const o = await getOverview();
   const measured = o.averages.filter((a) => a.avgMs !== null);
   const bottleneck = measured.reduce<(typeof measured)[number] | null>((m, a) => (!m || a.avgMs! > m.avgMs! ? a : m), null);
 
@@ -73,7 +72,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/overvie
               key: p.id,
               label: (
                 <span className="flex min-w-0 items-center gap-2">
-                  <UserAvatar name={p.name} color={p.avatarColor} size="xs" />
+                  <UserAvatar name={p.name} color={p.avatarColor} imageId={p.avatarAssetId} size="xs" />
                   <span className="truncate">{p.name}</span>
                 </span>
               ),
@@ -96,8 +95,8 @@ export default async function OverviewPage({ searchParams }: PageProps<"/overvie
             <ul className="-mx-2 divide-y divide-slate-100">
               {o.overdue.map((t) => (
                 <li key={t.id}>
-                  <Link href={`?product=${t.product.id}`} scroll={false} className="flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-slate-50">
-                    {t.assignee ? <UserAvatar name={t.assignee.name} color={t.assignee.avatarColor} size="sm" /> : <span className="size-7 rounded-full border border-dashed border-slate-300" />}
+                  <Link href={`/products/${t.product.id}?task=${t.id}`} className="flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-slate-50">
+                    {t.assignee ? <UserAvatar name={t.assignee.name} color={t.assignee.avatarColor} imageId={t.assignee.avatarAssetId} size="sm" /> : <span className="size-7 rounded-full border border-dashed border-slate-300" />}
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-body text-slate-900">{TASK_TYPE_LABELS[t.type]}</span>
                       <span className="block truncate text-meta font-normal text-slate-500">
@@ -133,7 +132,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/overvie
               <ul className="-mx-2 mt-4 divide-y divide-slate-100 border-t border-slate-100">
                 {o.killed.map((k) => (
                   <li key={k.id}>
-                    <Link href={`?product=${k.id}`} scroll={false} className="block rounded-md px-2 py-2.5 hover:bg-slate-50">
+                    <Link href={`/products/${k.id}`} className="block rounded-md px-2 py-2.5 hover:bg-slate-50">
                       <span className="flex items-center gap-2">
                         <span className="min-w-0 flex-1 truncate text-body text-slate-900">{k.name}</span>
                         {k.stageBeforeKill ? <StagePill stage={k.stageBeforeKill} /> : null}
@@ -150,7 +149,6 @@ export default async function OverviewPage({ searchParams }: PageProps<"/overvie
           )}
         </section>
       </div>
-      <ProductSheetSlot productId={sheetParam(sp)} user={user} />
     </>
   );
 }

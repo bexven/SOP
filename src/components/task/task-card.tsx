@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import type { TaskStatus } from "@/generated/prisma/enums";
 import { DuePill, TaskStatusPill } from "@/components/common/pills";
-import { isReviewedType, TASK_TYPE_LABELS, TASK_TYPE_SHORT } from "@/lib/domain/labels";
+import { FOLLOW_UP_LABELS, isReviewedType, TASK_TYPE_LABELS, TASK_TYPE_SHORT } from "@/lib/domain/labels";
+import { assetUrl } from "@/lib/image-upload";
 import { can } from "@/lib/domain/permissions";
 import { canWorkOnTask } from "@/lib/domain/workflow";
 import { formatDateTime } from "@/lib/format";
@@ -29,8 +30,9 @@ import { DueOverride } from "./due-override";
 import { ReassignMenu } from "./reassign-menu";
 import { ReviewActions } from "./review-actions";
 import { StepGuidePanel } from "./step-guide-panel";
-import { SubmissionHistory } from "./submission-history";
-import { SubmitForm } from "./submit-form";
+import { RoundGallery } from "./round-gallery";
+import { Decision, RoundHeader, SubmissionHistory } from "./submission-history";
+import { SubmitPanel } from "./submit-panel";
 
 const ICON: Record<TaskStatus, React.ComponentType<{ className?: string }>> = {
   LOCKED: LockIcon,
@@ -61,15 +63,18 @@ export function TaskCard({
   product,
   viewer,
   extra,
+  focus,
 }: {
   task: TaskDTO;
   product: ProductDetail;
   viewer: Viewer;
+  /** Opened from a link to this task: start expanded and scroll into view. */
+  focus?: boolean;
   /** Extra body content (e.g. the campaign launch panel). */
   extra?: React.ReactNode;
 }) {
   const reduce = useReducedMotion();
-  const [open, setOpen] = useState(() => needsViewer(task, viewer));
+  const [open, setOpen] = useState(() => Boolean(focus) || needsViewer(task, viewer));
 
   // Unlock moment: when this card's status flips LOCKED → TODO while on screen,
   // the padlock animates open and the card fades from muted to active.
@@ -91,10 +96,17 @@ export function TaskCard({
   const parent = task.dependsOnId ? product.tasks.find((t) => t.id === task.dependsOnId) : null;
   const missing = task.checklist.filter((c) => c.required && !c.checked).length;
   const Icon = justUnlocked ? LockOpenIcon : ICON[task.status];
+  const title = `${TASK_TYPE_LABELS[task.type]}${task.requestKind ? ` · ${FOLLOW_UP_LABELS[task.requestKind]}` : ""}`;
+  const latest = task.submissions[0];
+  const thumbs = latest?.items.filter((i) => i.kind === "IMAGE").slice(0, 3) ?? [];
   const bodyId = `task-body-${task.id}`;
 
   return (
     <motion.article
+      id={`task-${task.id}`}
+      ref={(el: HTMLElement | null) => {
+        if (el && focus) requestAnimationFrame(() => el.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" }));
+      }}
       layout={reduce ? false : "position"}
       initial={false}
       // Muted → active is a background change (not opacity) so text keeps AA contrast.
@@ -106,7 +118,7 @@ export function TaskCard({
         (locked || closed) && "shadow-none",
         justUnlocked && "ring-2 ring-emerald-300/70",
       )}
-      aria-label={`${TASK_TYPE_LABELS[task.type]} — ${task.status.toLowerCase()}`}
+      aria-label={`${title} — ${task.status.toLowerCase()}`}
     >
       <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
         <button
@@ -133,7 +145,7 @@ export function TaskCard({
           </AnimatePresence>
           <span className="min-w-0 flex-1">
             <span className={cn("block truncate text-body font-medium", locked || closed ? "text-slate-600" : "text-slate-900")}>
-              {TASK_TYPE_LABELS[task.type]}
+              {title}
             </span>
             <span className="block truncate text-meta font-normal text-slate-500">
               {locked && parent
@@ -147,6 +159,14 @@ export function TaskCard({
                       : "Unassigned"}
             </span>
           </span>
+          {thumbs.length && !open ? (
+            <span className="hidden -space-x-2 md:flex" aria-hidden>
+              {thumbs.map((t) => (
+                // eslint-disable-next-line @next/next/no-img-element -- protected asset
+                <img key={t.id} src={assetUrl(t.assetId!)} alt="" className="size-8 rounded-md object-cover ring-2 ring-white" />
+              ))}
+            </span>
+          ) : null}
           <span className="hidden items-center gap-1.5 sm:flex">
             {open_ && !locked ? <DuePill dueAt={task.dueAt} /> : null}
             <TaskStatusPill status={task.status} label={!reviewed && task.status === "APPROVED" ? "Done" : undefined} />
@@ -168,6 +188,11 @@ export function TaskCard({
         {open_ && !locked ? <DuePill dueAt={task.dueAt} /> : null}
       </div>
 
+      {task.requestKind && open_ ? (
+        <div className="mx-3 mb-3 rounded-control bg-indigo-50 px-3 py-2 text-body text-indigo-950 sm:mx-4" role="note">
+          <span className="font-semibold">Requested: {FOLLOW_UP_LABELS[task.requestKind]}.</span> {task.requestNote}
+        </div>
+      ) : null}
       {task.revisionNote && (task.status === "REVISION" || task.status === "LOCKED") ? (
         <div className="mx-3 mb-3 flex gap-2 rounded-control bg-rose-50 px-3 py-2 text-body text-rose-800 sm:mx-4" role="note">
           <RotateCcwIcon className="mt-0.5 size-4 shrink-0" />
@@ -207,18 +232,20 @@ export function TaskCard({
               )}
               <StepGuidePanel guide={product.guides[task.type]} />
               {extra}
-              {reviewed && canWork && workable ? (
-                <SubmitForm
-                  taskId={task.id}
-                  isStore={task.type === "STORE_LISTING"}
-                  checklistMissing={missing}
-                  resubmission={task.submissions.length > 0}
-                  defaultUrl={task.submissions[0]?.url}
-                />
+              {latest ? (
+                <section className="grid gap-2 rounded-control border border-slate-200/80 bg-white p-3" aria-label="Latest version">
+                  <RoundHeader s={latest} />
+                  <RoundGallery items={latest.items} canReact={reviewed && can(viewer.role, "task.review")} />
+                  {latest.note ? <p className="text-body whitespace-pre-line text-slate-700">{latest.note}</p> : null}
+                  <Decision s={latest} />
+                </section>
               ) : null}
-              {canReview ? <ReviewActions taskId={task.id} label={TASK_TYPE_LABELS[task.type]} /> : null}
+              {canReview ? <ReviewActions taskId={task.id} label={title} assignee={task.assignee?.name ?? null} /> : null}
+              {reviewed && canWork && workable ? (
+                <SubmitPanel taskId={task.id} type={task.type} checklistMissing={missing} resubmission={task.submissions.length > 0} />
+              ) : null}
               {viewer.role === "ADMIN" && open_ && !locked ? <DueOverride taskId={task.id} dueAt={task.dueAt} /> : null}
-              <SubmissionHistory submissions={task.submissions} />
+              <SubmissionHistory rounds={task.submissions.slice(1)} />
             </div>
           </motion.div>
         ) : null}

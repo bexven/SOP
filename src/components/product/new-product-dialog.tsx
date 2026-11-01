@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/domain/labels";
 import { createProductAction } from "@/lib/server/actions/product";
 
-/** Opens with the "New product" button or the global `C` shortcut (event "sop:new-product"). */
+/** "Add product" dialog on the Research page (also opened by the `C` shortcut via /research?add=1). */
 export function NewProductDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -48,8 +48,8 @@ function NewProductForm({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={submit} className="grid gap-5" noValidate>
       <DialogHeader>
-        <DialogTitle>New product</DialogTitle>
-        <DialogDescription>Start a research draft. You can fill in prices and the SOP checklist next.</DialogDescription>
+        <DialogTitle>Add a product to research</DialogTitle>
+        <DialogDescription>Give it a name now. On the next screen you fill in prices, the margin check and the SOP checklist, then submit.</DialogDescription>
       </DialogHeader>
       <Field id="np-name" label="Product name" error={errors.name?.[0]}>
         <Input {...fieldA11y("np-name", errors.name?.[0])} value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="e.g. Foldable LED desk lamp" />
@@ -76,7 +76,7 @@ function NewProductForm({ onDone }: { onDone: () => void }) {
           Cancel
         </Button>
         <Button type="submit" disabled={pending}>
-          Create draft
+          Add & start research
         </Button>
       </DialogFooter>
     </form>
@@ -88,7 +88,7 @@ export function NewProductButton({ size = "default" }: { size?: "default" | "sm"
   return (
     <>
       <Button size={size} onClick={() => setOpen(true)}>
-        <PlusIcon /> New product
+        <PlusIcon /> Add product
       </Button>
       <NewProductDialog open={open} onOpenChange={setOpen} />
     </>

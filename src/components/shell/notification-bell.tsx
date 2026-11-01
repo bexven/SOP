@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { BellIcon, CheckCheckIcon } from "lucide-react";
 import { UserAvatar } from "@/components/common/user-avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,11 +10,9 @@ import { fetchNotificationsAction, markNotificationsReadAction, type Notificatio
 import { cn } from "@/lib/utils";
 
 const POLL_MS = 30_000;
-const SHEET_PAGES = ["/queue", "/pipeline", "/products"];
 
 export function NotificationBell() {
   const router = useRouter();
-  const pathname = usePathname();
   const [items, setItems] = useState<NotificationDTO[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -53,10 +51,7 @@ export function NotificationBell() {
         await markNotificationsReadAction({ ids: [n.id] });
       });
     }
-    if (n.productId) {
-      const base = SHEET_PAGES.includes(pathname) ? pathname : "/queue";
-      router.push(`${base}?product=${n.productId}`, { scroll: false });
-    }
+    if (n.productId) router.push(`/products/${n.productId}`);
   }
 
   function markAll() {
@@ -104,7 +99,7 @@ export function NotificationBell() {
                   onClick={() => openItem(n)}
                   className={cn("flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-white/70", !n.read && "bg-indigo-50/50")}
                 >
-                  {n.actor ? <UserAvatar name={n.actor.name} color={n.actor.avatarColor} size="sm" /> : <span className="size-7 shrink-0 rounded-full bg-slate-200" />}
+                  {n.actor ? <UserAvatar name={n.actor.name} color={n.actor.avatarColor} imageId={n.actor.avatarAssetId} size="sm" /> : <span className="size-7 shrink-0 rounded-full bg-slate-200" />}
                   <span className="min-w-0 flex-1">
                     <span className={cn("block text-body [overflow-wrap:anywhere]", n.read ? "text-slate-600" : "font-medium text-slate-900")}>{n.message}</span>
                     <span className="num text-meta font-normal text-slate-500" suppressHydrationWarning>

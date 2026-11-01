@@ -36,29 +36,42 @@ const SIZES = {
   xl: "size-20 text-xl",
 } as const;
 
+export function avatarSrc(assetId: string | null | undefined): string | null {
+  return assetId ? `/api/assets/${assetId}` : null;
+}
+
 export function UserAvatar({
   name,
   color,
+  imageId,
   size = "md",
   className,
 }: {
   name: string;
   color: string;
+  /** Uploaded profile photo (Asset id). Falls back to coloured initials. */
+  imageId?: string | null;
   size?: keyof typeof SIZES;
   className?: string;
 }) {
   const palette = COLOR_CLASSES[isAvatarColor(color) ? color : "slate"];
+  const src = avatarSrc(imageId);
   return (
     <span
       aria-hidden
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold tracking-tight ring-1 select-none",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold tracking-tight ring-1 select-none",
         palette,
         SIZES[size],
         className,
       )}
     >
-      {initials(name)}
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- auth-protected asset route
+        <img src={src} alt="" className="size-full object-cover" loading="lazy" />
+      ) : (
+        initials(name)
+      )}
     </span>
   );
 }

@@ -3,8 +3,8 @@ import { PackageIcon } from "lucide-react";
 import type { ProductStage } from "@/generated/prisma/enums";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
-import { NewProductButton } from "@/components/product/new-product-dialog";
-import { ProductSheetSlot, sheetParam } from "@/components/product/product-sheet-slot";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { ProductsTable } from "@/components/products/products-table";
 import { STAGES } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
@@ -19,7 +19,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
   const [products, sp, people] = await Promise.all([
     listProducts(),
     searchParams,
-    db.user.findMany({ where: { active: true }, select: { id: true, name: true, avatarColor: true }, orderBy: { name: "asc" } }),
+    db.user.findMany({ where: { active: true }, select: { id: true, name: true, avatarColor: true, avatarAssetId: true }, orderBy: { name: "asc" } }),
   ]);
   const canCreate = can(user.role, "product.create");
   const stage = typeof sp.stage === "string" && (STAGES as readonly string[]).includes(sp.stage) ? (sp.stage as ProductStage) : undefined;
@@ -27,20 +27,18 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
     <>
       <PageHeader
         title="Products"
-        description="Search and filter every product, including killed ones."
-        actions={canCreate ? <NewProductButton /> : null}
+        description="Search and filter every product, including killed ones. Click a row to open it."
       />
       {products.length === 0 ? (
         <EmptyState
           icon={PackageIcon}
           title="No products yet"
-          description={canCreate ? "Start the first research draft to get the pipeline moving." : "Products appear here as soon as research starts on them."}
-          action={canCreate ? <NewProductButton /> : undefined}
+          description={canCreate ? "Add the first product on the Research page to get the pipeline moving." : "Products appear here as soon as research starts on them."}
+          action={canCreate ? <Button asChild><Link href="/research?add=1">Go to Research</Link></Button> : undefined}
         />
       ) : (
         <ProductsTable rows={products} people={people} initialStage={stage} />
       )}
-      <ProductSheetSlot productId={sheetParam(sp)} user={user} />
     </>
   );
 }

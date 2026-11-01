@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Pipeline", template: "%s · Pipeline" },
+  title: { default: "Product SOP", template: "%s · Product SOP" },
   description: "Product launch pipeline — SOPs, tasks and handoffs in one place.",
   robots: { index: false, follow: false },
 };

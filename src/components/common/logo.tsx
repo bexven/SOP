@@ -8,7 +8,7 @@ export function Logo({ className, withText = true }: { className?: string; withT
           <path d="M8 10h16M8 16h11M8 22h6" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
         </svg>
       </span>
-      {withText ? <span className="text-section tracking-tight text-slate-900">Pipeline</span> : null}
+      {withText ? <span className="text-section tracking-tight whitespace-nowrap text-slate-900">Product SOP</span> : null}
     </span>
   );
 }

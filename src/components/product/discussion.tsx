@@ -96,7 +96,7 @@ function CommentItem({ comment, people, viewer, small }: { comment: CommentDTO; 
   const mine = comment.author.id === viewer.id;
   return (
     <article className="flex gap-2.5">
-      <UserAvatar name={comment.author.name} color={comment.author.avatarColor} size={small ? "sm" : "md"} className="mt-0.5" />
+      <UserAvatar name={comment.author.name} color={comment.author.avatarColor} imageId={comment.author.avatarAssetId} size={small ? "sm" : "md"} className="mt-0.5" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">
           <span className="text-body font-medium text-slate-900">{comment.author.name}</span>
@@ -237,7 +237,7 @@ function Composer({
                 onMouseDown={(e) => { e.preventDefault(); insert(p); }}
                 className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body", i === active ? "bg-slate-900/[0.06]" : "hover:bg-slate-900/[0.04]")}
               >
-                <UserAvatar name={p.name} color={p.avatarColor} size="xs" /> {p.name}
+                <UserAvatar name={p.name} color={p.avatarColor} imageId={p.avatarAssetId} size="xs" /> {p.name}
               </button>
             </li>
           ))}

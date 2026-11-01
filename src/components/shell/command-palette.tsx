@@ -8,7 +8,6 @@ import { CornerDownLeftIcon, PlusIcon, SearchIcon } from "lucide-react";
 import type { ProductStage } from "@/generated/prisma/enums";
 import { StagePill } from "@/components/common/pills";
 import { Thumbnail } from "@/components/common/thumbnail";
-import { NewProductDialog } from "@/components/product/new-product-dialog";
 import type { NavItem } from "@/lib/domain/nav";
 import { paletteProductsAction } from "@/lib/server/actions/search";
 import { NAV_ICONS } from "./nav-icons";
@@ -23,11 +22,10 @@ function typingInField(e: KeyboardEvent) {
   return !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.getAttribute("role") === "combobox");
 }
 
-/** ⌘K palette + global shortcuts: C new product · G Q my queue · G P pipeline. Esc closes sheets (Radix). */
+/** ⌘K palette + global shortcuts: C add product (Research) · G D dashboard · G P pipeline. Esc closes dialogs. */
 export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCreate: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [products, setProducts] = useState<PaletteProduct[] | null>(null);
   const gPressed = useRef<number>(0);
 
@@ -58,18 +56,20 @@ export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCrea
         return;
       }
       if (Date.now() - gPressed.current < 1200) {
-        if (key === "q") router.push("/queue");
+        if (key === "d" || key === "q") router.push("/dashboard");
+        if (key === "r" && canCreate) router.push("/research");
+        if (key === "c") router.push("/creative");
         if (key === "p") router.push("/pipeline");
         gPressed.current = 0;
         return;
       }
       if (key === "c" && canCreate) {
         e.preventDefault();
-        setCreating(true);
+        router.push("/research?add=1");
       }
     };
     const onOpen = () => openPalette();
-    const onNew = () => setCreating(true);
+    const onNew = () => router.push("/research?add=1");
     window.addEventListener("keydown", onKey);
     window.addEventListener(OPEN_PALETTE_EVENT, onOpen);
     window.addEventListener(NEW_PRODUCT_EVENT, onNew);
@@ -109,8 +109,8 @@ export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCrea
                 <Command.Empty className="px-3 py-8 text-center text-body text-slate-500">No matches.</Command.Empty>
                 {canCreate ? (
                   <Command.Group heading="Actions">
-                    <PaletteItem value="new product create" onSelect={() => { setOpen(false); setCreating(true); }}>
-                      <PlusIcon className="size-4 text-indigo-600" /> New product <Kbd>C</Kbd>
+                    <PaletteItem value="add product research" onSelect={() => go("/research?add=1")}>
+                      <PlusIcon className="size-4 text-indigo-600" /> Add a product to research <Kbd>C</Kbd>
                     </PaletteItem>
                   </Command.Group>
                 ) : null}
@@ -120,7 +120,7 @@ export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCrea
                     return (
                       <PaletteItem key={i.key} value={`go ${i.label}`} onSelect={() => go(i.href)}>
                         <Icon className="size-4 text-slate-500" /> {i.label}
-                        {i.key === "queue" ? <Kbd>G Q</Kbd> : i.key === "pipeline" ? <Kbd>G P</Kbd> : null}
+                        {i.key === "dashboard" ? <Kbd>G D</Kbd> : i.key === "pipeline" ? <Kbd>G P</Kbd> : null}
                       </PaletteItem>
                     );
                   })}
@@ -130,7 +130,7 @@ export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCrea
                     <p className="px-3 py-2 text-meta font-normal text-slate-500">Loading…</p>
                   ) : (
                     products.map((p) => (
-                      <PaletteItem key={p.id} value={`${p.ref} ${p.name}`} onSelect={() => go(`/products?product=${p.id}`)}>
+                      <PaletteItem key={p.id} value={`${p.ref} ${p.name}`} onSelect={() => go(`/products/${p.id}`)}>
                         <Thumbnail src={p.imageUrl} alt="" className="size-6 rounded-md" />
                         <span className="min-w-0 flex-1 truncate">{p.name}</span>
                         <span className="num text-meta text-slate-500">{p.ref}</span>
@@ -149,7 +149,6 @@ export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCrea
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
-      {canCreate ? <NewProductDialog open={creating} onOpenChange={setCreating} /> : null}
     </>
   );
 }

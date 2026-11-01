@@ -134,7 +134,7 @@ function useRun(onClose: () => void) {
 
 function CampaignStatusDialog({ open, onClose, product }: DialogProps) {
   const current = product.campaign?.status ?? "RUNNING";
-  const [status, setStatus] = useState<CampaignStatus>(current === "RUNNING" ? "SCALING" : "RUNNING");
+  const [status, setStatus] = useState<CampaignStatus>(current === "RUNNING" ? "PAUSED" : "RUNNING");
   const [note, setNote] = useState("");
   const { pending, run } = useRun(onClose);
   return (
@@ -159,7 +159,7 @@ function CampaignStatusDialog({ open, onClose, product }: DialogProps) {
           </Select>
         </Field>
         <Field id="cs-note" label="Note (optional)">
-          <Textarea id="cs-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="e.g. ROAS 3.2 — doubling budget" />
+          <Textarea id="cs-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="e.g. Pausing while new creative is made" />
         </Field>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

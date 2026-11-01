@@ -24,9 +24,11 @@ export function ProductView({
   viewer,
   actions,
   extraTabs,
+  focusTaskId,
 }: {
   product: ProductDetail;
   viewer: Viewer;
+  focusTaskId?: string;
   actions?: React.ReactNode;
   extraTabs?: { value: string; label: string; content: React.ReactNode; count?: number }[];
 }) {
@@ -34,7 +36,8 @@ export function ProductView({
   const inResearch = product.stage === "RESEARCH";
   const canEditResearch = inResearch && !!research && canWorkOnTask(viewer, { assigneeId: research.assignee?.id ?? null });
   const openTasks = product.tasks.filter((t) => t.type !== "RESEARCH" && t.status !== "CANCELLED").length;
-  const [tab, setTab] = useState(inResearch ? "overview" : "tasks");
+  const focusIsResearch = focusTaskId && focusTaskId === research?.id;
+  const [tab, setTab] = useState(focusTaskId && !focusIsResearch ? "tasks" : inResearch ? "overview" : "tasks");
 
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5">
@@ -115,6 +118,7 @@ export function ProductView({
           <TasksTab
             product={product}
             viewer={viewer}
+            focusTaskId={focusTaskId}
             launchPanel={(task) => <LaunchPanel product={product} task={task} canManage={can(viewer.role, "campaign.manage")} />}
           />
         </TabsContent>

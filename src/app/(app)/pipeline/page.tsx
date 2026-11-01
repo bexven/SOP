@@ -6,8 +6,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { STAGE_DOT } from "@/components/common/pills";
 import { PipelineCard } from "@/components/pipeline/product-card";
-import { NewProductButton } from "@/components/product/new-product-dialog";
-import { ProductSheetSlot, sheetParam } from "@/components/product/product-sheet-slot";
+import { Button } from "@/components/ui/button";
 import { PRIORITY_RANK, STAGE_LABELS, STAGES } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
@@ -17,9 +16,9 @@ export const metadata: Metadata = { title: "Pipeline" };
 
 const CLOSED_LIMIT = 8;
 
-export default async function PipelinePage({ searchParams }: PageProps<"/pipeline">) {
+export default async function PipelinePage() {
   const user = await requireUser();
-  const [products, sp] = await Promise.all([listProducts(), searchParams]);
+  const products = await listProducts();
   const canCreate = can(user.role, "product.create");
 
   const byStage = (stage: ProductStage): ProductRow[] => {
@@ -37,15 +36,14 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
     <>
       <PageHeader
         title="Pipeline"
-        description="Every product by stage. Stages only change through their gated actions — open a card to act."
-        actions={canCreate ? <NewProductButton /> : null}
+        description="Every product by stage. Click a product to open it."
       />
       {products.length === 0 ? (
         <EmptyState
           icon={KanbanSquareIcon}
           title="The pipeline is empty"
-          description="Once a researcher adds a product it appears here and moves through Research, Creative, Ready to Launch and Live."
-          action={canCreate ? <NewProductButton /> : undefined}
+          description="Once a researcher adds a product on the Research page it appears here and moves through Research, Creative, Ready to Launch and Live."
+          action={canCreate ? <Button asChild><Link href="/research?add=1">Go to Research</Link></Button> : undefined}
         />
       ) : (
         <div className="-mx-4 relative overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6">
@@ -80,7 +78,6 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
           </div>
         </div>
       )}
-      <ProductSheetSlot productId={sheetParam(sp)} user={user} />
     </>
   );
 }

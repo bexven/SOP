@@ -17,7 +17,7 @@ import { ROLE_LABELS } from "@/lib/domain/labels";
 import { reassignTaskAction } from "@/lib/server/actions/task";
 import { cn } from "@/lib/utils";
 
-type PersonOpt = { id: string; name: string; avatarColor: string; role: Role };
+type PersonOpt = { id: string; name: string; avatarColor: string; avatarAssetId?: string | null; role: Role };
 
 /** Avatar button; opens a menu of eligible people when the viewer may reassign. */
 export function ReassignMenu({
@@ -29,7 +29,7 @@ export function ReassignMenu({
   viewerIsAdmin,
 }: {
   taskId: string;
-  assignee: { id: string; name: string; avatarColor: string } | null;
+  assignee: { id: string; name: string; avatarColor: string; avatarAssetId?: string | null } | null;
   people: PersonOpt[];
   taskRole: Role;
   canReassign: boolean;
@@ -40,7 +40,7 @@ export function ReassignMenu({
   const options = people.filter((p) => p.role === taskRole || (viewerIsAdmin && p.role === "ADMIN"));
 
   const face = assignee ? (
-    <UserAvatar name={assignee.name} color={assignee.avatarColor} size="sm" />
+    <UserAvatar name={assignee.name} color={assignee.avatarColor} imageId={assignee.avatarAssetId} size="sm" />
   ) : (
     <span className="flex size-7 items-center justify-center rounded-full border border-dashed border-slate-300 text-slate-400">
       <UserRoundIcon className="size-3.5" />
@@ -84,7 +84,7 @@ export function ReassignMenu({
                 })
               }
             >
-              <UserAvatar name={p.name} color={p.avatarColor} size="xs" />
+              <UserAvatar name={p.name} color={p.avatarColor} imageId={p.avatarAssetId} size="xs" />
               <span className={cn("flex-1", p.id === assignee?.id && "font-medium")}>{p.name}</span>
               {p.id === assignee?.id ? <CheckIcon /> : null}
             </DropdownMenuItem>

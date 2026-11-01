@@ -95,7 +95,7 @@ function MemberRow({ member, isSelf }: { member: TeamRow; isSelf: boolean }) {
 
   return (
     <li className={cn("flex items-center gap-3 px-4 py-3", !member.active && "bg-slate-50/60")}>
-      <UserAvatar name={member.name} color={member.avatarColor} className={cn(!member.active && "opacity-60")} />
+      <UserAvatar name={member.name} color={member.avatarColor} imageId={member.avatarAssetId} className={cn(!member.active && "opacity-60")} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={cn("truncate font-medium", member.active ? "text-slate-900" : "text-slate-600")}>

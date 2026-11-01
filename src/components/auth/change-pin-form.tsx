@@ -40,7 +40,7 @@ export function ChangePinForm({ name, avatarColor, forced }: { name: string; ava
         return;
       }
       toast.success("PIN updated", { description: "Use your new PIN next time you sign in." });
-      router.replace("/queue");
+      router.replace("/dashboard");
       router.refresh();
     });
   }

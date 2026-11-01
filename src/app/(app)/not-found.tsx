@@ -11,7 +11,7 @@ export default function NotFound() {
       description="That page or product doesn't exist (or was removed)."
       action={
         <Button asChild>
-          <Link href="/queue">Back to My Queue</Link>
+          <Link href="/dashboard">Back to Dashboard</Link>
         </Button>
       }
     />

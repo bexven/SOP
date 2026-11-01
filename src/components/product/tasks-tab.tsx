@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDownIcon, ListTodoIcon } from "lucide-react";
+import { ChevronDownIcon, FilmIcon, ImageIcon, ListTodoIcon } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
 import { DuePill } from "@/components/common/pills";
+import { laneOf } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
 import { isTerminalStage } from "@/lib/domain/workflow";
 import { formatDate } from "@/lib/format";
@@ -17,9 +18,11 @@ export function TasksTab({
   product,
   viewer,
   launchPanel,
+  focusTaskId,
 }: {
   product: ProductDetail;
   viewer: Viewer;
+  focusTaskId?: string;
   /** Rendered inside the Campaign Launch task (Phase 4). */
   launchPanel?: (task: TaskDTO) => React.ReactNode;
 }) {
@@ -55,25 +58,47 @@ export function TasksTab({
       {launch.length ? (
         <Group title="Campaign launch">
           {launch.map((t) => (
-            <TaskCard key={t.id} task={t} product={product} viewer={viewer} extra={launchPanel?.(t)} />
+            <TaskCard key={t.id} task={t} product={product} viewer={viewer} extra={launchPanel?.(t)} focus={t.id === focusTaskId} />
           ))}
         </Group>
       ) : null}
 
       {batches.map((b, i) => {
         const tasks = creative.filter((t) => t.batchId === b.id);
-        return <BatchSection key={b.id} batch={b} tasks={tasks} product={product} viewer={viewer} defaultOpen={i === 0} />;
+        return (
+          <BatchSection
+            key={b.id}
+            batch={b}
+            tasks={tasks}
+            product={product}
+            viewer={viewer}
+            defaultOpen={i === 0 || tasks.some((t) => t.id === focusTaskId)}
+            focusTaskId={focusTaskId}
+          />
+        );
       })}
 
       {research.length ? (
         <Group title="Research">
           {research.map((t) => (
-            <TaskCard key={t.id} task={t} product={product} viewer={viewer} />
+            <TaskCard key={t.id} task={t} product={product} viewer={viewer} focus={t.id === focusTaskId} />
           ))}
         </Group>
       ) : null}
     </div>
   );
+}
+
+/** Orders lane tasks: Phase 1 before Phase 2, and each follow-up right after the task it came from. */
+function laneOrder(tasks: TaskDTO[]): TaskDTO[] {
+  const roots = tasks.filter((t) => !t.followUpOfId || !tasks.some((x) => x.id === t.followUpOfId)).sort((a, b) => a.phase - b.phase);
+  const out: TaskDTO[] = [];
+  const visit = (t: TaskDTO) => {
+    out.push(t);
+    tasks.filter((x) => x.followUpOfId === t.id).forEach(visit);
+  };
+  roots.forEach(visit);
+  return out;
 }
 
 function BatchSection({
@@ -82,30 +107,45 @@ function BatchSection({
   product,
   viewer,
   defaultOpen,
+  focusTaskId,
 }: {
   batch: ProductDetail["batches"][number];
   tasks: TaskDTO[];
   product: ProductDetail;
   viewer: Viewer;
   defaultOpen: boolean;
+  focusTaskId?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const live = tasks.filter((t) => t.status !== "CANCELLED");
   const approved = live.filter((t) => t.status === "APPROVED").length;
+  const images = laneOrder(tasks.filter((t) => laneOf(t.type) === "images"));
+  const videos = laneOrder(tasks.filter((t) => laneOf(t.type) === "videos"));
   const phased = tasks.some((t) => t.phase === 2);
-  const phase1 = tasks.filter((t) => t.phase === 1);
-  const phase2 = tasks.filter((t) => t.phase === 2);
+  const lanes = [
+    {
+      key: "images",
+      title: "Images",
+      icon: ImageIcon,
+      who: images.find((t) => t.assignee)?.assignee?.name,
+      hint: phased ? "Website image first — approving it unlocks the 3 ad sizes and the store listing." : "Requested formats.",
+      tasks: images,
+    },
+    {
+      key: "videos",
+      title: "Videos",
+      icon: FilmIcon,
+      who: videos.find((t) => t.assignee)?.assignee?.name,
+      hint: phased ? "Main video first — approving it unlocks the square video." : "Requested formats.",
+      tasks: videos,
+    },
+  ].filter((l) => l.tasks.length);
 
   return (
     <section aria-labelledby={`batch-${batch.id}`}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="mb-2 flex w-full items-center gap-2 text-left"
-      >
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="mb-2 flex w-full items-center gap-2 text-left">
         <h2 id={`batch-${batch.id}`} className="text-section text-slate-900">
-          Creative batch #{batch.number}
+          {batch.number === 1 ? "Creative work" : `Creative batch #${batch.number}`}
         </h2>
         <span className="num text-meta text-slate-500">
           {approved}/{live.length} approved
@@ -121,14 +161,24 @@ function BatchSection({
       </button>
       {batch.reason ? <p className="-mt-1 mb-2 text-meta font-normal text-slate-600">“{batch.reason}”</p> : null}
       {open ? (
-        phased ? (
-          <div className="grid gap-4">
-            <SubGroup label="Phase 1">{phase1.map((t) => <TaskCard key={t.id} task={t} product={product} viewer={viewer} />)}</SubGroup>
-            <SubGroup label="Phase 2 & store">{phase2.map((t) => <TaskCard key={t.id} task={t} product={product} viewer={viewer} />)}</SubGroup>
-          </div>
-        ) : (
-          <div className="grid gap-2">{tasks.map((t) => <TaskCard key={t.id} task={t} product={product} viewer={viewer} />)}</div>
-        )
+        <div className="grid gap-5">
+          {lanes.map((lane) => (
+            <div key={lane.key}>
+              <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
+                <h3 className="flex items-center gap-1.5 text-body font-semibold text-slate-900">
+                  <lane.icon className="size-4 text-slate-500" /> {lane.title}
+                </h3>
+                {lane.who ? <span className="text-meta text-slate-600">{lane.who}</span> : null}
+                <span className="text-meta font-normal text-slate-500">{lane.hint}</span>
+              </div>
+              <div className="grid gap-2">
+                {lane.tasks.map((t) => (
+                  <TaskCard key={t.id} task={t} product={product} viewer={viewer} focus={t.id === focusTaskId} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : null}
     </section>
   );
@@ -140,14 +190,5 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
       <h2 className="mb-2 text-section text-slate-900">{title}</h2>
       <div className="grid gap-2">{children}</div>
     </section>
-  );
-}
-
-function SubGroup({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="mb-1.5 text-meta text-slate-500">{label}</p>
-      <div className="grid gap-2">{children}</div>
-    </div>
   );
 }

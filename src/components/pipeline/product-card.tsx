@@ -9,7 +9,7 @@ import type { ProductRow } from "@/lib/server/queries/products";
 export function PipelineCard({ p }: { p: ProductRow }) {
   return (
     <Link
-      href={`?product=${p.id}`}
+      href={`/products/${p.id}`}
       scroll={false}
       className="surface group block rounded-panel p-3 transition-all duration-200 ease-out hover:-translate-y-px hover:shadow-[var(--raised-shadow)]"
     >
@@ -30,7 +30,7 @@ export function PipelineCard({ p }: { p: ProductRow }) {
         <div className="mt-3 flex items-center justify-between gap-2">
           <div className="flex -space-x-1.5">
             {p.assignees.slice(0, 4).map((a) => (
-              <UserAvatar key={a.id} name={a.name} color={a.avatarColor} size="xs" className="ring-2 ring-white" />
+              <UserAvatar key={a.id} name={a.name} color={a.avatarColor} imageId={a.avatarAssetId} size="xs" className="ring-2 ring-white" />
             ))}
           </div>
           <DuePill dueAt={p.nextDueAt} />
