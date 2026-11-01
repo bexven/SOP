@@ -24,7 +24,8 @@ export function TasksTab({
   launchPanel?: (task: TaskDTO) => React.ReactNode;
 }) {
   const creative = product.tasks.filter((t) => t.batchId);
-  const launch = product.tasks.filter((t) => t.type === "CAMPAIGN_LAUNCH");
+  // Newest first: after a send-back the open launch task sits above the cancelled one.
+  const launch = product.tasks.filter((t) => t.type === "CAMPAIGN_LAUNCH").reverse();
   const research = product.tasks.filter((t) => t.type === "RESEARCH");
   const batches = [...product.batches].sort((a, b) => b.number - a.number);
   const showBrief = product.stage !== "RESEARCH" || Boolean(product.creativeBrief);

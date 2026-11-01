@@ -1,0 +1,147 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import type { Priority } from "@/generated/prisma/enums";
+import { Field, fieldA11y } from "@/components/common/field";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { PRIORITIES, PRIORITY_LABELS } from "@/lib/domain/labels";
+import { overrideProductAction } from "@/lib/server/actions/exceptions";
+import type { ProductDetail } from "@/lib/server/queries/product";
+
+/** Admin override of data fields. Stage/status are never editable here. Every change is logged old → new. */
+export function OverrideDialog({ open, onClose, product }: { open: boolean; onClose: () => void; product: ProductDetail }) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">{open ? <OverrideForm product={product} onClose={onClose} /> : null}</DialogContent>
+    </Dialog>
+  );
+}
+
+function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: () => void }) {
+  const router = useRouter();
+  const [v, setV] = useState({
+    name: product.name,
+    supplierUrl: product.supplierUrl ?? "",
+    imageUrl: product.imageUrl ?? "",
+    chinaPriceRmb: product.chinaPriceRmb ?? "",
+    shippingPerUnitRmb: product.shippingPerUnitRmb ?? "",
+    sellingPriceBdt: product.sellingPriceBdt ?? "",
+    rmbToBdtRate: product.rmbToBdtRate,
+    courierChargePct: product.courierChargePct,
+    targetCustomer: product.targetCustomer ?? "",
+    problemSolved: product.problemSolved ?? "",
+    sellingAngle: product.sellingAngle ?? "",
+    referenceLinks: product.referenceLinks.join("\n"),
+    priority: product.priority as Priority,
+    targetLaunchDate: product.targetLaunchDate ?? "",
+    mediaBuyerId: product.mediaBuyer?.id ?? "",
+  });
+  const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
+  const [pending, startTransition] = useTransition();
+  const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value });
+  const err = (k: string) => errors[k]?.[0];
+  const mediaBuyers = product.people.filter((p) => p.role === "MEDIA_BUYER");
+
+  const text = (k: keyof typeof v, label: string, opts: { mono?: boolean; area?: boolean } = {}) => {
+    const id = `ov-${k}`;
+    return (
+      <Field id={id} label={label} error={err(k)}>
+        {opts.area ? (
+          <Textarea {...fieldA11y(id, err(k))} value={v[k] as string} onChange={set(k)} rows={2} />
+        ) : (
+          <Input {...fieldA11y(id, err(k))} value={v[k] as string} onChange={set(k)} className={opts.mono ? "num" : undefined} />
+        )}
+      </Field>
+    );
+  };
+
+  return (
+    <form
+      noValidate
+      className="grid gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        startTransition(async () => {
+          const r = await overrideProductAction({
+            productId: product.id,
+            ...v,
+            referenceLinks: v.referenceLinks.split(/\s+/).map((l) => l.trim()).filter(Boolean),
+          });
+          if (!r.ok) {
+            setErrors(r.fieldErrors ?? {});
+            toast.error(r.error);
+            return;
+          }
+          toast.success(r.message);
+          onClose();
+          router.refresh();
+        });
+      }}
+    >
+      <DialogHeader>
+        <DialogTitle>Admin override</DialogTitle>
+        <DialogDescription>Edit any field. Every change is recorded on the timeline with its old and new value. Stage changes still go through Send back / Kill.</DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {text("name", "Name")}
+        <Field id="ov-priority" label="Priority">
+          <Select value={v.priority} onValueChange={(p) => setV({ ...v, priority: p as Priority })}>
+            <SelectTrigger id="ov-priority">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIORITIES.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {PRIORITY_LABELS[p]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        {text("supplierUrl", "Supplier link")}
+        {text("imageUrl", "Image URL")}
+        {text("chinaPriceRmb", "China price (¥)", { mono: true })}
+        {text("shippingPerUnitRmb", "Shipping per unit (¥)", { mono: true })}
+        {text("sellingPriceBdt", "Selling price (BDT)", { mono: true })}
+        {text("targetLaunchDate", "Target launch (YYYY-MM-DD)", { mono: true })}
+        {text("rmbToBdtRate", "Rate snapshot (BDT per ¥)", { mono: true })}
+        {text("courierChargePct", "Courier % snapshot", { mono: true })}
+        <Field id="ov-mb" label="Media buyer">
+          <Select value={v.mediaBuyerId || "none"} onValueChange={(id) => setV({ ...v, mediaBuyerId: id === "none" ? "" : id })}>
+            <SelectTrigger id="ov-mb">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Not set</SelectItem>
+              {mediaBuyers.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+      {text("targetCustomer", "Target customer", { area: true })}
+      {text("problemSolved", "Problem it solves", { area: true })}
+      {text("sellingAngle", "Selling angle", { area: true })}
+      <Field id="ov-links" label="Reference links (one per line)" error={err("referenceLinks")}>
+        <Textarea {...fieldA11y("ov-links", err("referenceLinks"))} value={v.referenceLinks} onChange={set("referenceLinks")} rows={3} className="font-mono text-[13px]" />
+      </Field>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={pending}>
+          Save override
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}

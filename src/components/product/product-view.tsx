@@ -10,6 +10,10 @@ import { ResearchForm } from "./research-form";
 import { ResearchSummary } from "./research-summary";
 import { MarginCard } from "./margin-card";
 import { TasksTab } from "./tasks-tab";
+import { CampaignCard } from "./campaign-card";
+import { LaunchPanel } from "./launch-panel";
+import { ProductActions } from "./product-actions";
+import { can } from "@/lib/domain/permissions";
 
 export type Viewer = { id: string; role: Role; name: string };
 
@@ -32,7 +36,7 @@ export function ProductView({
 
   return (
     <div className="grid gap-5">
-      <ProductHeader product={product} viewer={viewer} actions={actions} />
+      <ProductHeader product={product} viewer={viewer} actions={actions ?? <ProductActions product={product} viewer={viewer} />} />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList aria-label="Product sections" className="max-w-full overflow-x-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -82,14 +86,16 @@ export function ProductView({
           ) : (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
               <ResearchSummary product={product} />
-              <MarginCard
-                margin={product.margin}
-                band={product.marginBand}
-                rate={product.rmbToBdtRate}
-                courierPct={product.courierChargePct}
-                snapshot
-                className="self-start"
-              />
+              <div className="grid content-start gap-4">
+                <CampaignCard product={product} />
+                <MarginCard
+                  margin={product.margin}
+                  band={product.marginBand}
+                  rate={product.rmbToBdtRate}
+                  courierPct={product.courierChargePct}
+                  snapshot
+                />
+              </div>
             </div>
           )}
           {research?.revisionNote && inResearch ? (
@@ -100,7 +106,11 @@ export function ProductView({
         </TabsContent>
 
         <TabsContent value="tasks" className="mt-4">
-          <TasksTab product={product} viewer={viewer} />
+          <TasksTab
+            product={product}
+            viewer={viewer}
+            launchPanel={(task) => <LaunchPanel product={product} task={task} canManage={can(viewer.role, "campaign.manage")} />}
+          />
         </TabsContent>
 
         {extraTabs?.map((t) => (

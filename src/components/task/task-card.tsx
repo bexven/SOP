@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import type { Viewer } from "@/components/product/product-view";
 import { BriefPanel } from "./brief-panel";
 import { ChecklistPanel } from "./checklist-panel";
+import { DueOverride } from "./due-override";
 import { ReassignMenu } from "./reassign-menu";
 import { ReviewActions } from "./review-actions";
 import { StepGuidePanel } from "./step-guide-panel";
@@ -215,6 +216,7 @@ export function TaskCard({
                 />
               ) : null}
               {canReview ? <ReviewActions taskId={task.id} label={TASK_TYPE_LABELS[task.type]} /> : null}
+              {viewer.role === "ADMIN" && open_ && !locked ? <DueOverride taskId={task.id} dueAt={task.dueAt} /> : null}
               <SubmissionHistory submissions={task.submissions} />
             </div>
           </motion.div>
