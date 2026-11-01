@@ -15,7 +15,7 @@ export function ProductHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="grid gap-4">
+    <header className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
       <div className="flex items-start gap-3 sm:gap-4">
         <Thumbnail src={product.imageUrl} alt="" className="size-14 rounded-[12px] sm:size-16" />
         <div className="min-w-0 flex-1">

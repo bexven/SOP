@@ -1,21 +1,28 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { PackageIcon } from "lucide-react";
+import type { ProductStage } from "@/generated/prisma/enums";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
-import { MarginBadge, PriorityPill, StagePill } from "@/components/common/pills";
-import { Thumbnail } from "@/components/common/thumbnail";
 import { NewProductButton } from "@/components/product/new-product-dialog";
+import { ProductSheetSlot, sheetParam } from "@/components/product/product-sheet-slot";
+import { ProductsTable } from "@/components/products/products-table";
+import { STAGES } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
+import { db } from "@/lib/server/db";
 import { listProducts } from "@/lib/server/queries/products";
 
 export const metadata: Metadata = { title: "Products" };
 
-export default async function ProductsPage() {
+export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
   const user = await requireUser();
-  const products = await listProducts();
+  const [products, sp, people] = await Promise.all([
+    listProducts(),
+    searchParams,
+    db.user.findMany({ where: { active: true }, select: { id: true, name: true, avatarColor: true }, orderBy: { name: "asc" } }),
+  ]);
   const canCreate = can(user.role, "product.create");
+  const stage = typeof sp.stage === "string" && (STAGES as readonly string[]).includes(sp.stage) ? (sp.stage as ProductStage) : undefined;
   return (
     <>
       <PageHeader
@@ -31,23 +38,9 @@ export default async function ProductsPage() {
           action={canCreate ? <NewProductButton /> : undefined}
         />
       ) : (
-        <ul className="surface divide-y divide-slate-100 overflow-hidden rounded-panel">
-          {products.map((p) => (
-            <li key={p.id}>
-              <Link href={`/products/${p.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/70">
-                <Thumbnail src={p.imageUrl} alt="" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-slate-900">{p.name}</span>
-                  <span className="num text-meta text-slate-500">{p.ref}</span>
-                </span>
-                <MarginBadge pct={p.marginPct} band={p.marginBand} />
-                <PriorityPill priority={p.priority} />
-                <StagePill stage={p.stage} />
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <ProductsTable rows={products} people={people} initialStage={stage} />
       )}
+      <ProductSheetSlot productId={sheetParam(sp)} user={user} />
     </>
   );
 }

@@ -7,9 +7,11 @@ import { UserMenu } from "./user-menu";
 export function Sidebar({
   items,
   user,
+  badges,
 }: {
   items: NavItem[];
   user: { name: string; role: Role; avatarColor: string };
+  badges?: Partial<Record<string, number>>;
 }) {
   return (
     <aside className="glass fixed inset-y-3 left-3 z-30 hidden w-60 flex-col rounded-[18px] p-3 lg:flex">
@@ -17,7 +19,7 @@ export function Sidebar({
         <Logo />
       </div>
       <div className="flex-1 overflow-y-auto">
-        <NavLinks items={items} />
+        <NavLinks items={items} badges={badges} />
       </div>
       <div className="border-t border-slate-900/[0.06] pt-2">
         <UserMenu user={user} />

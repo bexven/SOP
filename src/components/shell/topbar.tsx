@@ -7,8 +7,12 @@ import { ChevronRightIcon, MenuIcon, XIcon } from "lucide-react";
 import type { Role } from "@/generated/prisma/enums";
 import { Logo } from "@/components/common/logo";
 import type { NavItem } from "@/lib/domain/nav";
-import { NewProductButton } from "@/components/product/new-product-dialog";
+import { NEW_PRODUCT_EVENT } from "./command-palette";
 import { NavLinks } from "./nav-links";
+import { NotificationBell } from "./notification-bell";
+import { SearchButton } from "./search-button";
+import { Button } from "@/components/ui/button";
+import { PlusIcon } from "lucide-react";
 import { UserMenu } from "./user-menu";
 
 function useBreadcrumbs(items: NavItem[]) {
@@ -29,11 +33,13 @@ export function Topbar({
   user,
   canCreate,
   right,
+  badges,
 }: {
   items: NavItem[];
   user: { name: string; role: Role; avatarColor: string };
   canCreate: boolean;
   right?: React.ReactNode;
+  badges?: Partial<Record<string, number>>;
 }) {
   const crumbs = useBreadcrumbs(items);
   const [open, setOpen] = useState(false);
@@ -58,7 +64,7 @@ export function Topbar({
               </DialogPrimitive.Close>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <NavLinks items={items} onNavigate={() => setOpen(false)} />
+              <NavLinks items={items} badges={badges} onNavigate={() => setOpen(false)} />
             </div>
             <div className="border-t border-slate-900/[0.06] pt-2">
               <UserMenu user={user} />
@@ -84,10 +90,12 @@ export function Topbar({
       </nav>
       <div className="flex items-center gap-1.5">
         {right}
+        <SearchButton />
+        <NotificationBell />
         {canCreate ? (
-          <span className="hidden sm:inline-flex">
-            <NewProductButton size="sm" />
-          </span>
+          <Button size="sm" className="hidden sm:inline-flex" onClick={() => window.dispatchEvent(new Event(NEW_PRODUCT_EVENT))}>
+            <PlusIcon /> New product
+          </Button>
         ) : null}
       </div>
     </header>

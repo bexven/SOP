@@ -13,6 +13,8 @@ import { TasksTab } from "./tasks-tab";
 import { CampaignCard } from "./campaign-card";
 import { LaunchPanel } from "./launch-panel";
 import { ProductActions } from "./product-actions";
+import { Discussion } from "./discussion";
+import { Timeline } from "./timeline";
 import { can } from "@/lib/domain/permissions";
 
 export type Viewer = { id: string; role: Role; name: string };
@@ -35,14 +37,18 @@ export function ProductView({
   const [tab, setTab] = useState(inResearch ? "overview" : "tasks");
 
   return (
-    <div className="grid gap-5">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5">
       <ProductHeader product={product} viewer={viewer} actions={actions ?? <ProductActions product={product} viewer={viewer} />} />
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList aria-label="Product sections" className="max-w-full overflow-x-auto">
+        <TabsList aria-label="Product sections" className="max-w-full relative overflow-x-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks">
             Tasks {openTasks ? <span className="num text-meta text-slate-500">{openTasks}</span> : null}
           </TabsTrigger>
+          <TabsTrigger value="discussion">
+            Discussion {product.comments.length ? <span className="num text-meta text-slate-500">{product.comments.length}</span> : null}
+          </TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
           {extraTabs?.map((t) => (
             <TabsTrigger key={t.value} value={t.value}>
               {t.label} {t.count ? <span className="num text-meta text-slate-500">{t.count}</span> : null}
@@ -84,7 +90,7 @@ export function ProductView({
               }}
             />
           ) : (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
               <ResearchSummary product={product} />
               <div className="grid content-start gap-4">
                 <CampaignCard product={product} />
@@ -111,6 +117,13 @@ export function ProductView({
             viewer={viewer}
             launchPanel={(task) => <LaunchPanel product={product} task={task} canManage={can(viewer.role, "campaign.manage")} />}
           />
+        </TabsContent>
+
+        <TabsContent value="discussion" className="mt-4">
+          <Discussion product={product} viewer={viewer} />
+        </TabsContent>
+        <TabsContent value="timeline" className="mt-4">
+          <Timeline product={product} />
         </TabsContent>
 
         {extraTabs?.map((t) => (

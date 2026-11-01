@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 /** Full pipeline stepper for the product header. */
 export function PipelineStepper({ stepper, className }: { stepper: Stepper; className?: string }) {
   return (
-    <ol className={cn("flex w-full items-start gap-1 overflow-x-auto pb-1", className)} aria-label="Pipeline progress">
+    <ol className={cn("relative flex w-full items-start gap-1 overflow-x-auto pb-1", className)} aria-label="Pipeline progress">
       {stepper.steps.map((step, i) => {
         const done = step.state === "done";
         const current = step.state === "current";

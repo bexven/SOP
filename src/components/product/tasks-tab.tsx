@@ -47,7 +47,7 @@ export function TasksTab({
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       {showBrief ? (
         <BriefCard productId={product.id} brief={product.creativeBrief} updatedAt={product.creativeBriefUpdatedAt} canEdit={canEditBrief} />
       ) : null}

@@ -130,7 +130,7 @@ export function ResearchForm({
   const disabled = !editable || pending;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="grid gap-4">
         <section className="surface grid gap-4 rounded-panel p-4 sm:p-5" aria-label="Research details">
           <Field id="r-name" label="Product name *" error={err("name")}>

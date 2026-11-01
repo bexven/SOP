@@ -6,7 +6,15 @@ import type { NavItem } from "@/lib/domain/nav";
 import { cn } from "@/lib/utils";
 import { NAV_ICONS } from "./nav-icons";
 
-export function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
+export function NavLinks({
+  items,
+  onNavigate,
+  badges,
+}: {
+  items: NavItem[];
+  onNavigate?: () => void;
+  badges?: Partial<Record<string, number>>;
+}) {
   const pathname = usePathname();
   const work = items.filter((i) => i.section === "work");
   const admin = items.filter((i) => i.section === "admin");
@@ -35,6 +43,11 @@ export function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?:
               )}
             />
             <span className="font-medium">{item.label}</span>
+            {badges?.[item.key] ? (
+              <span className="num ml-auto rounded-full bg-indigo-600 px-1.5 py-px text-[11px] font-semibold text-white" aria-label={`${badges[item.key]} waiting`}>
+                {badges[item.key]}
+              </span>
+            ) : null}
           </Link>
         </li>
       );
