@@ -14,6 +14,7 @@ import {
 import { ActionError, defineAction } from "../action";
 import { hashPin } from "../auth/pin-hash";
 import { db } from "../db";
+import { redistributeWork } from "../services/deactivate";
 
 async function assertNameAvailable(name: string, exceptId?: string) {
   const clash = await db.user.findFirst({
@@ -82,9 +83,16 @@ export const setMemberActiveAction = defineAction({
     if (!active) {
       const guard = canDeactivate(user.id, target, await teamSnapshot());
       if (!guard.ok) throw new ActionError(guard.reason);
-      // Deactivation signs them out everywhere.
-      await db.user.update({ where: { id }, data: { active: false, sessionVersion: { increment: 1 } } });
-      return done(`${target.name} deactivated`);
+      // Deactivation signs them out everywhere and hands their open work on (Q8).
+      const moved = await db.$transaction(async (tx) => {
+        await tx.user.update({ where: { id }, data: { active: false, sessionVersion: { increment: 1 } } });
+        return redistributeWork(tx, id, user.id);
+      });
+      revalidatePath("/", "layout");
+      const parts = [`${target.name} deactivated`];
+      if (moved.moved) parts.push(`${moved.moved} task${moved.moved === 1 ? "" : "s"} reassigned`);
+      if (moved.unassigned) parts.push(`${moved.unassigned} need an assignee`);
+      return done(parts.join(" · "));
     }
     if (target.active) throw new ActionError(`${target.name} is already active.`);
     await db.user.update({ where: { id }, data: { active: true } });
