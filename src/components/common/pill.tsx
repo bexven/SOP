@@ -41,6 +41,7 @@ const ROLE_TONES: Record<Role, PillTone> = {
   IMAGE_DESIGNER: "violet",
   VIDEO_EDITOR: "orange",
   MEDIA_BUYER: "emerald",
+  REVIEWER: "amber",
   ADMIN: "indigo",
 };
 

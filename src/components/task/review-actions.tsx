@@ -25,7 +25,7 @@ export function ReviewActions({ taskId, label, assignee }: { taskId: string; lab
         <Button variant="outline" onClick={() => setRevising(true)} className="flex-1 sm:flex-none">
           <RotateCcwIcon /> Ask for changes
         </Button>
-        <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 sm:flex-none" onClick={() => setApproving(true)}>
+        <Button className="flex-1 bg-emerald-700 hover:bg-emerald-800 sm:flex-none" onClick={() => setApproving(true)}>
           <CheckIcon /> Approve
         </Button>
       </div>
@@ -96,7 +96,7 @@ function ApproveDialog({
             Cancel
           </Button>
           <Button
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="bg-emerald-700 hover:bg-emerald-800"
             disabled={pending}
             onClick={() =>
               startTransition(async () => {

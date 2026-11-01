@@ -152,6 +152,20 @@
     @apply text-foreground font-sans text-body;
     min-height: 100dvh;
   }
+  /* Everything clickable shows a pointer (Tailwind v4 resets buttons to the default arrow). */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="checkbox"],
+  summary,
+  select,
+  label:has(input:not(:disabled)),
+  label[for] {
+    cursor: pointer;
+  }
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;

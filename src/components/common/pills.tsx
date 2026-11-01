@@ -12,6 +12,7 @@ import { Pill, type PillTone } from "./pill";
 
 export const STAGE_TONE: Record<ProductStage, PillTone> = {
   RESEARCH: "sky",
+  REVIEW: "indigo",
   CREATIVE: "violet",
   READY_TO_LAUNCH: "amber",
   LIVE: "emerald",
@@ -22,6 +23,7 @@ export const STAGE_TONE: Record<ProductStage, PillTone> = {
 /** Solid dot colour per stage (stepper, kanban headers). */
 export const STAGE_DOT: Record<ProductStage, string> = {
   RESEARCH: "bg-sky-500",
+  REVIEW: "bg-indigo-500",
   CREATIVE: "bg-violet-500",
   READY_TO_LAUNCH: "bg-amber-500",
   LIVE: "bg-emerald-500",
@@ -128,6 +130,18 @@ export function MarginBadge({
     <Pill tone={BAND_TONE[band]} className={className} title={`${BAND_LABEL[band]} margin`}>
       <span className="num text-[11px]">{pct}%</span>
       <span className="sr-only"> margin, {BAND_LABEL[band]}</span>
+    </Pill>
+  );
+}
+
+const BRAND_TONES: Record<string, PillTone> = { sky: "sky", amber: "amber", violet: "violet", emerald: "emerald", rose: "rose", orange: "orange", indigo: "indigo", slate: "slate" };
+
+/** Which store brand a product is for (Timtom, Mr.WOW, …). */
+export function BrandPill({ brand, className }: { brand: { name: string; color: string } | null | undefined; className?: string }) {
+  if (!brand) return null;
+  return (
+    <Pill tone={BRAND_TONES[brand.color] ?? "slate"} className={`font-semibold ${className ?? ""}`}>
+      {brand.name}
     </Pill>
   );
 }

@@ -17,6 +17,7 @@ enum Role {
   IMAGE_DESIGNER
   VIDEO_EDITOR
   MEDIA_BUYER
+  REVIEWER
   ADMIN
 }
 
@@ -29,6 +30,7 @@ enum Priority {
 
 enum ProductStage {
   RESEARCH
+  REVIEW
   CREATIVE
   READY_TO_LAUNCH
   LIVE
@@ -46,6 +48,7 @@ enum CampaignStatus {
 
 enum TaskType {
   RESEARCH
+  PRODUCT_APPROVAL
   WEBSITE_IMAGE
   AD_IMAGE_LANDSCAPE
   AD_IMAGE_SQUARE
@@ -91,6 +94,7 @@ enum KillReason {
   SUPPLIER_ISSUE
   WEAK_CREATIVE
   POOR_AD_PERFORMANCE
+  NOT_APPROVED
   OTHER
 }
 
@@ -120,6 +124,10 @@ enum EventType {
   ASSET_REACTED
   ASSET_COMMENTED
   FOLLOW_UP_REQUESTED
+  PRODUCT_APPROVED
+  PRODUCT_REJECTED
+  FOLDER_UPDATED
+  TASK_WITHDRAWN
 }
 
 enum NotificationType {
@@ -134,6 +142,7 @@ enum NotificationType {
   PRODUCT_KILLED
   TASK_UNASSIGNED
   FEEDBACK
+  APPROVAL_REQUESTED
 }
 
 model User {
@@ -144,6 +153,10 @@ model User {
   avatarColor       String
   /// Uploaded profile photo (stored in Asset).
   avatarAssetId     String?
+  /// Full admin permissions on top of their job role (e.g. a researcher who is also an admin).
+  adminAccess       Boolean   @default(false)
+  /// The Master Admin: the only one who manages the team (people, names, roles, PINs).
+  isMaster          Boolean   @default(false)
   active            Boolean   @default(true)
   /// Forces a PIN change on next login (seeded users, admin PIN resets).
   mustChangePin     Boolean   @default(false)
@@ -206,11 +219,13 @@ model Product {
   createdById            String
   /// Owning media buyer: writes the brief, reviews, launches.
   mediaBuyerId           String?
+  brandId                String?
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt
 
   createdBy     User              @relation("ProductCreator", fields: [createdById], references: [id])
   mediaBuyer    User?             @relation("ProductMediaBuyer", fields: [mediaBuyerId], references: [id])
+  brand         Brand?            @relation(fields: [brandId], references: [id])
   batches       CreativeBatch[]
   tasks         Task[]
   campaign      Campaign?
@@ -224,16 +239,19 @@ model Product {
 }
 
 model CreativeBatch {
-  id            String    @id @default(cuid())
-  productId     String
-  number        Int
-  reason        String?
+  id             String    @id @default(cuid())
+  productId      String
+  number         Int
+  reason         String?
   /// The creative brief as it was when this batch was requested.
-  briefSnapshot String?
+  briefSnapshot  String?
   /// Batch-level due date (Batch #N). Null = per-task SLA.
-  dueAt         DateTime?
-  requestedById String
-  createdAt     DateTime  @default(now())
+  dueAt          DateTime?
+  /// One Google Drive folder per lane for the whole batch (no re-pasting links per task).
+  imageFolderUrl String?
+  videoFolderUrl String?
+  requestedById  String
+  createdAt      DateTime  @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   tasks   Task[]
@@ -512,4 +530,15 @@ model Settings {
   thinMarginPct    Decimal  @db.Decimal(5, 2)
   updatedById      String?
   updatedAt        DateTime @updatedAt
+}
+
+/// Store brands (Timtom, Mr.WOW, …). Every new product belongs to one.
+model Brand {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String    @default("indigo")
+  active    Boolean   @default(true)
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+  products  Product[]
 }

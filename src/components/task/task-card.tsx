@@ -32,7 +32,6 @@ import { ReviewActions } from "./review-actions";
 import { StepGuidePanel } from "./step-guide-panel";
 import { RoundGallery } from "./round-gallery";
 import { Decision, RoundHeader, SubmissionHistory } from "./submission-history";
-import { SubmitPanel } from "./submit-panel";
 
 const ICON: Record<TaskStatus, React.ComponentType<{ className?: string }>> = {
   LOCKED: LockIcon,
@@ -94,7 +93,6 @@ export function TaskCard({
   const open_ = task.status !== "APPROVED" && task.status !== "CANCELLED";
   const canReassign = open_ && (viewer.role === "ADMIN" || task.assignee?.id === viewer.id);
   const parent = task.dependsOnId ? product.tasks.find((t) => t.id === task.dependsOnId) : null;
-  const missing = task.checklist.filter((c) => c.required && !c.checked).length;
   const Icon = justUnlocked ? LockOpenIcon : ICON[task.status];
   const title = `${TASK_TYPE_LABELS[task.type]}${task.requestKind ? ` · ${FOLLOW_UP_LABELS[task.requestKind]}` : ""}`;
   const latest = task.submissions[0];
@@ -242,7 +240,9 @@ export function TaskCard({
               ) : null}
               {canReview ? <ReviewActions taskId={task.id} label={title} assignee={task.assignee?.name ?? null} /> : null}
               {reviewed && canWork && workable ? (
-                <SubmitPanel taskId={task.id} type={task.type} checklistMissing={missing} resubmission={task.submissions.length > 0} />
+                <p className="rounded-control border border-dashed border-slate-300 bg-white px-3 py-2 text-meta font-normal text-slate-600">
+                  When it&apos;s in the Drive folder, tick <span className="font-medium text-slate-800">“{TASK_TYPE_SHORT[task.type]} ready?”</span> in the checklist above.
+                </p>
               ) : null}
               {viewer.role === "ADMIN" && open_ && !locked ? <DueOverride taskId={task.id} dueAt={task.dueAt} /> : null}
               <SubmissionHistory rounds={task.submissions.slice(1)} />

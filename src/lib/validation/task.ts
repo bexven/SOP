@@ -28,3 +28,16 @@ export const itemCommentSchema = z.object({ itemId: idSchema, body: z.string().t
 export const revisionSchema = z.object({ taskId: idSchema, note: note.min(3, "Explain what needs to change") });
 export const reassignSchema = z.object({ taskId: idSchema, assigneeId: idSchema });
 export const briefSchema = z.object({ productId: idSchema, brief: z.string().max(20_000, "The brief is too long") });
+
+export const folderSchema = z.object({
+  batchId: idSchema,
+  lane: z.enum(["images", "videos"]),
+  url: z.union([urlSchema, z.literal("")]).transform((v) => v || null),
+});
+export const markReadySchema = z.object({
+  taskId: idSchema,
+  ready: z.boolean(),
+  storeUrl: z.union([urlSchema, z.literal("")]).optional().transform((v) => v || null),
+  images: z.array(idSchema).max(20).default([]),
+  note: z.string().trim().max(2000).optional().transform((v) => v || null),
+});

@@ -11,9 +11,9 @@ describe("creative lanes", () => {
 });
 
 describe("submissionError", () => {
-  it("image tasks need at least one uploaded image", () => {
-    expect(submissionError("AD_IMAGE_SQUARE", { images: 0, links: 2 })).not.toBeNull();
-    expect(submissionError("AD_IMAGE_SQUARE", { images: 3, links: 0 })).toBeNull();
+  it("image tasks need the lane's Drive folder (previews optional)", () => {
+    expect(submissionError("AD_IMAGE_SQUARE", { images: 3, links: 0 })).not.toBeNull();
+    expect(submissionError("AD_IMAGE_SQUARE", { images: 0, links: 1 })).toBeNull();
   });
   it("video tasks need a link", () => {
     expect(submissionError("VIDEO_MAIN", { images: 2, links: 0 })).not.toBeNull();

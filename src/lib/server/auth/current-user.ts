@@ -9,7 +9,13 @@ import { readSession } from "./session";
 export type CurrentUser = {
   id: string;
   name: string;
+  /** Access role used for every permission check: ADMIN when the person is an Admin or has Admin access. */
   role: Role;
+  /** Their job role (what they do: researcher, image designer, …). */
+  jobRole: Role;
+  adminAccess: boolean;
+  /** The Master Admin manages the team. */
+  isMaster: boolean;
   avatarColor: string;
   avatarAssetId: string | null;
   mustChangePin: boolean;
@@ -25,13 +31,16 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!session) return null;
   const user = await db.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, name: true, role: true, avatarColor: true, avatarAssetId: true, mustChangePin: true, active: true, sessionVersion: true },
+    select: { id: true, name: true, role: true, adminAccess: true, isMaster: true, avatarColor: true, avatarAssetId: true, mustChangePin: true, active: true, sessionVersion: true },
   });
   if (!user || !user.active || user.sessionVersion !== session.version) return null;
   return {
     id: user.id,
     name: user.name,
-    role: user.role,
+    role: user.role === "ADMIN" || user.adminAccess || user.isMaster ? "ADMIN" : user.role,
+    jobRole: user.role,
+    adminAccess: user.adminAccess,
+    isMaster: user.isMaster,
     avatarColor: user.avatarColor,
     avatarAssetId: user.avatarAssetId,
     mustChangePin: user.mustChangePin,
@@ -43,6 +52,13 @@ export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.mustChangePin) redirect("/change-pin");
+  return user;
+}
+
+/** For pages only the Master Admin may open (Team). */
+export async function requireMaster(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!user.isMaster) redirect("/dashboard");
   return user;
 }
 

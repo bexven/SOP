@@ -44,6 +44,11 @@ export async function loginAction(raw: unknown): Promise<ActionResult<{ mustChan
     return { ok: false, error: "This account isn't available. Ask an Admin." };
   }
 
+  // Accounts created without a PIN (e.g. by a migration) wait for the Master Admin to set one.
+  if (user.pinHash.startsWith("!")) {
+    return { ok: false, error: "Your PIN hasn't been set yet. Ask the Master Admin to set it on the Team page." };
+  }
+
   if (isLocked(user, now)) {
     const mins = minutesUntilUnlock(user, now);
     return { ok: false, error: `Too many wrong PINs. Locked for ${mins} more minute${mins === 1 ? "" : "s"}.` };

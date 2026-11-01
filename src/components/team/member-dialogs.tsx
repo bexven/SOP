@@ -7,6 +7,7 @@ import type { Role } from "@/generated/prisma/enums";
 import { Field, fieldA11y } from "@/components/common/field";
 import { AVATAR_SWATCH, UserAvatar } from "@/components/common/user-avatar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,7 @@ function MemberForm({ member, onDone }: { member?: TeamRow; onDone: () => void }
   const [role, setRole] = useState<Role | "">(member?.role ?? "");
   const [color, setColor] = useState<AvatarColor>((member?.avatarColor as AvatarColor) ?? "indigo");
   const [pin, setPin] = useState("");
+  const [adminAccess, setAdminAccess] = useState(Boolean(member?.adminAccess));
   const [errors, setErrors] = useState<Errors>({});
   const [pending, startTransition] = useTransition();
 
@@ -56,8 +58,8 @@ function MemberForm({ member, onDone }: { member?: TeamRow; onDone: () => void }
     e.preventDefault();
     startTransition(async () => {
       const result = member
-        ? await updateMemberAction({ id: member.id, name, role, avatarColor: color })
-        : await createMemberAction({ name, role, avatarColor: color, pin });
+        ? await updateMemberAction({ id: member.id, name, role, avatarColor: color, adminAccess })
+        : await createMemberAction({ name, role, avatarColor: color, pin, adminAccess });
       if (!result.ok) {
         setErrors(result.fieldErrors ?? {});
         toast.error(result.error);
@@ -94,7 +96,7 @@ function MemberForm({ member, onDone }: { member?: TeamRow; onDone: () => void }
       </div>
 
       <Field id="member-role" label="Role" error={errors.role?.[0]}>
-        <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+        <Select value={role} onValueChange={(v) => setRole(v as Role)} disabled={member?.isMaster}>
           <SelectTrigger {...fieldA11y("member-role", errors.role?.[0])}>
             <SelectValue placeholder="Choose a role" />
           </SelectTrigger>
@@ -107,6 +109,18 @@ function MemberForm({ member, onDone }: { member?: TeamRow; onDone: () => void }
           </SelectContent>
         </Select>
       </Field>
+
+      {role && role !== "ADMIN" ? (
+        <label className="flex items-start gap-3 rounded-control border border-slate-200 bg-white p-3">
+          <Checkbox checked={adminAccess} onCheckedChange={(v) => setAdminAccess(v === true)} className="mt-0.5" disabled={member?.isMaster} />
+          <span>
+            <span className="block text-body font-medium text-slate-900">Admin access</span>
+            <span className="block text-meta font-normal text-slate-500">
+              Can see and do everything an Admin can (except managing the team), while keeping their job role.
+            </span>
+          </span>
+        </label>
+      ) : null}
 
       <fieldset className="grid gap-1.5">
         <legend className="mb-1.5 text-meta text-slate-700">Avatar colour</legend>
@@ -172,13 +186,14 @@ export function ResetPinDialog({
   member: TeamRow;
 }) {
   const [pin, setPin] = useState("");
+  const [requireChange, setRequireChange] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [pending, startTransition] = useTransition();
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const r = await resetPinAction({ id: member.id, pin });
+      const r = await resetPinAction({ id: member.id, pin, requireChange });
       if (!r.ok) {
         setError(r.fieldErrors?.pin?.[0] ?? r.error);
         return;
@@ -204,13 +219,12 @@ export function ResetPinDialog({
       <DialogContent>
         <form onSubmit={submit} className="grid gap-5" noValidate>
           <DialogHeader>
-            <DialogTitle>Reset PIN for {member.name}</DialogTitle>
+            <DialogTitle>Change PIN for {member.name}</DialogTitle>
             <DialogDescription>
-              They&apos;ll be signed out everywhere, any lock is cleared, and they must choose a new PIN at next
-              sign-in.
+              They&apos;ll be signed out on other devices and any lock is cleared. Give them the new PIN privately.
             </DialogDescription>
           </DialogHeader>
-          <Field id="reset-pin" label="Temporary PIN" hint="4–6 digits" error={error}>
+          <Field id="reset-pin" label="New PIN" hint="4–6 digits" error={error}>
             <Input
               {...fieldA11y("reset-pin", error, true)}
               value={pin}
@@ -222,12 +236,16 @@ export function ResetPinDialog({
               autoFocus
             />
           </Field>
+          <label className="flex items-center gap-2.5 text-body text-slate-700">
+            <Checkbox checked={requireChange} onCheckedChange={(v) => setRequireChange(v === true)} />
+            Ask them to choose their own PIN after signing in
+          </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              Reset PIN
+              Save PIN
             </Button>
           </DialogFooter>
         </form>

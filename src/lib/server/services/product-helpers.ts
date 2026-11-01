@@ -9,6 +9,7 @@ export type ResearchData = z.output<typeof researchFieldsSchema>;
 /** Prisma data for research fields (dates as UTC midnight of the chosen day). */
 export function researchData(input: ResearchData) {
   return {
+    brandId: input.brandId,
     name: input.name,
     supplierUrl: input.supplierUrl,
     imageUrl: input.imageUrl,

@@ -5,9 +5,9 @@ import { productRef } from "@/lib/format";
 import { db } from "../db";
 
 /** Open creative work, split into the image and video lanes. */
-export async function getCreativeBoard(user: { id: string; role: Role }, scope: "mine" | "all") {
+export async function getCreativeBoard(user: { id: string; role: Role; jobRole: Role }, scope: "mine" | "all") {
   const lanes: ("images" | "videos")[] =
-    user.role === "IMAGE_DESIGNER" ? ["images"] : user.role === "VIDEO_EDITOR" ? ["videos"] : ["images", "videos"];
+    user.jobRole === "IMAGE_DESIGNER" ? ["images"] : user.jobRole === "VIDEO_EDITOR" ? ["videos"] : ["images", "videos"];
   const types = [...(lanes.includes("images") ? IMAGE_LANE : []), ...(lanes.includes("videos") ? VIDEO_LANE : [])];
   const tasks = await db.task.findMany({
     where: {

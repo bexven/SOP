@@ -8,6 +8,8 @@ import { ROLE_LABELS } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
 import { getQueue } from "@/lib/server/queries/queue";
+import { listProducts } from "@/lib/server/queries/products";
+import { ProductsInProgress } from "@/components/dashboard/products-in-progress";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -17,7 +19,8 @@ const HELP: Record<string, string> = {
   IMAGE_DESIGNER: "Your image tasks. Upload your images on each task and submit for review.",
   VIDEO_EDITOR: "Your video tasks. Add your Drive links on each task and submit for review.",
   MEDIA_BUYER: "Work waiting for your review, plus your own tasks like writing briefs and launching campaigns.",
-  ADMIN: "Your own tasks, anything nobody is assigned to, and work waiting for review.",
+  REVIEWER: "Products waiting for your approval and creative work waiting for review.",
+  ADMIN: "Every product in progress and who it's waiting on, then your own tasks and anything that needs a decision.",
 };
 
 function hour() {
@@ -26,7 +29,9 @@ function hour() {
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const q = await getQueue(user);
+  const isAdmin = user.role === "ADMIN";
+  const [q, products] = await Promise.all([getQueue(user), isAdmin ? listProducts(user.role) : Promise.resolve([])]);
+  const running = products.filter((p) => p.stage !== "COMPLETED" && p.stage !== "KILLED");
   const pending = q.today.length + q.upcoming.length + q.overdue.length + q.revision.length;
   const total = pending + q.review.length + q.unassigned.length;
   const h = hour();
@@ -37,17 +42,17 @@ export default async function DashboardPage() {
     { label: "Overdue", value: q.overdue.length, icon: AlertTriangleIcon, tone: "text-rose-600", show: true },
     { label: "Due today", value: q.today.length, icon: ClockIcon, tone: "text-amber-600", show: true },
     { label: "Needs changes", value: q.revision.length, icon: RotateCcwIcon, tone: "text-rose-600", show: true },
-    { label: "Waiting for my review", value: q.review.length, icon: EyeIcon, tone: "text-indigo-600", show: user.role === "MEDIA_BUYER" || user.role === "ADMIN" },
+    { label: "Waiting for my review", value: q.review.length, icon: EyeIcon, tone: "text-indigo-600", show: user.role === "MEDIA_BUYER" || user.role === "REVIEWER" || isAdmin },
   ].filter((t) => t.show);
 
   return (
     <>
       <div className="mb-6">
-        <p className="text-meta text-slate-500">{ROLE_LABELS[user.role]}</p>
+        <p className="text-meta text-slate-500">{ROLE_LABELS[user.jobRole]}{user.isMaster ? " · Master Admin" : user.adminAccess ? " · Admin access" : ""}</p>
         <h1 className="text-page text-slate-900">
           {greeting}, {user.name}
         </h1>
-        <p className="mt-1 max-w-2xl text-body text-slate-600">{HELP[user.role]}</p>
+        <p className="mt-1 max-w-2xl text-body text-slate-600">{isAdmin ? HELP.ADMIN : HELP[user.jobRole]}</p>
       </div>
 
       <section aria-label="Summary" className={cn("mb-6 grid grid-cols-2 gap-3", tiles.length === 5 ? "sm:grid-cols-5" : "sm:grid-cols-4")}>
@@ -63,7 +68,9 @@ export default async function DashboardPage() {
         ))}
       </section>
 
-      {total === 0 ? (
+      {isAdmin ? <ProductsInProgress rows={running} /> : null}
+      {isAdmin && total ? <h2 className="mb-3 text-section text-slate-900">Needs you</h2> : null}
+      {total === 0 && !(isAdmin && running.length) ? (
         <EmptyState
           icon={InboxIcon}
           title="You're all caught up"

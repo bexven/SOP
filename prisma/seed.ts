@@ -2,7 +2,7 @@
  * One-command, idempotent seed: `npm run db:seed`
  *
  * Creates (only if missing):
- *   - the initial team (Admin PIN from SEED_ADMIN_PIN; everyone else gets
+ *   - the initial team (Master Admin PIN from SEED_ADMIN_PIN; everyone else gets
  *     SEED_DEFAULT_PIN and must choose their own PIN at first sign-in)
  *   - the Settings row (rates/thresholds — review these in Settings)
  *   - SLA rows per task type
@@ -30,12 +30,18 @@ function requirePin(name: string): string {
   return pin;
 }
 
-const TEAM: { name: string; role: Role; avatarColor: string }[] = [
-  { name: "Sakib", role: "ADMIN", avatarColor: "indigo" },
-  { name: "Arif", role: "RESEARCHER", avatarColor: "sky" },
-  { name: "Tanvir", role: "IMAGE_DESIGNER", avatarColor: "violet" },
-  { name: "Sadia", role: "VIDEO_EDITOR", avatarColor: "rose" },
-  { name: "Rafiq", role: "MEDIA_BUYER", avatarColor: "emerald" },
+const TEAM: { name: string; role: Role; avatarColor: string; adminAccess?: boolean; isMaster?: boolean }[] = [
+  { name: "Sk Moni", role: "ADMIN", avatarColor: "indigo", isMaster: true },
+  { name: "Inamul", role: "REVIEWER", avatarColor: "violet" },
+  { name: "Jewel", role: "RESEARCHER", avatarColor: "sky", adminAccess: true },
+  { name: "Rony", role: "VIDEO_EDITOR", avatarColor: "rose" },
+  { name: "Kamrul", role: "IMAGE_DESIGNER", avatarColor: "orange" },
+  { name: "Shohag", role: "MEDIA_BUYER", avatarColor: "emerald" },
+];
+
+const BRANDS = [
+  { name: "Timtom", color: "sky" },
+  { name: "Mr.WOW", color: "amber" },
 ];
 
 // Starting values only — Admin should confirm them in Settings.
@@ -49,6 +55,7 @@ const DEFAULT_SETTINGS = {
 
 const DEFAULT_SLA_HOURS: Record<TaskType, number> = {
   RESEARCH: 48,
+  PRODUCT_APPROVAL: 24,
   WEBSITE_IMAGE: 24,
   AD_IMAGE_LANDSCAPE: 24,
   AD_IMAGE_SQUARE: 24,
@@ -82,12 +89,16 @@ async function seedTeam() {
       console.log(`  · ${person.name} already exists — left unchanged`);
       continue;
     }
-    const isAdmin = person.role === "ADMIN";
+    const isMaster = Boolean(person.isMaster);
     await db.user.create({
       data: {
-        ...person,
-        pinHash: isAdmin ? adminHash : defaultHash,
-        mustChangePin: !isAdmin,
+        name: person.name,
+        role: person.role,
+        avatarColor: person.avatarColor,
+        adminAccess: Boolean(person.adminAccess),
+        isMaster,
+        pinHash: isMaster ? adminHash : defaultHash,
+        mustChangePin: !isMaster,
       },
     });
     console.log(`  + ${person.name} (${person.role})`);
@@ -129,9 +140,20 @@ async function seedChecklists() {
   }
 }
 
+async function seedBrands() {
+  for (const [order, b] of BRANDS.entries()) {
+    const exists = await db.brand.findUnique({ where: { name: b.name } });
+    if (exists) continue;
+    await db.brand.create({ data: { ...b, order } });
+    console.log(`  + brand ${b.name}`);
+  }
+}
+
 async function main() {
   console.log("Seeding team…");
   await seedTeam();
+  console.log("Seeding brands…");
+  await seedBrands();
   console.log("Seeding settings…");
   await seedSettings();
   console.log("Seeding task SLAs…");

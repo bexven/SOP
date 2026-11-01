@@ -10,6 +10,7 @@ import { isTerminalStage } from "@/lib/domain/workflow";
 import { formatDate } from "@/lib/format";
 import type { ProductDetail, TaskDTO } from "@/lib/server/queries/product";
 import { cn } from "@/lib/utils";
+import { LaneFolderPanel } from "@/components/task/lane-folder-panel";
 import { TaskCard } from "@/components/task/task-card";
 import { BriefCard } from "./brief-card";
 import type { Viewer } from "./product-view";
@@ -171,7 +172,8 @@ function BatchSection({
                 {lane.who ? <span className="text-meta text-slate-600">{lane.who}</span> : null}
                 <span className="text-meta font-normal text-slate-500">{lane.hint}</span>
               </div>
-              <div className="grid gap-2">
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
+                <LaneFolderPanel batch={batch} lane={lane.key as "images" | "videos"} tasks={lane.tasks} viewer={viewer} />
                 {lane.tasks.map((t) => (
                   <TaskCard key={t.id} task={t} product={product} viewer={viewer} focus={t.id === focusTaskId} />
                 ))}

@@ -1,18 +1,22 @@
 import "server-only";
 import { isOpenStatus } from "@/lib/domain/assignment";
 import { computeMargin, marginBand } from "@/lib/domain/margin";
+import type { Role } from "@/generated/prisma/enums";
+import { canSeeProduct } from "@/lib/domain/permissions";
 import { deriveStepper } from "@/lib/domain/stepper";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
 import { getMarginThresholds, phase1Progress } from "./product";
 
 /** Every product as a compact row (pipeline cards, products table, palette). */
-export async function listProducts() {
+/** Every product the viewer may see, as a compact row (pipeline, table, dashboard). */
+export async function listProducts(viewerRole: Role) {
   const [products, thresholds] = await Promise.all([
     db.product.findMany({
       orderBy: [{ updatedAt: "desc" }],
       include: {
         campaign: { select: { status: true } },
+        brand: { select: { id: true, name: true, color: true } },
         batches: { select: { id: true, number: true } },
         createdBy: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } },
         tasks: {
@@ -31,7 +35,7 @@ export async function listProducts() {
     getMarginThresholds(),
   ]);
   const now = Date.now();
-  return products.map((p) => {
+  return products.filter((p) => canSeeProduct(viewerRole, p.stage, p.stageBeforeKill)).map((p) => {
     const margin = computeMargin({
       chinaPriceRmb: p.chinaPriceRmb?.toString() ?? null,
       shippingPerUnitRmb: p.shippingPerUnitRmb?.toString() ?? null,
@@ -40,6 +44,9 @@ export async function listProducts() {
       courierChargePct: p.courierChargePct.toString(),
     });
     const open = p.tasks.filter((t) => isOpenStatus(t.status) && t.status !== "LOCKED");
+    const waiting = open
+      .filter((t) => t.type !== "RESEARCH" || p.stage === "RESEARCH")
+      .map((t) => ({ id: t.id, type: t.type, status: t.status, dueAt: t.dueAt?.toISOString() ?? null, assignee: t.assignee }));
     const assignees = [...new Map(open.filter((t) => t.assignee).map((t) => [t.assignee!.id, t.assignee!])).values()];
     const dues = open.map((t) => t.dueAt).filter((d): d is Date => Boolean(d));
     const nextDue = dues.length ? new Date(Math.min(...dues.map((d) => d.getTime()))) : null;
@@ -48,6 +55,8 @@ export async function listProducts() {
       ref: productRef(p.number),
       number: p.number,
       name: p.name,
+      brand: p.brand,
+      waiting,
       imageUrl: p.imageUrl,
       stage: p.stage,
       priority: p.priority,

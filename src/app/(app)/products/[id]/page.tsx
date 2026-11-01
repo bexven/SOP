@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronRightIcon } from "lucide-react";
 import { BackLink } from "@/components/common/back-link";
 import { ProductView } from "@/components/product/product-view";
+import { canSeeProduct } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
 import { getProductDetail } from "@/lib/server/queries/product";
 
@@ -17,7 +18,7 @@ export default async function ProductPage({ params, searchParams }: PageProps<"/
   const user = await requireUser();
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const product = await getProductDetail(id);
-  if (!product) notFound();
+  if (!product || !canSeeProduct(user.role, product.stage, product.stageBeforeKill)) notFound();
   const task = typeof sp.task === "string" ? sp.task : undefined;
   return (
     <>

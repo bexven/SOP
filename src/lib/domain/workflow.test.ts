@@ -6,8 +6,11 @@ import {
   planApprove,
   planCampaignStatus,
   planComplete,
+  planApproveProduct,
   planKill,
   planLaunch,
+  planRejectProduct,
+  planWithdraw,
   planNewBatch,
   planRequestRevision,
   planResearchSubmit,
@@ -92,8 +95,14 @@ function submitAndApprove(p: ProductSnap, type: TaskType): ProductSnap {
   return apply(p, planApprove(p, t.id));
 }
 
+/** Research submitted and approved in Product review → Creative with Batch #1. */
+function toCreative(): ProductSnap {
+  const p = apply(newProduct(), planResearchSubmit(newProduct()));
+  return apply(p, planApproveProduct(p));
+}
+
 function toReadyToLaunch(): ProductSnap {
-  let p = apply(newProduct(), planResearchSubmit(newProduct()));
+  let p = toCreative();
   for (const type of ["WEBSITE_IMAGE", "VIDEO_MAIN"] as const) p = submitAndApprove(p, type);
   for (const type of ["AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL", "STORE_LISTING", "VIDEO_SQUARE"] as const) {
     p = submitAndApprove(p, type);
@@ -119,8 +128,29 @@ describe("research", () => {
     ).toEqual([]);
   });
 
-  it("submit creates Batch #1 with the 7 creative/store tasks and moves to CREATIVE", () => {
+  it("submit goes to Product review with an approval task for the Reviewer", () => {
     const p = apply(newProduct(), planResearchSubmit(newProduct()));
+    expect(p.stage).toBe("REVIEW");
+    expect(p.batches).toEqual([]);
+    expect(byType(p, "PRODUCT_APPROVAL")).toMatchObject({ role: "REVIEWER", status: "TODO" });
+    expect(byType(p, "RESEARCH").status).toBe("APPROVED");
+  });
+
+  it("not approved closes the product; send back reopens research", () => {
+    const p = apply(newProduct(), planResearchSubmit(newProduct()));
+    const rejected = apply(p, planRejectProduct(p));
+    expect(rejected.stage).toBe("KILLED");
+    expect(byType(rejected, "PRODUCT_APPROVAL").status).toBe("CANCELLED");
+    expect(sendBackTargets("REVIEW", "REVIEWER")).toEqual(["RESEARCH"]);
+    const back = apply(p, planSendBack(p, { target: "RESEARCH", actorRole: "REVIEWER", note: "Need a cheaper supplier", reopenTaskIds: [] }));
+    expect(back.stage).toBe("RESEARCH");
+    expect(byType(back, "RESEARCH").status).toBe("REVISION");
+    expect(byType(back, "PRODUCT_APPROVAL").status).toBe("CANCELLED");
+    expect(planApproveProduct(back).ok).toBe(false);
+  });
+
+  it("approval creates Batch #1 with the 7 creative/store tasks and moves to CREATIVE", () => {
+    const p = toCreative();
     expect(p.stage).toBe("CREATIVE");
     expect(p.batches).toEqual([{ id: "b1", number: 1 }]);
     const batch = p.tasks.filter((t) => t.batchId === "b1");
@@ -142,15 +172,16 @@ describe("research", () => {
     expect(byType(p, "RESEARCH").status).toBe("APPROVED");
   });
 
-  it("can't submit twice", () => {
-    const p = apply(newProduct(), planResearchSubmit(newProduct()));
+  it("can't submit or approve twice", () => {
+    const p = toCreative();
     expect(planResearchSubmit(p).ok).toBe(false);
+    expect(planApproveProduct(p).ok).toBe(false);
   });
 });
 
 describe("creative phase gating", () => {
   it("phase 2 stays locked until its phase 1 task is approved", () => {
-    let p = apply(newProduct(), planResearchSubmit(newProduct()));
+    let p = toCreative();
     const landscape = byType(p, "AD_IMAGE_LANDSCAPE");
     expect(planSubmitTask(p, landscape.id)).toEqual({ ok: false, error: "This task is still locked." });
 
@@ -172,7 +203,7 @@ describe("creative phase gating", () => {
   });
 
   it("revision requires a note and allows resubmission", () => {
-    let p = apply(newProduct(), planResearchSubmit(newProduct()));
+    let p = toCreative();
     const website = byType(p, "WEBSITE_IMAGE");
     p = apply(p, planSubmitTask(p, website.id));
     expect(planRequestRevision(p, website.id, "   ")).toEqual({ ok: false, error: "A revision note is required." });
@@ -184,7 +215,7 @@ describe("creative phase gating", () => {
   });
 
   it("only submitted work can be reviewed", () => {
-    const p = apply(newProduct(), planResearchSubmit(newProduct()));
+    const p = toCreative();
     const website = byType(p, "WEBSITE_IMAGE");
     expect(planApprove(p, website.id).ok).toBe(false);
     expect(planRequestRevision(p, website.id, "x").ok).toBe(false);
@@ -261,7 +292,7 @@ describe("launch & live", () => {
 
 describe("kill", () => {
   it("cancels open tasks from any active stage", () => {
-    let p = apply(newProduct(), planResearchSubmit(newProduct()));
+    let p = toCreative();
     p = apply(p, planKill(p));
     expect(p.stage).toBe("KILLED");
     expect(p.tasks.filter((t) => t.batchId === "b1").every((t) => t.status === "CANCELLED")).toBe(true);
@@ -271,6 +302,8 @@ describe("kill", () => {
 
   it("works from research and stops a live campaign", () => {
     expect(apply(newProduct(), planKill(newProduct())).tasks[0]!.status).toBe("CANCELLED");
+    const inReview = apply(newProduct(), planResearchSubmit(newProduct()));
+    expect(apply(inReview, planKill(inReview)).stage).toBe("KILLED");
     let p = toReadyToLaunch();
     p = apply(p, planLaunch(p));
     p = apply(p, planKill(p));
@@ -289,12 +322,12 @@ describe("send back", () => {
   });
 
   it("requires a note", () => {
-    const p = apply(newProduct(), planResearchSubmit(newProduct()));
+    const p = toCreative();
     expect(planSendBack(p, { target: "RESEARCH", actorRole: "ADMIN", note: " ", reopenTaskIds: [] }).ok).toBe(false);
   });
 
   it("Creative → Research cancels creative work, reopens research, and resubmit creates Batch #2 (Q2)", () => {
-    let p = apply(newProduct(), planResearchSubmit(newProduct()));
+    let p = toCreative();
     p = submitAndApprove(p, "WEBSITE_IMAGE");
     p = apply(p, planSendBack(p, { target: "RESEARCH", actorRole: "MEDIA_BUYER", note: "Supplier changed", reopenTaskIds: [] }));
     expect(p.stage).toBe("RESEARCH");
@@ -304,6 +337,8 @@ describe("send back", () => {
     expect(b1.filter((t) => t.status !== "APPROVED").every((t) => t.status === "CANCELLED")).toBe(true);
 
     p = apply(p, planResearchSubmit(p));
+    expect(p.stage).toBe("REVIEW");
+    p = apply(p, planApproveProduct(p));
     expect(p.stage).toBe("CREATIVE");
     expect(p.batches.map((b) => b.number)).toEqual([1, 2]);
     const b2 = p.tasks.filter((t) => t.batchId === "b2");
@@ -378,7 +413,7 @@ describe("task permissions", () => {
 
 describe("approve with a follow-up (different angle / size)", () => {
   it("creates a follow-up task for the same person in the same batch and still unlocks Phase 2", () => {
-    let p = apply(newProduct(), planResearchSubmit(newProduct()));
+    let p = toCreative();
     const website = byType(p, "WEBSITE_IMAGE");
     p = apply(p, planSubmitTask(p, website.id));
     const r = planApprove(p, website.id, { followUp: { kind: "DIFFERENT_ANGLE", note: "Show it folded" } });
@@ -396,7 +431,7 @@ describe("approve with a follow-up (different angle / size)", () => {
   });
 
   it("a follow-up on the last task keeps the product in Creative", () => {
-    let p = apply(newProduct(), planResearchSubmit(newProduct()));
+    let p = toCreative();
     for (const type of ["WEBSITE_IMAGE", "VIDEO_MAIN", "AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL", "STORE_LISTING"] as const) {
       p = submitAndApprove(p, type);
     }
@@ -409,5 +444,16 @@ describe("approve with a follow-up (different angle / size)", () => {
   it("is only for creative work", () => {
     const p = toReadyToLaunch();
     expect(planApprove(p, byType(p, "CAMPAIGN_LAUNCH").id, { followUp: { kind: "OTHER", note: null } }).ok).toBe(false);
+  });
+});
+
+describe("withdraw (un-tick ready)", () => {
+  it("takes submitted work back to To do before review", () => {
+    let p = toCreative();
+    const w = byType(p, "WEBSITE_IMAGE");
+    expect(planWithdraw(p, w.id).ok).toBe(false);
+    p = apply(p, planSubmitTask(p, w.id));
+    p = apply(p, planWithdraw(p, w.id));
+    expect(byType(p, "WEBSITE_IMAGE").status).toBe("TODO");
   });
 });

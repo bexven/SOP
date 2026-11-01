@@ -42,13 +42,13 @@ export async function getQueue(user: { id: string; role: Role }) {
   const groups = groupQueue(mine, now);
 
   let review: QueueItem[] = [];
-  if (user.role === "MEDIA_BUYER" || user.role === "ADMIN") {
+  if (user.role === "MEDIA_BUYER" || user.role === "REVIEWER" || user.role === "ADMIN") {
     // Media buyers: products they own, plus products without an owner. Admin: everything.
     review = (
       await loadRows({
         status: "SUBMITTED",
         type: { in: [...REVIEWED] },
-        ...(user.role === "ADMIN" ? {} : { product: { OR: [{ mediaBuyerId: user.id }, { mediaBuyerId: null }] } }),
+        ...(user.role === "MEDIA_BUYER" ? { product: { OR: [{ mediaBuyerId: user.id }, { mediaBuyerId: null }] } } : {}),
       })
     )
       .map(toItem)
@@ -71,12 +71,12 @@ export async function getQueue(user: { id: string; role: Role }) {
 /** Sidebar badge: actionable items for this person. */
 export async function getQueueCount(user: { id: string; role: Role }): Promise<number> {
   const mine = await db.task.count({ where: { assigneeId: user.id, status: { in: ["TODO", "REVISION"] } } });
-  if (user.role !== "MEDIA_BUYER") return mine;
+  if (user.role !== "MEDIA_BUYER" && user.role !== "REVIEWER") return mine;
   const review = await db.task.count({
     where: {
       status: "SUBMITTED",
       type: { in: [...REVIEWED] },
-      product: { OR: [{ mediaBuyerId: user.id }, { mediaBuyerId: null }] },
+      ...(user.role === "MEDIA_BUYER" ? { product: { OR: [{ mediaBuyerId: user.id }, { mediaBuyerId: null }] } } : {}),
     },
   });
   return mine + review;

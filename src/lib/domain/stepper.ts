@@ -9,6 +9,7 @@ import type { CampaignStatus, ProductStage } from "@/generated/prisma/enums";
 
 export const STEPPER_STEPS = [
   "Research",
+  "Product review",
   "Creative: step 1",
   "Creative: step 2 & store",
   "Ready to launch",
@@ -39,12 +40,14 @@ function indexFor(stage: ProductStage, input: StepperInput): number {
   switch (stage) {
     case "RESEARCH":
       return 0;
+    case "REVIEW":
+      return 1;
     case "CREATIVE":
-      return input.phase1.total > 0 && input.phase1.approved >= input.phase1.total ? 2 : 1;
+      return input.phase1.total > 0 && input.phase1.approved >= input.phase1.total ? 3 : 2;
     case "READY_TO_LAUNCH":
-      return 3;
-    case "LIVE":
       return 4;
+    case "LIVE":
+      return 5;
     case "COMPLETED":
       return STEPPER_STEPS.length;
     case "KILLED":
@@ -68,6 +71,6 @@ export function deriveStepper(input: StepperInput): Stepper {
     index,
     killed,
     completed,
-    phase1Progress: index === 1 && !killed ? input.phase1 : null,
+    phase1Progress: index === 2 && !killed ? input.phase1 : null,
   };
 }

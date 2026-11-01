@@ -6,9 +6,10 @@ import { db } from "../db";
 import { getMarginThresholds } from "./product";
 
 /** The Research page: drafts in research (yours, or all for Admin) and what you've already submitted. */
-export async function getResearchBoard(user: { id: string; role: Role }) {
-  const admin = user.role === "ADMIN";
-  const [inResearch, submitted, thresholds] = await Promise.all([
+export async function getResearchBoard(user: { id: string; role: Role; jobRole: Role }) {
+  // Researchers see their own drafts; Admin, reviewers and media buyers see everyone's.
+  const admin = user.role !== "RESEARCHER";
+  const [inResearch, submitted, thresholds, inReview] = await Promise.all([
     db.product.findMany({
       where: {
         stage: "RESEARCH",
@@ -20,15 +21,32 @@ export async function getResearchBoard(user: { id: string; role: Role }) {
           where: { type: "RESEARCH" },
           include: { checklist: true, assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } } },
         },
+        brand: { select: { id: true, name: true, color: true } },
       },
     }),
     db.product.findMany({
       where: { stage: { not: "RESEARCH" }, ...(admin ? {} : { createdById: user.id }) },
       orderBy: { updatedAt: "desc" },
       take: 20,
-      select: { id: true, number: true, name: true, stage: true, imageUrl: true, updatedAt: true, killReason: true },
+      select: { id: true, number: true, name: true, stage: true, imageUrl: true, updatedAt: true, killReason: true, brand: { select: { id: true, name: true, color: true } } },
     }),
     getMarginThresholds(),
+    db.product.findMany({
+      where: { stage: "REVIEW" },
+      orderBy: { stageEnteredAt: "asc" },
+      select: {
+        id: true,
+        number: true,
+        name: true,
+        imageUrl: true,
+        stageEnteredAt: true,
+        brand: { select: { id: true, name: true, color: true } },
+        tasks: {
+          where: { type: "PRODUCT_APPROVAL", status: { in: ["TODO", "REVISION"] } },
+          select: { id: true, dueAt: true, assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } } },
+        },
+      },
+    }),
   ]);
 
   const drafts = inResearch.map((p) => {
@@ -45,6 +63,7 @@ export async function getResearchBoard(user: { id: string; role: Role }) {
       id: p.id,
       ref: productRef(p.number),
       name: p.name,
+      brand: p.brand,
       imageUrl: p.imageUrl,
       priority: p.priority,
       updatedAt: p.updatedAt.toISOString(),
@@ -64,7 +83,18 @@ export async function getResearchBoard(user: { id: string; role: Role }) {
   return {
     sentBack: drafts.filter((d) => d.sentBack),
     drafts: drafts.filter((d) => !d.sentBack),
-    submitted: submitted.map((p) => ({ ...p, ref: productRef(p.number), updatedAt: p.updatedAt.toISOString() })),
+    submitted: submitted.filter((p) => p.stage !== "REVIEW").map((p) => ({ ...p, ref: productRef(p.number), updatedAt: p.updatedAt.toISOString() })),
+    inReview: inReview.map((p) => ({
+      id: p.id,
+      ref: productRef(p.number),
+      name: p.name,
+      imageUrl: p.imageUrl,
+      brand: p.brand,
+      since: p.stageEnteredAt.toISOString(),
+      taskId: p.tasks[0]?.id ?? null,
+      dueAt: p.tasks[0]?.dueAt?.toISOString() ?? null,
+      reviewer: p.tasks[0]?.assignee ?? null,
+    })),
   };
 }
 

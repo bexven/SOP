@@ -42,6 +42,7 @@ export async function getProductDetail(id: string) {
       include: {
         createdBy: person,
         mediaBuyer: person,
+        brand: { select: { id: true, name: true, color: true } },
         campaign: true,
         batches: { orderBy: { number: "asc" } },
         transitions: { orderBy: { at: "asc" } },
@@ -68,6 +69,7 @@ export async function getProductDetail(id: string) {
     getMarginThresholds(),
   ]);
   if (!p) return null;
+  const brands = await getBrands();
 
   const people = await db.user.findMany({ select: { id: true, name: true, avatarColor: true, avatarAssetId: true, role: true, active: true } });
   const nameOf = (uid: string | null | undefined) => (uid ? (people.find((u) => u.id === uid)?.name ?? null) : null);
@@ -113,6 +115,8 @@ export async function getProductDetail(id: string) {
     name: p.name,
     stage: p.stage,
     stageBeforeKill: p.stageBeforeKill,
+    brand: p.brand,
+    brandId: p.brandId,
     stageEnteredAt: p.stageEnteredAt.toISOString(),
     priority: p.priority,
     imageUrl: p.imageUrl,
@@ -152,6 +156,8 @@ export async function getProductDetail(id: string) {
       number: b.number,
       reason: b.reason,
       dueAt: iso(b.dueAt),
+      imageFolderUrl: b.imageFolderUrl,
+      videoFolderUrl: b.videoFolderUrl,
       createdAt: b.createdAt.toISOString(),
       requestedBy: nameOf(b.requestedById),
     })),
@@ -228,6 +234,7 @@ export async function getProductDetail(id: string) {
       data: (e.data ?? null) as Record<string, unknown> | null,
       createdAt: e.createdAt.toISOString(),
     })),
+    brands,
     margin,
     marginBand: band,
     thresholds,
@@ -239,3 +246,8 @@ export async function getProductDetail(id: string) {
 export type ProductDetail = NonNullable<Awaited<ReturnType<typeof getProductDetail>>>;
 export type TaskDTO = ProductDetail["tasks"][number];
 export type StageKey = ProductStage;
+
+export async function getBrands() {
+  return db.brand.findMany({ orderBy: [{ order: "asc" }, { name: "asc" }], select: { id: true, name: true, color: true, active: true } });
+}
+export type BrandDTO = Awaited<ReturnType<typeof getBrands>>[number];

@@ -43,6 +43,7 @@ const optionalMoney = (label: string, max: number) =>
     .refine((v) => v === null || Number(v) <= max, `${label} is too large`);
 
 export const researchFieldsSchema = z.object({
+  brandId: z.string().trim().max(64).optional().nullable().transform((v) => v || null),
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(120, "Name is too long"),
   supplierUrl: optionalUrl,
   imageUrl: optionalUrl,
@@ -65,7 +66,18 @@ export const researchFieldsSchema = z.object({
 
 export type ResearchFieldsInput = z.input<typeof researchFieldsSchema>;
 
-export const createProductSchema = researchFieldsSchema;
+export const createProductSchema = researchFieldsSchema.refine((v) => Boolean(v.brandId), {
+  message: "Choose the brand",
+  path: ["brandId"],
+});
 export const updateResearchSchema = researchFieldsSchema.extend({ productId: idSchema });
 export const productIdSchema = z.object({ productId: idSchema });
 export const toggleChecklistSchema = z.object({ itemId: idSchema, checked: z.boolean() });
+export const reviewDecisionSchema = z.object({
+  productId: idSchema,
+  note: z.string().trim().max(2000).optional().transform((v) => v || null),
+});
+export const rejectSchema = z.object({
+  productId: idSchema,
+  note: z.string().trim().min(3, "Say why it isn't approved").max(2000),
+});

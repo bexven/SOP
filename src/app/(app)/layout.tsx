@@ -7,8 +7,8 @@ import { getQueueCount } from "@/lib/server/queries/queue";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const items = navItemsFor(user.role);
-  const shellUser = { name: user.name, role: user.role, avatarColor: user.avatarColor, avatarAssetId: user.avatarAssetId };
+  const items = navItemsFor(user.role, { isMaster: user.isMaster });
+  const shellUser = { name: user.name, role: user.jobRole, avatarColor: user.avatarColor, avatarAssetId: user.avatarAssetId };
   const badges = { dashboard: await getQueueCount(user) };
 
   return (

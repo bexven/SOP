@@ -95,7 +95,7 @@ function MemberRow({ member, isSelf }: { member: TeamRow; isSelf: boolean }) {
 
   return (
     <li className={cn("flex items-center gap-3 px-4 py-3", !member.active && "bg-slate-50/60")}>
-      <UserAvatar name={member.name} color={member.avatarColor} imageId={member.avatarAssetId} className={cn(!member.active && "opacity-60")} />
+      <UserAvatar name={member.name} color={member.avatarColor} imageId={member.avatarAssetId} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={cn("truncate font-medium", member.active ? "text-slate-900" : "text-slate-600")}>
@@ -105,8 +105,9 @@ function MemberRow({ member, isSelf }: { member: TeamRow; isSelf: boolean }) {
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <RolePill role={member.role} />
+          {member.isMaster ? <Pill tone="indigo">Master Admin</Pill> : member.adminAccess ? <Pill tone="indigo">Admin access</Pill> : null}
           {member.locked ? <Pill tone="rose">Locked</Pill> : null}
-          {member.active && member.mustChangePin ? <Pill tone="amber">PIN not set yet</Pill> : null}
+          {member.active && member.pinNotSet ? <Pill tone="rose">No PIN yet — set one</Pill> : member.active && member.mustChangePin ? <Pill tone="amber">Must choose own PIN</Pill> : null}
         </div>
       </div>
 
@@ -121,7 +122,7 @@ function MemberRow({ member, isSelf }: { member: TeamRow; isSelf: boolean }) {
             <PencilIcon /> Edit
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setPinOpen(true)}>
-            <KeyRoundIcon /> Reset PIN
+            <KeyRoundIcon /> Change PIN
           </DropdownMenuItem>
           {member.locked ? (
             <DropdownMenuItem onSelect={() => run(() => unlockMemberAction({ id: member.id }))}>
@@ -130,7 +131,7 @@ function MemberRow({ member, isSelf }: { member: TeamRow; isSelf: boolean }) {
           ) : null}
           <DropdownMenuSeparator />
           {member.active ? (
-            <DropdownMenuItem variant="destructive" disabled={isSelf} onSelect={() => setConfirmOpen(true)}>
+            <DropdownMenuItem variant="destructive" disabled={isSelf || member.isMaster} onSelect={() => setConfirmOpen(true)}>
               <UserXIcon /> Deactivate
             </DropdownMenuItem>
           ) : (

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2Icon, RotateCcwIcon } from "lucide-react";
-import { DuePill, MarginBadge, PriorityPill } from "@/components/common/pills";
+import { BrandPill, DuePill, MarginBadge, PriorityPill } from "@/components/common/pills";
 import { Thumbnail } from "@/components/common/thumbnail";
 import { UserAvatar } from "@/components/common/user-avatar";
 import { formatRelative } from "@/lib/format";
@@ -28,7 +28,10 @@ export function ResearchList({ items, showOwner }: { items: ResearchDraft[]; sho
           <Link href={`/products/${d.id}`} className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-slate-50/80 sm:px-4">
             <Thumbnail src={d.imageUrl} alt="" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-body font-medium text-slate-900">{d.name}</span>
+              <span className="flex items-center gap-2">
+                <BrandPill brand={d.brand} />
+                <span className="truncate text-body font-medium text-slate-900">{d.name}</span>
+              </span>
               <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="num text-meta text-slate-500">{d.ref}</span>
                 <Progress done={d.fieldsDone} total={d.fieldsTotal} label="details" />

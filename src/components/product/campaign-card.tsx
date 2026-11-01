@@ -1,10 +1,11 @@
 import Decimal from "decimal.js";
 import { ExternalLinkIcon } from "lucide-react";
 import { CampaignPill } from "@/components/common/pills";
+import { CampaignEditButton } from "./campaign-edit";
 import { formatBdt, formatDateTime, formatUsd } from "@/lib/format";
 import type { ProductDetail } from "@/lib/server/queries/product";
 
-export function CampaignCard({ product }: { product: ProductDetail }) {
+export function CampaignCard({ product, canEdit = false }: { product: ProductDetail; canEdit?: boolean }) {
   const c = product.campaign;
   if (!c || !c.launchedAt) return null;
   const usdRate = product.thresholds?.usdToBdtRate;
@@ -12,7 +13,10 @@ export function CampaignCard({ product }: { product: ProductDetail }) {
     <section className="surface rounded-panel p-4" aria-label="Campaign">
       <div className="flex items-center justify-between">
         <h2 className="text-section text-slate-900">Campaign</h2>
-        <CampaignPill status={c.status} />
+        <span className="flex items-center gap-2">
+          {canEdit ? <CampaignEditButton product={product} /> : null}
+          <CampaignPill status={c.status} />
+        </span>
       </div>
       <dl className="mt-3 grid gap-3 text-body">
         {c.dailyBudgetUsd ? (

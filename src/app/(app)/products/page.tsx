@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Products" };
 export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
   const user = await requireUser();
   const [products, sp, people] = await Promise.all([
-    listProducts(),
+    listProducts(user.role),
     searchParams,
     db.user.findMany({ where: { active: true }, select: { id: true, name: true, avatarColor: true, avatarAssetId: true }, orderBy: { name: "asc" } }),
   ]);

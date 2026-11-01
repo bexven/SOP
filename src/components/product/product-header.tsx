@@ -1,5 +1,5 @@
 import type { Role } from "@/generated/prisma/enums";
-import { CampaignPill, MarginBadge, PriorityPill, StagePill } from "@/components/common/pills";
+import { BrandPill, CampaignPill, MarginBadge, PriorityPill, StagePill } from "@/components/common/pills";
 import { PipelineStepper } from "@/components/common/stepper";
 import { Thumbnail } from "@/components/common/thumbnail";
 import { UserAvatar } from "@/components/common/user-avatar";
@@ -22,6 +22,7 @@ export function ProductHeader({
           <p className="num text-meta text-slate-500">{product.ref}</p>
           <h1 className="text-page text-slate-900 [overflow-wrap:anywhere]">{product.name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <BrandPill brand={product.brand} />
             <StagePill stage={product.stage} />
             <PriorityPill priority={product.priority} />
             <MarginBadge pct={product.margin?.marginPct} band={product.marginBand} />

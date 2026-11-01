@@ -33,16 +33,36 @@ describe("permissions", () => {
 });
 
 describe("navigation", () => {
-  const keys = (r: Parameters<typeof navItemsFor>[0]) => navItemsFor(r).map((i) => i.key);
-  it("gives Admin every menu", () => {
-    expect(keys("ADMIN")).toEqual(["dashboard", "research", "creative", "pipeline", "products", "overview", "team", "settings"]);
+  const keys = (r: Parameters<typeof navItemsFor>[0], isMaster = false) => navItemsFor(r, { isMaster }).map((i) => i.key);
+  it("gives the Master Admin every menu", () => {
+    expect(keys("ADMIN", true)).toEqual(["dashboard", "research", "creative", "pipeline", "products", "overview", "team", "settings"]);
   });
-  it("shows Research only to researchers (and Admin)", () => {
-    expect(keys("RESEARCHER")).toEqual(["dashboard", "research", "pipeline", "products"]);
+  it("hides Team from admins who aren't the master", () => {
+    expect(keys("ADMIN")).toEqual(["dashboard", "research", "creative", "pipeline", "products", "overview", "settings"]);
   });
-  it("shows Creative to designers, editors and media buyers", () => {
-    for (const r of ["IMAGE_DESIGNER", "VIDEO_EDITOR", "MEDIA_BUYER"] as const) {
+  it("shows all main tabs to everyone except Research for image/video makers", () => {
+    for (const r of ["RESEARCHER", "MEDIA_BUYER", "REVIEWER"] as const) {
+      expect(keys(r)).toEqual(["dashboard", "research", "creative", "pipeline", "products"]);
+    }
+    for (const r of ["IMAGE_DESIGNER", "VIDEO_EDITOR"] as const) {
       expect(keys(r)).toEqual(["dashboard", "creative", "pipeline", "products"]);
     }
+  });
+});
+
+import { canSeeProduct } from "./permissions";
+describe("early-stage visibility", () => {
+  it("hides research and review from image/video makers until approved", () => {
+    expect(canSeeProduct("IMAGE_DESIGNER", "RESEARCH", null)).toBe(false);
+    expect(canSeeProduct("VIDEO_EDITOR", "REVIEW", null)).toBe(false);
+    expect(canSeeProduct("VIDEO_EDITOR", "KILLED", "REVIEW")).toBe(false);
+    expect(canSeeProduct("VIDEO_EDITOR", "CREATIVE", null)).toBe(true);
+    expect(canSeeProduct("MEDIA_BUYER", "RESEARCH", null)).toBe(true);
+    expect(canSeeProduct("REVIEWER", "REVIEW", null)).toBe(true);
+  });
+  it("lets reviewers approve and review creative", () => {
+    expect(can("REVIEWER", "product.approve")).toBe(true);
+    expect(can("REVIEWER", "task.review")).toBe(true);
+    expect(can("MEDIA_BUYER", "product.approve")).toBe(false);
   });
 });

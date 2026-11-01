@@ -11,10 +11,14 @@ import {
   planApprove,
   planRequestRevision,
   planSubmitTask,
+  planWithdraw,
   reassignError,
 } from "@/lib/domain/workflow";
+import { laneOf } from "@/lib/domain/labels";
 import {
   approveTaskSchema,
+  folderSchema,
+  markReadySchema,
   briefSchema,
   itemCommentSchema,
   reactSchema,
@@ -38,13 +42,15 @@ async function taskWithProduct(tx: Tx, taskId: string) {
   return loadSnapshot(tx, task.productId);
 }
 
-/** Who gets "review requested": the product's media buyer, else every active media buyer. */
+/** Who gets "review requested": the product's media buyer (else every media buyer) plus every Reviewer. */
 async function reviewers(tx: Tx, mediaBuyerId: string | null): Promise<string[]> {
+  const reviewerIds = (await tx.user.findMany({ where: { role: "REVIEWER", active: true }, select: { id: true } })).map((u) => u.id);
   if (mediaBuyerId) {
     const mb = await tx.user.findUnique({ where: { id: mediaBuyerId }, select: { active: true } });
-    if (mb?.active) return [mediaBuyerId];
+    if (mb?.active) return [mediaBuyerId, ...reviewerIds];
   }
-  return (await tx.user.findMany({ where: { role: "MEDIA_BUYER", active: true }, select: { id: true } })).map((u) => u.id);
+  const mbs = (await tx.user.findMany({ where: { role: "MEDIA_BUYER", active: true }, select: { id: true } })).map((u) => u.id);
+  return [...mbs, ...reviewerIds];
 }
 
 export const submitTaskAction = defineAction({
@@ -334,5 +340,105 @@ export const commentOnItemAction = defineAction({
     });
     revalidate();
     return { ok: true, message: "Comment added" };
+  },
+});
+
+/** Set the lane's Google Drive folder for a whole batch (images or videos) — pasted once, not per task. */
+export const setBatchFolderAction = defineAction({
+  schema: folderSchema,
+  run: async ({ batchId, lane, url }, { user }) => {
+    await db.$transaction(async (tx) => {
+      const batch = await tx.creativeBatch.findUnique({
+        where: { id: batchId },
+        include: { tasks: { select: { type: true, assigneeId: true } }, product: { select: { id: true, mediaBuyerId: true } } },
+      });
+      if (!batch) throw new ActionError("That batch no longer exists.");
+      const laneTasks = batch.tasks.filter((t) => laneOf(t.type) === lane);
+      const allowed = user.role === "ADMIN" || can(user.role, "task.review") || laneTasks.some((t) => t.assigneeId === user.id);
+      if (!allowed) throw new ActionError("Only the person doing this work, the media buyer or an Admin can set the folder.");
+      await tx.creativeBatch.update({ where: { id: batchId }, data: lane === "images" ? { imageFolderUrl: url } : { videoFolderUrl: url } });
+      await logEvents(tx, [{ type: "FOLDER_UPDATED", actorId: user.id, productId: batch.product.id, data: { lane, url } }]);
+    });
+    revalidate();
+    return { ok: true, message: url ? "Drive folder saved" : "Drive folder removed" };
+  },
+});
+
+/**
+ * Tick / untick "ready for review" on one format. Ticking submits it with the
+ * lane's Drive folder (or the store URL) and any optional preview images;
+ * unticking takes it back before anyone reviewed it.
+ */
+export const markReadyAction = defineAction({
+  schema: markReadySchema,
+  run: async ({ taskId, ready, storeUrl, images, note }, { user }) => {
+    const now = new Date();
+    const label = await db.$transaction(async (tx) => {
+      const { product, snap } = await taskWithProduct(tx, taskId);
+      const task = snap.tasks.find((t) => t.id === taskId)!;
+      const label = TASK_TYPE_LABELS[task.type];
+      if (!canWorkOnTask(user, task)) throw new ActionError("Only the person doing this work or an Admin can change this.");
+
+      if (!ready) {
+        const planned = planWithdraw(snap, taskId);
+        if (!planned.ok) throw new ActionError(planned.error);
+        const latest = await tx.taskSubmission.findFirst({ where: { taskId }, orderBy: { version: "desc" } });
+        if (latest && !latest.decision) await tx.taskSubmission.delete({ where: { id: latest.id } });
+        await applyPlan(tx, planned.plan, { actorId: user.id, product, now });
+        await logEvents(tx, [{ type: "TASK_WITHDRAWN", actorId: user.id, productId: product.id, taskId }]);
+        return label;
+      }
+
+      const checklist = await tx.checklistItem.findMany({ where: { taskId } });
+      if (!isChecklistComplete(checklist)) {
+        const n = missingRequiredCount(checklist);
+        throw new ActionError(`Tick the remaining ${n} required checklist item${n === 1 ? "" : "s"} for ${label} first.`);
+      }
+      const batch = task.batchId ? await tx.creativeBatch.findUnique({ where: { id: task.batchId } }) : null;
+      const lane = laneOf(task.type);
+      const link = task.type === "STORE_LISTING" ? storeUrl : lane === "images" ? batch?.imageFolderUrl : batch?.videoFolderUrl;
+      const missing = submissionError(task.type, { images: images.length, links: link ? 1 : 0 });
+      if (missing) throw new ActionError(missing);
+      if (images.length) {
+        const owned = await tx.asset.findMany({
+          where: { id: { in: images }, ...(user.role === "ADMIN" ? {} : { uploadedById: user.id }) },
+          select: { id: true },
+        });
+        if (owned.length !== new Set(images).size) throw new ActionError("One of the preview images is missing. Upload it again.");
+      }
+      const planned = planSubmitTask(snap, taskId);
+      if (!planned.ok) throw new ActionError(planned.error);
+      const last = await tx.taskSubmission.aggregate({ where: { taskId }, _max: { version: true } });
+      await tx.taskSubmission.create({
+        data: {
+          taskId,
+          version: (last._max.version ?? 0) + 1,
+          note,
+          submittedById: user.id,
+          createdAt: now,
+          items: {
+            create: [
+              { order: 0, kind: "LINK" as const, url: link!, label: task.type === "STORE_LISTING" ? "Store page" : "Drive folder" },
+              ...[...new Set(images)].map((assetId, i) => ({ order: i + 1, kind: "IMAGE" as const, assetId })),
+            ],
+          },
+        },
+      });
+      await applyPlan(tx, planned.plan, { actorId: user.id, product, now });
+      await notify(
+        tx,
+        user.id,
+        (await reviewers(tx, product.mediaBuyerId)).map((id) => ({
+          userId: id,
+          type: "REVIEW_REQUESTED" as const,
+          productId: product.id,
+          taskId,
+          message: `${user.name}: ${label} is ready for review (${product.name})`,
+        })),
+      );
+      return label;
+    });
+    revalidate();
+    return { ok: true, message: ready ? `${label} sent for review` : `${label} taken back` };
   },
 });

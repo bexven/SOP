@@ -4,10 +4,20 @@ import { revalidatePath } from "next/cache";
 import { missingRequiredCount, snapshotChecklist } from "@/lib/domain/checklist";
 import { dueAtFrom } from "@/lib/domain/due";
 import { TASK_TYPE_LABELS } from "@/lib/domain/labels";
-import { canWorkOnTask, planResearchSubmit, researchBlockers, researchTask } from "@/lib/domain/workflow";
+import { KILL_REASON_LABELS } from "@/lib/domain/labels";
+import {
+  canWorkOnTask,
+  planApproveProduct,
+  planRejectProduct,
+  planResearchSubmit,
+  researchBlockers,
+  researchTask,
+} from "@/lib/domain/workflow";
 import {
   createProductSchema,
   productIdSchema,
+  rejectSchema,
+  reviewDecisionSchema,
   toggleChecklistSchema,
   updateResearchSchema,
 } from "@/lib/validation/product";
@@ -24,6 +34,7 @@ function revalidateProduct() {
 }
 
 const FIELD_LABELS: Record<string, string> = {
+  brandId: "brand",
   name: "name",
   supplierUrl: "supplier link",
   imageUrl: "image",
@@ -44,6 +55,8 @@ export const createProductAction = defineAction({
   run: async (input, { user }) => {
     const now = new Date();
     const id = await db.$transaction(async (tx) => {
+      const brand = await tx.brand.findUnique({ where: { id: input.brandId! } });
+      if (!brand?.active) throw new ActionError("Choose one of the brands.");
       const rates = await currentRates(tx);
       const product = await tx.product.create({
         data: { ...researchData(input), ...rates, createdById: user.id, stageEnteredAt: now },
@@ -54,7 +67,7 @@ export const createProductAction = defineAction({
 
       // The research task belongs to its creator when they are a researcher;
       // otherwise (Admin) it is auto-assigned to a researcher.
-      const assigneeId = user.role === "RESEARCHER" ? user.id : ((await autoAssign(tx, ["RESEARCHER"], now))[0] ?? null);
+      const assigneeId = user.jobRole === "RESEARCHER" ? user.id : ((await autoAssign(tx, ["RESEARCHER"], now))[0] ?? null);
       if (assigneeId === user.id) await tx.user.update({ where: { id: user.id }, data: { lastAssignedAt: now } });
       const [templates, sla] = await Promise.all([
         tx.checklistTemplateItem.findMany({ where: { taskType: "RESEARCH", active: true } }),
@@ -99,11 +112,16 @@ export const updateResearchAction = defineAction({
   run: async ({ productId, ...input }, { user }) => {
     await db.$transaction(async (tx) => {
       const { product, snap } = await loadSnapshot(tx, productId);
-      if (product.stage !== "RESEARCH") {
-        throw new ActionError("Research is locked after submission. An Admin can still override fields.");
+      const inResearch = product.stage === "RESEARCH";
+      if (!inResearch && user.role !== "ADMIN") {
+        throw new ActionError("Research is locked after submission. Ask an Admin to change it.");
       }
       const task = researchTask(snap);
-      if (!task || !canWorkOnTask(user, task)) throw new ActionError("Only the assigned researcher or an Admin can edit this.");
+      if (inResearch && (!task || !canWorkOnTask(user, task))) throw new ActionError("Only the assigned researcher or an Admin can edit this.");
+      if (input.brandId) {
+        const brand = await tx.brand.findUnique({ where: { id: input.brandId } });
+        if (!brand) throw new ActionError("Choose one of the brands.");
+      }
 
       const data = researchData(input);
       const changed = Object.entries(data)
@@ -115,6 +133,17 @@ export const updateResearchAction = defineAction({
         })
         .map(([key]) => key);
 
+      if (!inResearch) {
+        // Admin edit after research: the rate snapshot stays frozen; log old → new.
+        const norm = (v: unknown) =>
+          v === null || v === undefined || v === "" ? null : v instanceof Date ? v.toISOString().slice(0, 10) : Array.isArray(v) ? v.join(", ") || null : String(v);
+        const changes = Object.fromEntries(
+          changed.map((k) => [k, { old: norm((product as Record<string, unknown>)[k]), new: norm((data as Record<string, unknown>)[k]) }]),
+        );
+        await tx.product.update({ where: { id: productId }, data });
+        if (changed.length) await logEvents(tx, [{ type: "OVERRIDE", actorId: user.id, productId, data: { changes } }]);
+        return;
+      }
       // Rate snapshot refreshes on every save while in RESEARCH.
       const rates = await currentRates(tx);
       await tx.product.update({ where: { id: productId }, data: { ...data, ...rates } });
@@ -146,6 +175,7 @@ export const submitResearchAction = defineAction({
       const checklist = await tx.checklistItem.findMany({ where: { taskId: task.id } });
       const blockers = researchBlockers(
         {
+          brandId: product.brandId,
           name: product.name,
           supplierUrl: product.supplierUrl,
           chinaPriceRmb: product.chinaPriceRmb?.toString() ?? null,
@@ -159,34 +189,13 @@ export const submitResearchAction = defineAction({
       const planned = planResearchSubmit(snap);
       if (!planned.ok) throw new ActionError(planned.error);
 
-      // Q1: the product gets an owning media buyer at research submit.
-      let mediaBuyerId = product.mediaBuyerId;
-      const owner = mediaBuyerId ? await tx.user.findUnique({ where: { id: mediaBuyerId } }) : null;
-      if (!owner?.active) {
-        mediaBuyerId = (await autoAssign(tx, ["MEDIA_BUYER"], now))[0] ?? null;
-        await tx.product.update({ where: { id: productId }, data: { mediaBuyerId } });
-      }
-
       const applied = await applyPlan(tx, planned.plan, { actorId: user.id, product, now });
       await logEvents(tx, [{ type: "RESEARCH_SUBMITTED", actorId: user.id, productId, taskId: task.id }]);
-      await notify(tx, user.id, [
-        {
-          userId: mediaBuyerId,
-          type: "TASK_ASSIGNED",
-          productId,
-          message: `${product.name} entered Creative — you're the media buyer. Write the creative brief.`,
-        },
-      ]);
       return applied;
     });
     revalidateProduct();
-    const unassigned = result.createdTasks.filter((t) => !t.assigneeId).length;
-    return {
-      ok: true,
-      message: `Research submitted · ${result.createdTasks.length} creative tasks created${
-        unassigned ? ` (${unassigned} need an assignee)` : ""
-      }`,
-    };
+    const reviewer = result.createdTasks[0]?.assigneeName;
+    return { ok: true, message: `Research submitted · waiting for product review${reviewer ? ` by ${reviewer}` : ""}` };
   },
 });
 
@@ -217,3 +226,62 @@ export const toggleChecklistItemAction = defineAction({
   },
 });
 
+
+/** Reviewer / Admin: approve the product for testing → Creative starts (7 tasks, assigned). */
+export const approveProductAction = defineAction({
+  capability: "product.approve",
+  schema: reviewDecisionSchema,
+  run: async ({ productId, note }, { user }) => {
+    const now = new Date();
+    const result = await db.$transaction(async (tx) => {
+      const { product, snap } = await loadSnapshot(tx, productId);
+      const planned = planApproveProduct(snap);
+      if (!planned.ok) throw new ActionError(planned.error);
+      // Q1: the product gets an owning media buyer when it enters Creative.
+      let mediaBuyerId = product.mediaBuyerId;
+      const owner = mediaBuyerId ? await tx.user.findUnique({ where: { id: mediaBuyerId } }) : null;
+      if (!owner?.active) {
+        mediaBuyerId = (await autoAssign(tx, ["MEDIA_BUYER"], now))[0] ?? null;
+        await tx.product.update({ where: { id: productId }, data: { mediaBuyerId } });
+      }
+      const applied = await applyPlan(tx, planned.plan, { actorId: user.id, product, now });
+      await logEvents(tx, [{ type: "PRODUCT_APPROVED", actorId: user.id, productId, data: { note } }]);
+      await notify(tx, user.id, [
+        { userId: product.createdById, type: "TASK_APPROVED", productId, message: `${user.name} approved ${product.name} for testing${note ? `: ${note}` : ""}` },
+        { userId: mediaBuyerId, type: "TASK_ASSIGNED", productId, message: `${product.name} was approved for testing — you're the media buyer. Write the creative brief.` },
+      ]);
+      return applied;
+    });
+    revalidateProduct();
+    const unassigned = result.createdTasks.filter((t) => !t.assigneeId).length;
+    return {
+      ok: true,
+      message: `Approved for testing · ${result.createdTasks.length} creative tasks created${unassigned ? ` (${unassigned} need an assignee)` : ""}`,
+    };
+  },
+});
+
+/** Reviewer / Admin: not approved → the product is closed with the reason recorded. */
+export const rejectProductAction = defineAction({
+  capability: "product.approve",
+  schema: rejectSchema,
+  run: async ({ productId, note }, { user }) => {
+    const now = new Date();
+    await db.$transaction(async (tx) => {
+      const { product, snap } = await loadSnapshot(tx, productId);
+      const planned = planRejectProduct(snap);
+      if (!planned.ok) throw new ActionError(planned.error);
+      await tx.product.update({
+        where: { id: productId },
+        data: { killReason: "NOT_APPROVED", killNote: note, killedAt: now, stageBeforeKill: "REVIEW" },
+      });
+      await applyPlan(tx, planned.plan, { actorId: user.id, product, now });
+      await logEvents(tx, [{ type: "PRODUCT_REJECTED", actorId: user.id, productId, data: { note } }]);
+      await notify(tx, user.id, [
+        { userId: product.createdById, type: "PRODUCT_KILLED", productId, message: `${product.name}: ${KILL_REASON_LABELS.NOT_APPROVED} — ${note}` },
+      ]);
+    });
+    revalidateProduct();
+    return { ok: true, message: "Marked as not approved" };
+  },
+});

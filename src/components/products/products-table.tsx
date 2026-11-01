@@ -13,7 +13,7 @@ import {
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon, SearchIcon, SearchXIcon } from "lucide-react";
 import type { Priority, ProductStage } from "@/generated/prisma/enums";
 import { EmptyState } from "@/components/common/empty-state";
-import { DuePill, MarginBadge, PriorityPill, StagePill } from "@/components/common/pills";
+import { BrandPill, DuePill, MarginBadge, PriorityPill, StagePill } from "@/components/common/pills";
 import { MiniStepper } from "@/components/common/stepper";
 import { Thumbnail } from "@/components/common/thumbnail";
 import { UserAvatar } from "@/components/common/user-avatar";
@@ -25,7 +25,7 @@ import { formatRelative } from "@/lib/format";
 import type { ProductRow } from "@/lib/server/queries/products";
 import { cn } from "@/lib/utils";
 
-const STAGE_ORDER: Record<ProductStage, number> = { RESEARCH: 0, CREATIVE: 1, READY_TO_LAUNCH: 2, LIVE: 3, COMPLETED: 4, KILLED: 5 };
+const STAGE_ORDER: Record<ProductStage, number> = { RESEARCH: 0, REVIEW: 1, CREATIVE: 2, READY_TO_LAUNCH: 3, LIVE: 4, COMPLETED: 5, KILLED: 6 };
 
 export function ProductsTable({
   rows,
@@ -40,6 +40,8 @@ export function ProductsTable({
   const [stage, setStage] = useState<ProductStage | "ALL">(initialStage ?? "ALL");
   const [priority, setPriority] = useState<Priority | "ALL">("ALL");
   const [assignee, setAssignee] = useState<string>("ALL");
+  const [brand, setBrand] = useState<string>("ALL");
+  const brands = useMemo(() => [...new Map(rows.filter((r) => r.brand).map((r) => [r.brand!.id, r.brand!.name])).entries()], [rows]);
   const [overdue, setOverdue] = useState(false);
   const [showKilled, setShowKilled] = useState(initialStage === "KILLED");
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -50,12 +52,13 @@ export function ProductsTable({
       if (stage !== "ALL" && r.stage !== stage) return false;
       if (stage === "ALL" && !showKilled && r.stage === "KILLED") return false;
       if (priority !== "ALL" && r.priority !== priority) return false;
+      if (brand !== "ALL" && r.brand?.id !== brand) return false;
       if (assignee !== "ALL" && !r.assignees.some((a) => a.id === assignee)) return false;
       if (overdue && !r.overdue) return false;
       if (needle && !r.name.toLowerCase().includes(needle) && !r.ref.toLowerCase().includes(needle)) return false;
       return true;
     });
-  }, [rows, q, stage, priority, assignee, overdue, showKilled]);
+  }, [rows, q, stage, priority, assignee, overdue, showKilled, brand]);
 
   const columns = useMemo<ColumnDef<ProductRow>[]>(
     () => [
@@ -67,7 +70,10 @@ export function ProductsTable({
           <Link href={`/products/${r.id}`} className="flex min-w-0 items-center gap-3 outline-none after:absolute after:inset-0 focus-visible:after:rounded-md focus-visible:after:ring-2 focus-visible:after:ring-indigo-500/40">
             <Thumbnail src={r.imageUrl} alt="" className="size-9" />
             <span className="min-w-0">
-              <span className="block max-w-[18rem] truncate font-medium text-slate-900">{r.name}</span>
+              <span className="flex max-w-[20rem] items-center gap-2">
+                <BrandPill brand={r.brand} />
+                <span className="truncate font-medium text-slate-900">{r.name}</span>
+              </span>
               <span className="num text-meta text-slate-500">{r.ref}</span>
             </span>
           </Link>
@@ -131,7 +137,7 @@ export function ProductsTable({
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table v8 manages its own memoisation
   const table = useReactTable({ data, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
-  const filtersActive = q || stage !== "ALL" || priority !== "ALL" || assignee !== "ALL" || overdue;
+  const filtersActive = q || stage !== "ALL" || priority !== "ALL" || assignee !== "ALL" || overdue || brand !== "ALL";
 
   return (
     <div className="grid gap-3">
@@ -142,6 +148,9 @@ export function ProductsTable({
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <FilterSelect label="Stage" value={stage} onChange={(v) => setStage(v as ProductStage | "ALL")} options={[["ALL", "All stages"], ...STAGES.map((s) => [s, STAGE_LABELS[s]] as [string, string])]} />
+          {brands.length ? (
+            <FilterSelect label="Brand" value={brand} onChange={setBrand} options={[["ALL", "All brands"], ...brands]} />
+          ) : null}
           <FilterSelect label="Priority" value={priority} onChange={(v) => setPriority(v as Priority | "ALL")} options={[["ALL", "Any priority"], ...PRIORITIES.map((p) => [p, PRIORITY_LABELS[p]] as [string, string])]} />
           <FilterSelect label="Assignee" value={assignee} onChange={setAssignee} options={[["ALL", "Anyone"], ...people.map((p) => [p.id, p.name] as [string, string])]} />
           <label className="flex h-9 items-center gap-2 rounded-control border border-slate-200 bg-white px-3 text-body text-slate-700">

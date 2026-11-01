@@ -18,15 +18,20 @@ export async function getTeam() {
       role: true,
       avatarColor: true, avatarAssetId: true,
       active: true,
+      adminAccess: true,
+      isMaster: true,
       mustChangePin: true,
+      pinHash: true,
       lockedUntil: true,
       createdAt: true,
     },
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
   const now = Date.now();
-  return users.map((u) => ({
+  return users.map(({ pinHash, ...u }) => ({
     ...u,
+    // Never send hashes to the client; only whether a PIN exists.
+    pinNotSet: pinHash.startsWith("!"),
     locked: u.lockedUntil !== null && u.lockedUntil.getTime() > now,
     createdAt: u.createdAt.toISOString(),
     lockedUntil: u.lockedUntil?.toISOString() ?? null,

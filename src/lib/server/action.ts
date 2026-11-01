@@ -20,6 +20,8 @@ export class ActionError extends Error {}
 type Options<S extends z.ZodType, T> = {
   /** Capability required; omit for "any signed-in user". */
   capability?: Capability;
+  /** Only the Master Admin (team management). */
+  masterOnly?: boolean;
   /** Allow users who still have to change their PIN (only the change-PIN action). */
   allowPendingPinChange?: boolean;
   schema: S;
@@ -32,6 +34,9 @@ export function defineAction<S extends z.ZodType, T = undefined>(options: Option
     if (!user) return { ok: false, error: "Your session has ended. Please sign in again." };
     if (user.mustChangePin && !options.allowPendingPinChange) {
       return { ok: false, error: "Please set a new PIN first." };
+    }
+    if (options.masterOnly && !user.isMaster) {
+      return { ok: false, error: "Only the Master Admin can manage the team." };
     }
     if (options.capability && !can(user.role, options.capability)) {
       return { ok: false, error: "You don't have permission to do that." };

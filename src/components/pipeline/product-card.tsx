@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DuePill, MarginBadge, PriorityPill } from "@/components/common/pills";
+import { BrandPill, DuePill, MarginBadge, PriorityPill } from "@/components/common/pills";
 import { MiniStepper } from "@/components/common/stepper";
 import { Thumbnail } from "@/components/common/thumbnail";
 import { UserAvatar } from "@/components/common/user-avatar";
@@ -22,6 +22,7 @@ export function PipelineCard({ p }: { p: ProductRow }) {
       </div>
       <MiniStepper stepper={p.stepper} className="mt-3" />
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <BrandPill brand={p.brand} />
         <PriorityPill priority={p.priority} />
         <MarginBadge pct={p.marginPct} band={p.marginBand} />
         {p.stage === "KILLED" && p.killReason ? <span className="text-meta text-rose-700">{KILL_REASON_LABELS[p.killReason]}</span> : null}

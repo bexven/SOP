@@ -49,7 +49,9 @@ export type TaskChange =
   | { kind: "cancel"; taskId: string; from: TaskStatus }
   | { kind: "relock"; taskId: string; from: TaskStatus; note?: string }
   /** Send-back: an approved/finished task goes back to REVISION with a note. */
-  | { kind: "reopen"; taskId: string; from: TaskStatus; note: string };
+  | { kind: "reopen"; taskId: string; from: TaskStatus; note: string }
+  /** The maker un-ticks "ready" before anyone reviewed it. */
+  | { kind: "withdraw"; taskId: string; from: TaskStatus };
 
 export const CHANGE_TARGET: Record<TaskChange["kind"], TaskStatus> = {
   unlock: "TODO",
@@ -60,6 +62,7 @@ export const CHANGE_TARGET: Record<TaskChange["kind"], TaskStatus> = {
   cancel: "CANCELLED",
   relock: "LOCKED",
   reopen: "REVISION",
+  withdraw: "TODO",
 };
 
 export type NewTask = {
@@ -168,6 +171,7 @@ export function firstBatchBlueprint(): NewTask[] {
 // ── Research ────────────────────────────────────────────────────────────────
 
 export type ResearchFields = {
+  brandId?: string | null;
   name: string | null;
   supplierUrl: string | null;
   chinaPriceRmb: string | null;
@@ -188,13 +192,14 @@ export function researchBlockers(fields: ResearchFields, checklistMissing: numbe
   const missing = RESEARCH_REQUIRED.filter(({ key }) => !fields[key] || !String(fields[key]).trim()).map(
     (f) => f.label,
   );
+  if ("brandId" in fields && !fields.brandId) missing.unshift("Brand");
   if (checklistMissing > 0) {
     missing.push(`${checklistMissing} checklist item${checklistMissing === 1 ? "" : "s"}`);
   }
   return missing;
 }
 
-/** Research submitted → Creative, with a fresh Phase-gated batch. */
+/** Research submitted → Product review: a Reviewer decides whether it goes to testing. */
 export function planResearchSubmit(p: ProductSnap): PlanResult {
   if (p.stage !== "RESEARCH") return fail("This product has already left Research.");
   const research = researchTask(p);
@@ -203,9 +208,45 @@ export function planResearchSubmit(p: ProductSnap): PlanResult {
   }
   const plan = emptyPlan();
   plan.changes.push({ kind: "complete", taskId: research.id, from: research.status });
+  plan.newTasks = [
+    { key: "approval", type: "PRODUCT_APPROVAL", role: "REVIEWER", phase: 1, status: "TODO", dependsOnKey: null, inNewBatch: false },
+  ];
+  plan.stage = { from: "RESEARCH", to: "REVIEW" };
+  return ok(plan);
+}
+
+function openApproval(p: ProductSnap): TaskSnap | undefined {
+  return p.tasks.find((t) => t.type === "PRODUCT_APPROVAL" && isOpenStatus(t.status));
+}
+
+/** Reviewer approves for testing → Creative, with a fresh Phase-gated batch. */
+export function planApproveProduct(p: ProductSnap): PlanResult {
+  if (p.stage !== "REVIEW") return fail("This product isn't waiting for review.");
+  const plan = emptyPlan();
+  const approval = openApproval(p);
+  if (approval) plan.changes.push({ kind: "complete", taskId: approval.id, from: approval.status });
   plan.newBatch = { number: nextBatchNumber(p), reason: null, dueAt: null };
   plan.newTasks = firstBatchBlueprint();
-  plan.stage = { from: "RESEARCH", to: "CREATIVE" };
+  plan.stage = { from: "REVIEW", to: "CREATIVE" };
+  return ok(plan);
+}
+
+/** Reviewer says no: the product is closed (Killed, reason "Not approved"). */
+export function planRejectProduct(p: ProductSnap): PlanResult {
+  if (p.stage !== "REVIEW") return fail("This product isn't waiting for review.");
+  const plan = emptyPlan();
+  plan.changes = cancelOpen(p);
+  plan.stage = { from: "REVIEW", to: "KILLED" };
+  return ok(plan);
+}
+
+/** The maker un-ticks "ready" before it was reviewed. */
+export function planWithdraw(p: ProductSnap, taskId: string): PlanResult {
+  const task = findTask(p, taskId);
+  if (!task) return fail("Task not found.");
+  if (task.status !== "SUBMITTED") return fail("Only work waiting for review can be taken back.");
+  const plan = emptyPlan();
+  plan.changes.push({ kind: "withdraw", taskId, from: "SUBMITTED" });
   return ok(plan);
 }
 
@@ -370,6 +411,8 @@ export function planKill(p: ProductSnap): PlanResult {
 export function sendBackTargets(stage: ProductStage, role: Role): ProductStage[] {
   const admin = role === "ADMIN";
   const mediaBuyer = role === "MEDIA_BUYER";
+  if (stage === "REVIEW" && (admin || role === "REVIEWER")) return ["RESEARCH"];
+  if (role === "REVIEWER") return [];
   if (stage === "CREATIVE" && (admin || mediaBuyer)) return ["RESEARCH"];
   if (stage === "READY_TO_LAUNCH") {
     if (admin) return ["CREATIVE", "RESEARCH"];

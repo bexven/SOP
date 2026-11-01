@@ -39,7 +39,7 @@ function done(message: string) {
 }
 
 export const createMemberAction = defineAction({
-  capability: "team.manage",
+  masterOnly: true,
   schema: createMemberSchema,
   run: async (input) => {
     await assertNameAvailable(input.name);
@@ -49,6 +49,7 @@ export const createMemberAction = defineAction({
         name: input.name,
         role: input.role,
         avatarColor: input.avatarColor,
+        adminAccess: input.role === "ADMIN" ? false : input.adminAccess,
         pinHash: await hashPin(input.pin),
         mustChangePin: true,
       },
@@ -58,29 +59,38 @@ export const createMemberAction = defineAction({
 });
 
 export const updateMemberAction = defineAction({
-  capability: "team.manage",
+  masterOnly: true,
   schema: updateMemberSchema,
   run: async (input, { user }) => {
     const target = await db.user.findUnique({ where: { id: input.id } });
     if (!target) throw new ActionError("That person no longer exists.");
+    if (target.isMaster && input.role !== "ADMIN") throw new ActionError("The Master Admin must keep the Admin role.");
     await assertNameAvailable(input.name, input.id);
     const guard = canChangeRole(user.id, target, input.role, await teamSnapshot());
     if (!guard.ok) throw new ActionError(guard.reason);
     await db.user.update({
       where: { id: input.id },
-      data: { name: input.name, role: input.role, avatarColor: input.avatarColor },
+      data: {
+        name: input.name,
+        role: input.role,
+        avatarColor: input.avatarColor,
+        adminAccess: input.role === "ADMIN" ? false : input.adminAccess,
+        // Permissions are read fresh from the DB on every request; bump only when access is reduced.
+        ...(target.adminAccess && !input.adminAccess ? { sessionVersion: { increment: 1 } } : {}),
+      },
     });
     return done(`${input.name} updated`);
   },
 });
 
 export const setMemberActiveAction = defineAction({
-  capability: "team.manage",
+  masterOnly: true,
   schema: setActiveSchema,
   run: async ({ id, active }, { user }) => {
     const target = await db.user.findUnique({ where: { id } });
     if (!target) throw new ActionError("That person no longer exists.");
     if (!active) {
+      if (target.isMaster) throw new ActionError("The Master Admin can't be deactivated.");
       const guard = canDeactivate(user.id, target, await teamSnapshot());
       if (!guard.ok) throw new ActionError(guard.reason);
       // Deactivation signs them out everywhere and hands their open work on (Q8).
@@ -101,9 +111,9 @@ export const setMemberActiveAction = defineAction({
 });
 
 export const resetPinAction = defineAction({
-  capability: "team.manage",
+  masterOnly: true,
   schema: resetPinSchema,
-  run: async ({ id, pin }) => {
+  run: async ({ id, pin, requireChange }, { user }) => {
     const target = await db.user.findUnique({ where: { id } });
     if (!target) throw new ActionError("That person no longer exists.");
     assertStrongPin(pin);
@@ -111,18 +121,22 @@ export const resetPinAction = defineAction({
       where: { id },
       data: {
         pinHash: await hashPin(pin),
-        mustChangePin: true,
+        mustChangePin: requireChange && id !== user.id,
         failedPinAttempts: 0,
         lockedUntil: null,
         sessionVersion: { increment: 1 },
       },
     });
-    return done(`PIN reset for ${target.name}. They'll choose a new one at next sign-in.`);
+    return done(
+      requireChange && id !== user.id
+        ? `PIN changed for ${target.name}. They'll choose their own at next sign-in.`
+        : `PIN changed for ${target.name}.`,
+    );
   },
 });
 
 export const unlockMemberAction = defineAction({
-  capability: "team.manage",
+  masterOnly: true,
   schema: unlockSchema,
   run: async ({ id }) => {
     const target = await db.user.update({

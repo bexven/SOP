@@ -33,7 +33,8 @@ export default async function ProfilePage() {
             <div>
               <dt className="text-meta text-slate-500">Role</dt>
               <dd className="mt-1">
-                <RolePill role={user.role} />
+                <RolePill role={user.jobRole} />
+                {user.isMaster ? <span className="ml-1.5 text-meta text-indigo-700">Master Admin</span> : user.adminAccess ? <span className="ml-1.5 text-meta text-indigo-700">+ Admin access</span> : null}
               </dd>
             </div>
           </dl>

@@ -14,6 +14,7 @@ export const ROLES = [
   "IMAGE_DESIGNER",
   "VIDEO_EDITOR",
   "MEDIA_BUYER",
+  "REVIEWER",
   "ADMIN",
 ] as const satisfies readonly Role[];
 
@@ -22,11 +23,13 @@ export const ROLE_LABELS: Record<Role, string> = {
   IMAGE_DESIGNER: "Image Designer",
   VIDEO_EDITOR: "Video Editor",
   MEDIA_BUYER: "Media Buyer",
+  REVIEWER: "Reviewer",
   ADMIN: "Admin",
 };
 
 export const TASK_TYPES = [
   "RESEARCH",
+  "PRODUCT_APPROVAL",
   "WEBSITE_IMAGE",
   "AD_IMAGE_LANDSCAPE",
   "AD_IMAGE_SQUARE",
@@ -39,6 +42,7 @@ export const TASK_TYPES = [
 
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   RESEARCH: "Product Research",
+  PRODUCT_APPROVAL: "Product approval",
   WEBSITE_IMAGE: "Website Product Image",
   AD_IMAGE_LANDSCAPE: "Ad Image 1200×628 (Landscape)",
   AD_IMAGE_SQUARE: "Ad Image 1080×1080 (Square)",
@@ -52,6 +56,7 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
 /** The role that owns (and is auto-assigned) each task type. */
 export const TASK_TYPE_ROLE: Record<TaskType, Role> = {
   RESEARCH: "RESEARCHER",
+  PRODUCT_APPROVAL: "REVIEWER",
   WEBSITE_IMAGE: "IMAGE_DESIGNER",
   AD_IMAGE_LANDSCAPE: "IMAGE_DESIGNER",
   AD_IMAGE_SQUARE: "IMAGE_DESIGNER",
@@ -95,6 +100,7 @@ export function initials(name: string): string {
 
 export const STAGES = [
   "RESEARCH",
+  "REVIEW",
   "CREATIVE",
   "READY_TO_LAUNCH",
   "LIVE",
@@ -104,6 +110,7 @@ export const STAGES = [
 
 export const STAGE_LABELS: Record<ProductStage, string> = {
   RESEARCH: "Research",
+  REVIEW: "Product review",
   CREATIVE: "Creative",
   READY_TO_LAUNCH: "Ready to Launch",
   LIVE: "Live",
@@ -147,6 +154,7 @@ export const KILL_REASONS = [
   "SUPPLIER_ISSUE",
   "WEAK_CREATIVE",
   "POOR_AD_PERFORMANCE",
+  "NOT_APPROVED",
   "OTHER",
 ] as const satisfies readonly KillReason[];
 
@@ -155,6 +163,7 @@ export const KILL_REASON_LABELS: Record<KillReason, string> = {
   SUPPLIER_ISSUE: "Supplier issue",
   WEAK_CREATIVE: "Weak creative",
   POOR_AD_PERFORMANCE: "Poor ad performance",
+  NOT_APPROVED: "Not approved in review",
   OTHER: "Other",
 };
 
@@ -178,6 +187,7 @@ export function isReviewedType(type: TaskType): boolean {
 /** Short labels for compact UI (cards, toasts). */
 export const TASK_TYPE_SHORT: Record<TaskType, string> = {
   RESEARCH: "Research",
+  PRODUCT_APPROVAL: "Approval",
   WEBSITE_IMAGE: "Website image",
   AD_IMAGE_LANDSCAPE: "Landscape ad",
   AD_IMAGE_SQUARE: "Square ad",
@@ -206,10 +216,14 @@ export const FOLLOW_UP_LABELS: Record<FollowUpKind, string> = {
   OTHER: "Something else",
 };
 
-/** What a person must attach when submitting (pure). Returns an error message or null. */
+/**
+ * What must exist before a format can be marked "ready for review" (pure).
+ * Images/videos: the lane's Drive folder link (set once per batch); preview images are optional.
+ * Store listing: the live store URL.
+ */
 export function submissionError(type: TaskType, counts: { images: number; links: number }): string | null {
   if (type === "STORE_LISTING") return counts.links > 0 ? null : "Add the live store product URL.";
-  if (laneOf(type) === "videos") return counts.links > 0 ? null : "Add at least one video link (Google Drive).";
-  if (laneOf(type) === "images") return counts.images > 0 ? null : "Upload at least one image.";
+  if (laneOf(type) === "videos") return counts.links > 0 ? null : "Add the Google Drive folder for videos first.";
+  if (laneOf(type) === "images") return counts.links > 0 ? null : "Add the Google Drive folder for images first.";
   return "This task isn't submitted for review.";
 }

@@ -19,6 +19,7 @@ import { submitResearchAction, updateResearchAction } from "@/lib/server/actions
 import { MarginCard } from "./margin-card";
 
 export type ResearchValues = {
+  brandId: string;
   name: string;
   supplierUrl: string;
   imageUrl: string;
@@ -42,7 +43,14 @@ export function ResearchForm({
   guide,
   rates,
   editable,
+  brands,
+  mode = "research",
+  onDone,
 }: {
+  brands: { id: string; name: string; active: boolean }[];
+  /** "admin": an Admin editing a product after research (no checklist / submit; changes are logged). */
+  mode?: "research" | "admin";
+  onDone?: () => void;
   productId: string;
   initial: ResearchValues;
   checklist: ChecklistItemDTO[];
@@ -81,6 +89,7 @@ export function ResearchForm({
   const missingChecklist = checklist.filter((i) => i.required && !i.checked).length;
   const blockers = researchBlockers(
     {
+      brandId: v.brandId,
       name: v.name,
       supplierUrl: v.supplierUrl,
       chinaPriceRmb: v.chinaPriceRmb,
@@ -107,8 +116,9 @@ export function ResearchForm({
   function onSave() {
     startTransition(async () => {
       if (await save()) {
-        toast.success("Research saved");
+        toast.success(mode === "admin" ? "Changes saved · logged on the timeline" : "Research saved");
         router.refresh();
+        onDone?.();
       }
     });
   }
@@ -133,6 +143,28 @@ export function ResearchForm({
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="grid gap-4">
         <section className="surface grid gap-4 rounded-panel p-4 sm:p-5" aria-label="Research details">
+          <fieldset className="grid gap-1.5">
+            <legend className="mb-1.5 text-meta text-slate-700">Brand *</legend>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Brand">
+              {brands.filter((b) => b.active || b.id === v.brandId).map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={v.brandId === b.id}
+                  disabled={disabled}
+                  onClick={() => set("brandId", b.id)}
+                  className={
+                    v.brandId === b.id
+                      ? "rounded-control bg-indigo-600 px-4 py-2 text-body font-semibold text-white"
+                      : "rounded-control bg-white px-4 py-2 text-body font-semibold text-slate-800 ring-1 ring-slate-200 ring-inset hover:bg-slate-50 disabled:opacity-60"
+                  }
+                >
+                  {b.name}
+                </button>
+              ))}
+            </div>
+          </fieldset>
           <Field id="r-name" label="Product name *" error={err("name")}>
             <Input {...fieldA11y("r-name", err("name"))} value={v.name} onChange={(e) => set("name", e.target.value)} disabled={disabled} />
           </Field>
@@ -258,9 +290,22 @@ export function ResearchForm({
             Exchange rates aren&apos;t set yet. An Admin needs to fill in Settings → Rates &amp; margins.
           </div>
         )}
-        <ChecklistPanel items={checklist} editable={editable} />
-        <StepGuidePanel guide={guide} />
-        {editable ? (
+        {mode === "research" ? <ChecklistPanel items={checklist} editable={editable} /> : null}
+        {mode === "research" ? <StepGuidePanel guide={guide} /> : null}
+        {editable && mode === "admin" ? (
+          <div className="surface sticky bottom-3 grid gap-2 rounded-panel p-3">
+            <p className="text-meta font-normal text-slate-600">You&apos;re editing as Admin. Every change is logged on the timeline (old → new).</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onDone} disabled={pending} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={onSave} disabled={pending || !dirty} className="flex-1">
+                <SaveIcon /> Save changes
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {editable && mode === "research" ? (
           <div className="surface sticky bottom-3 grid gap-2 rounded-panel p-3">
             {blockers.length ? (
               <p className="text-meta font-normal text-slate-600">

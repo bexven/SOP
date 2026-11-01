@@ -16,6 +16,9 @@ import { ProductActions } from "./product-actions";
 import { Discussion } from "./discussion";
 import { Timeline } from "./timeline";
 import { can } from "@/lib/domain/permissions";
+import { PencilIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ReviewPanel } from "./review-panel";
 
 export type Viewer = { id: string; role: Role; name: string };
 
@@ -37,7 +40,11 @@ export function ProductView({
   const canEditResearch = inResearch && !!research && canWorkOnTask(viewer, { assigneeId: research.assignee?.id ?? null });
   const openTasks = product.tasks.filter((t) => t.type !== "RESEARCH" && t.status !== "CANCELLED").length;
   const focusIsResearch = focusTaskId && focusTaskId === research?.id;
-  const [tab, setTab] = useState(focusTaskId && !focusIsResearch ? "tasks" : inResearch ? "overview" : "tasks");
+  const early = inResearch || product.stage === "REVIEW";
+  const [tab, setTab] = useState(focusTaskId && !focusIsResearch ? "tasks" : early ? "overview" : "tasks");
+  const isAdmin = viewer.role === "ADMIN";
+  const [adminEditing, setAdminEditing] = useState(false);
+  const showForm = (inResearch && research) || adminEditing;
 
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5">
@@ -60,12 +67,27 @@ export function ProductView({
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
-          {inResearch && research ? (
+          {product.stage === "REVIEW" ? (
+            <div className="mb-4">
+              <ReviewPanel product={product} canDecide={can(viewer.role, "product.approve")} />
+            </div>
+          ) : null}
+          {!inResearch && isAdmin && !adminEditing ? (
+            <div className="mb-3 flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setAdminEditing(true)}>
+                <PencilIcon /> Edit details (Admin)
+              </Button>
+            </div>
+          ) : null}
+          {showForm ? (
             <ResearchForm
-              key={research.id + product.stage}
+              brands={product.brands}
+              mode={inResearch ? "research" : "admin"}
+              onDone={() => setAdminEditing(false)}
+              key={(research?.id ?? "") + product.stage}
               productId={product.id}
-              editable={canEditResearch}
-              checklist={research.checklist}
+              editable={canEditResearch || (isAdmin && !inResearch)}
+              checklist={research?.checklist ?? []}
               guide={product.guides.RESEARCH}
               rates={
                 product.thresholds
@@ -78,6 +100,7 @@ export function ProductView({
                   : null
               }
               initial={{
+                brandId: product.brandId ?? "",
                 name: product.name,
                 supplierUrl: product.supplierUrl ?? "",
                 imageUrl: product.imageUrl ?? "",
@@ -96,7 +119,7 @@ export function ProductView({
             <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
               <ResearchSummary product={product} />
               <div className="grid content-start gap-4">
-                <CampaignCard product={product} />
+                <CampaignCard product={product} canEdit={can(viewer.role, "campaign.manage") && product.stage === "LIVE"} />
                 <MarginCard
                   margin={product.margin}
                   band={product.marginBand}

@@ -1,5 +1,5 @@
 import type { Role } from "@/generated/prisma/enums";
-import { can } from "./permissions";
+import { can, canSeeEarlyStages } from "./permissions";
 
 export type NavKey = "dashboard" | "research" | "creative" | "pipeline" | "products" | "overview" | "team" | "settings";
 
@@ -12,17 +12,19 @@ export type NavItem = {
   section: "main" | "admin";
 };
 
-const CREATIVE_ROLES: Role[] = ["IMAGE_DESIGNER", "VIDEO_EDITOR", "MEDIA_BUYER", "ADMIN"];
 
-const ALL: (NavItem & { visible: (role: Role) => boolean })[] = [
+type Ctx = { isMaster: boolean };
+
+const ALL: (NavItem & { visible: (role: Role, ctx: Ctx) => boolean })[] = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard", hint: "What's waiting on you", section: "main", visible: () => true },
   {
     key: "research",
     label: "Research",
     href: "/research",
-    hint: "Add and research products",
+    hint: "Products being researched and reviewed",
     section: "main",
-    visible: (r) => can(r, "product.create"),
+    // Image and video makers only see products once they pass Product review.
+    visible: (r) => canSeeEarlyStages(r),
   },
   {
     key: "creative",
@@ -30,16 +32,17 @@ const ALL: (NavItem & { visible: (role: Role) => boolean })[] = [
     href: "/creative",
     hint: "Images and videos in progress",
     section: "main",
-    visible: (r) => CREATIVE_ROLES.includes(r),
+    visible: () => true,
   },
   { key: "pipeline", label: "Pipeline", href: "/pipeline", hint: "Every product by stage", section: "main", visible: () => true },
   { key: "products", label: "Products", href: "/products", hint: "Search all products", section: "main", visible: () => true },
   { key: "overview", label: "Overview", href: "/overview", hint: "Workload and bottlenecks", section: "admin", visible: (r) => can(r, "overview.view") },
-  { key: "team", label: "Team", href: "/team", hint: "People, roles and PINs", section: "admin", visible: (r) => can(r, "team.manage") },
+  // Only the Master Admin manages people, names, roles and PINs.
+  { key: "team", label: "Team", href: "/team", hint: "People, roles and PINs", section: "admin", visible: (_r, ctx) => ctx.isMaster },
   { key: "settings", label: "Settings", href: "/settings", hint: "Rates, SLAs and checklists", section: "admin", visible: (r) => can(r, "settings.manage") },
 ];
 
 /** Menu items for a role. Cosmetic: every page re-checks on the server. */
-export function navItemsFor(role: Role): NavItem[] {
-  return ALL.filter((i) => i.visible(role)).map(({ key, label, href, hint, section }) => ({ key, label, href, hint, section }));
+export function navItemsFor(role: Role, ctx: Ctx = { isMaster: false }): NavItem[] {
+  return ALL.filter((i) => i.visible(role, ctx)).map(({ key, label, href, hint, section }) => ({ key, label, href, hint, section }));
 }
