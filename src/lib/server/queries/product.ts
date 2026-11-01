@@ -65,6 +65,21 @@ export async function getProductDetail(id: string) {
   const people = await db.user.findMany({ select: { id: true, name: true, avatarColor: true, role: true, active: true } });
   const nameOf = (uid: string | null | undefined) => (uid ? (people.find((u) => u.id === uid)?.name ?? null) : null);
 
+  const [comments, events] = await Promise.all([
+    db.comment.findMany({
+      where: { productId: id },
+      orderBy: { createdAt: "asc" },
+      include: { author: person },
+    }),
+    db.activityEvent.findMany({
+      where: { productId: id },
+      // Events from one transaction share a timestamp; cuid ids break the tie in insertion order.
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 300,
+      include: { actor: person, task: { select: { type: true } } },
+    }),
+  ]);
+
   const types = [...new Set(p.tasks.map((t) => t.type))];
   const guides = await db.taskTypeConfig.findMany({ where: { taskType: { in: types } } });
 
@@ -177,6 +192,22 @@ export async function getProductDetail(id: string) {
         { body: g.guideBody, links: Array.isArray(g.guideLinks) ? (g.guideLinks as { label: string; url: string }[]) : [] },
       ]),
     ) as Partial<Record<TaskType, { body: string; links: { label: string; url: string }[] }>>,
+    comments: comments.map((c) => ({
+      id: c.id,
+      parentId: c.parentId,
+      body: c.body,
+      author: c.author,
+      createdAt: c.createdAt.toISOString(),
+      editedAt: iso(c.editedAt),
+    })),
+    events: events.map((e) => ({
+      id: e.id,
+      type: e.type,
+      actor: e.actor,
+      taskType: e.task?.type ?? null,
+      data: (e.data ?? null) as Record<string, unknown> | null,
+      createdAt: e.createdAt.toISOString(),
+    })),
     margin,
     marginBand: band,
     thresholds,
