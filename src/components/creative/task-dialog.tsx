@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   CheckCircle2Icon,
-  ExternalLinkIcon,
   Loader2Icon,
   LockIcon,
   PlusIcon,
@@ -26,6 +25,7 @@ import { ChecklistPanel } from "@/components/task/checklist-panel";
 import { DueOverride } from "@/components/task/due-override";
 import { ReassignMenu } from "@/components/task/reassign-menu";
 import { Discussion } from "@/components/product/discussion";
+import { LinkCard } from "@/components/common/link-card";
 import type { Viewer } from "@/components/product/product-view";
 import { brandThemeStyle } from "@/lib/brand-color";
 import { FOLLOW_UP_KINDS, FOLLOW_UP_LABELS, laneOf, SUBMIT_PROMPT, TASK_TYPE_LABELS } from "@/lib/domain/labels";
@@ -65,9 +65,15 @@ export function TaskDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-4xl gap-0 p-0 sm:max-h-[calc(100dvh-3rem)]"
+        className="flex max-h-[calc(100dvh-2rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 outline-none sm:max-h-[calc(100dvh-4rem)]"
         style={brandThemeStyle(product.brand?.color)}
         aria-describedby={undefined}
+        tabIndex={-1}
+        // Focus the window itself (not the first button) so nothing shows a focus ring on open.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement).focus();
+        }}
       >
         {task ? (
           <TaskBody
@@ -125,8 +131,8 @@ function TaskBody({
   }
 
   return (
-    <div className="grid max-h-[inherit] min-h-0 grid-rows-[auto_minmax(0,1fr)]">
-      <header className="grid gap-2 border-b border-slate-900/[0.06] px-5 pt-5 pb-4 pr-12 sm:px-6">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="grid shrink-0 gap-2 border-b border-slate-900/[0.06] px-5 pt-5 pb-4 pr-12 sm:px-6">
         <p className="text-meta font-normal text-slate-500">
           {lane === "videos" ? "Video creative" : "Image creative"} · {batchLabel}
         </p>
@@ -152,8 +158,8 @@ function TaskBody({
         </div>
       </header>
 
-      <div className="grid min-h-0 overflow-y-auto md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:overflow-hidden">
-        <div className="grid content-start gap-4 px-5 py-5 sm:px-6 md:overflow-y-auto">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] overflow-x-hidden overflow-y-auto overscroll-contain md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:overflow-hidden">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 px-5 py-5 sm:px-6 md:overflow-x-hidden md:overflow-y-auto">
           {locked ? (
             <Notice tone="slate" icon={LockIcon}>
               Unlocks when {parentLabel ? parentLabel.toLowerCase() : "the step before"} {parentLabel?.endsWith("s") ? "are" : "is"} approved by a Senior.
@@ -175,19 +181,10 @@ function TaskBody({
                   · {latest.submittedBy?.name ?? "—"} · <span className="num">{formatDateTime(new Date(latest.createdAt))}</span>
                 </span>
               </h3>
-              <ul className="grid gap-1.5">
+              <ul className="grid gap-2">
                 {latest.links.map((l, i) => (
-                  <li key={l + i}>
-                    <a
-                      href={l}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group flex items-center gap-2.5 rounded-control bg-white px-3 py-2 text-body text-slate-800 ring-1 ring-slate-200 transition-[box-shadow,background-color] duration-150 hover:bg-accent hover:ring-primary/30"
-                    >
-                      <span className="num flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-semibold text-white">{i + 1}</span>
-                      <span className="min-w-0 flex-1 truncate">{l.replace(/^https?:\/\/(www\.)?/, "")}</span>
-                      <ExternalLinkIcon className="size-4 shrink-0 text-slate-400 transition-colors group-hover:text-primary" />
-                    </a>
+                  <li key={l + i} className="min-w-0">
+                    <LinkCard url={l} index={latest.links.length > 1 ? i + 1 : undefined} />
                   </li>
                 ))}
               </ul>
@@ -237,7 +234,7 @@ function TaskBody({
           {viewer.role === "ADMIN" && !locked && task.status !== "APPROVED" ? <DueOverride taskId={task.id} dueAt={task.dueAt} /> : null}
         </div>
 
-        <aside className="border-t border-slate-900/[0.06] bg-slate-50/60 px-5 py-5 sm:px-6 md:overflow-y-auto md:border-t-0 md:border-l">
+        <aside className="min-w-0 border-t border-slate-900/[0.06] bg-slate-50/60 px-5 py-5 sm:px-6 md:overflow-x-hidden md:overflow-y-auto md:border-t-0 md:border-l">
           <Discussion product={product} viewer={viewer} phase={lane === "videos" ? "VIDEOS" : "IMAGES"} taskId={task.id} title="Discussion" />
         </aside>
       </div>
