@@ -77,7 +77,7 @@ export function TopNav({ items, user, badges }: { items: NavItem[]; user: ShellU
           ) : null}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-1">
           <SearchButton />
           <NotificationBell />
           <UserMenu user={user} />
@@ -143,7 +143,7 @@ function TopLink({ item, active, badge }: { item: NavItem; active: boolean; badg
       aria-current={active ? "page" : undefined}
       title={item.hint}
       className={cn(
-        "inline-flex h-9 items-center gap-1.5 rounded-control px-2.5 text-body font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 active:scale-[0.97] xl:px-3",
+        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control px-2.5 text-body font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 active:scale-[0.97] xl:px-3",
         active ? "bg-white text-slate-900 shadow-[0_1px_2px_rgb(15_23_42/0.08)]" : "text-slate-700 hover:bg-white/70 hover:text-slate-900",
       )}
     >
