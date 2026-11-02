@@ -42,6 +42,9 @@ const PHASE_LABEL: Record<Phase, string> = {
   orders: "Orders",
 };
 
+/** Stepper step → the tab that shows its details (Research and Product review share one tab). */
+const STEP_PHASE: Phase[] = ["review", "review", "images", "videos", "ads", "orders"];
+
 const LAUNCHED_STAGES = ["READY_TO_LAUNCH", "LIVE", "COMPLETED"];
 
 /** Which phases this product has reached. */
@@ -127,11 +130,28 @@ export function ProductView({
 
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5" style={brandThemeStyle(product.brand?.color)}>
-      <ProductHeader product={product} viewer={viewer} actions={<ProductActions product={product} viewer={viewer} />} />
+      <ProductHeader
+        product={product}
+        viewer={viewer}
+        actions={<ProductActions product={product} viewer={viewer} />}
+        stepper={
+          viewer.role === "ADMIN" && !simple
+            ? {
+                // Admin / Master Admin: click a step to see where that step stands.
+                canSelect: (i) => available.includes(STEP_PHASE[i]!),
+                onSelect: (i) => {
+                  choose(STEP_PHASE[i]!);
+                  document.getElementById("product-phases")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                },
+                selected: STEP_PHASE.flatMap((p, i) => (p === phase ? [i] : [])),
+              }
+            : undefined
+        }
+      />
       {simple ? (
         <ReviewPhase product={product} viewer={viewer} />
       ) : (
-        <Tabs value={phase} onValueChange={choose}>
+        <Tabs value={phase} onValueChange={choose} id="product-phases" className="scroll-mt-24">
           <TabsList aria-label="Product phases" className="relative max-w-full overflow-x-auto">
             {available.map((p) => (
               <TabsTrigger key={p} value={p}>

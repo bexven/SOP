@@ -149,6 +149,7 @@ src/generated/     Prisma client (generated, git-ignored)
   (per-unit buying / shipping / selling prices, independent of research prices, courier % snapshot),
   scaling (`scalable` YES/NO/NOT_SURE + `scalePlans`). Maths in `domain/orders.ts`. `/orders` page lists them.
 - **Stepper**: Research · Product review · Image creative · Video creative · Meta ads · Ordering.
+  For Admin / Master Admin each reached step is a button that opens its tab (`STEP_PHASE` in `product-view.tsx`).
 - **Dashboard**: Admin tiles = whole team (open tasks on running products), others = their own queue; the
   menu badge uses the same queries. Tiles link to the matching list/filter. Auto-refresh every 30 s.
 - Floating UI on the product page sits bottom-left because toasts are bottom-right.

@@ -9,10 +9,13 @@ import type { ProductDetail } from "@/lib/server/queries/product";
 export function ProductHeader({
   product,
   actions,
+  stepper,
 }: {
   product: ProductDetail;
   viewer: { id: string; role: Role };
   actions?: React.ReactNode;
+  /** Makes the stepper clickable (Admin): open a step's details. */
+  stepper?: { onSelect: (i: number) => void; canSelect: (i: number) => boolean; selected: number[] };
 }) {
   return (
     <header className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
@@ -38,7 +41,7 @@ export function ProductHeader({
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </div>
       <div className="surface rounded-panel px-4 pt-3.5 pb-2.5">
-        <PipelineStepper stepper={product.stepper} />
+        <PipelineStepper stepper={product.stepper} {...stepper} />
       </div>
       {product.stage === "KILLED" && product.killReason ? (
         <div className="rounded-panel border border-rose-200 bg-rose-50 px-4 py-3 text-body text-rose-800" role="status">

@@ -2,16 +2,50 @@ import { CheckIcon, XIcon } from "lucide-react";
 import type { Stepper } from "@/lib/domain/stepper";
 import { cn } from "@/lib/utils";
 
-/** Full pipeline stepper for the product header. */
-export function PipelineStepper({ stepper, className }: { stepper: Stepper; className?: string }) {
+/**
+ * Full pipeline stepper for the product header. When `onSelect` is given, steps
+ * for which `canSelect(i)` is true become buttons that open that step's details.
+ */
+export function PipelineStepper({
+  stepper,
+  className,
+  onSelect,
+  canSelect,
+  selected,
+}: {
+  stepper: Stepper;
+  className?: string;
+  onSelect?: (index: number) => void;
+  canSelect?: (index: number) => boolean;
+  /** Steps whose details are currently shown (highlighted). */
+  selected?: number[];
+}) {
   return (
     <ol className={cn("relative flex w-full items-start gap-1 overflow-x-auto pb-1", className)} aria-label="Pipeline progress">
       {stepper.steps.map((step, i) => {
         const done = step.state === "done";
         const current = step.state === "current";
         const killed = step.state === "killed";
+        const clickable = Boolean(onSelect && canSelect?.(i));
+        const isSelected = clickable && Boolean(selected?.includes(i));
+        const Inner = clickable ? "button" : "div";
         return (
-          <li key={step.label} className="flex min-w-[5.5rem] flex-1 flex-col gap-1.5" aria-current={current ? "step" : undefined}>
+          <li key={step.label} className="flex min-w-[5.5rem] flex-1" aria-current={current ? "step" : undefined}>
+            <Inner
+              {...(clickable
+                ? {
+                    type: "button" as const,
+                    onClick: () => onSelect!(i),
+                    "aria-pressed": isSelected,
+                    title: `Show ${step.label}`,
+                  }
+                : {})}
+              className={cn(
+                "-mx-1.5 -my-1 flex w-full flex-col gap-1.5 rounded-control px-1.5 py-1 text-left",
+                clickable && "transition-colors duration-150 hover:bg-slate-900/[0.04] active:bg-slate-900/[0.07]",
+                isSelected && "bg-accent hover:bg-accent",
+              )}
+            >
             <div className="flex items-center gap-1">
               <span
                 className={cn(
@@ -43,6 +77,7 @@ export function PipelineStepper({ stepper, className }: { stepper: Stepper; clas
               {killed ? <span className="block font-normal">Killed here</span> : null}
             </span>
             <span className="sr-only">{step.state}</span>
+            </Inner>
           </li>
         );
       })}
