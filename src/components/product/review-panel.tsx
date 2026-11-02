@@ -2,18 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckIcon, CornerUpLeftIcon, XIcon } from "lucide-react";
+import { CheckIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Field } from "@/components/common/field";
 import { UserAvatar } from "@/components/common/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { sendBackAction } from "@/lib/server/actions/exceptions";
 import { approveProductAction, rejectProductAction } from "@/lib/server/actions/product";
 import type { ProductDetail } from "@/lib/server/queries/product";
 import { cn } from "@/lib/utils";
 
-type Choice = "approve" | "back" | "reject";
+type Choice = "approve" | "reject";
 
 /** Product review: the Reviewer (or Admin) decides whether the product goes to testing. */
 export function ReviewPanel({ product, canDecide }: { product: ProductDetail; canDecide: boolean }) {
@@ -41,9 +40,7 @@ export function ReviewPanel({ product, canDecide }: { product: ProductDetail; ca
       const r =
         choice === "approve"
           ? await approveProductAction({ productId: product.id, note })
-          : choice === "reject"
-            ? await rejectProductAction({ productId: product.id, note })
-            : await sendBackAction({ productId: product.id, target: "RESEARCH", note, reopenTaskIds: [] });
+          : await rejectProductAction({ productId: product.id, note });
       if (!r.ok) {
         toast.error(r.error);
         return;
@@ -56,8 +53,7 @@ export function ReviewPanel({ product, canDecide }: { product: ProductDetail; ca
   }
 
   const OPTIONS: { key: Choice; label: string; icon: typeof CheckIcon; tone: string; hint: string }[] = [
-    { key: "approve", label: "Approve for testing", icon: CheckIcon, tone: "bg-emerald-700 text-white ring-emerald-700", hint: "Creative starts: 7 tasks are created and assigned." },
-    { key: "back", label: "Send back to researcher", icon: CornerUpLeftIcon, tone: "bg-amber-700 text-white ring-amber-700", hint: "The researcher fixes something and submits again." },
+    { key: "approve", label: "Approve for testing", icon: CheckIcon, tone: "bg-emerald-700 text-white ring-emerald-700", hint: "Creative starts: the image and video tasks are created and assigned." },
     { key: "reject", label: "Not approved", icon: XIcon, tone: "bg-rose-600 text-white ring-rose-600", hint: "The product is closed. The reason is kept so the team can learn from it." },
   ];
   const current = OPTIONS.find((o) => o.key === choice);

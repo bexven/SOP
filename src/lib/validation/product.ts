@@ -50,9 +50,7 @@ export const researchFieldsSchema = z.object({
   chinaPriceBdt: optionalMoney("China price", 1_000_000),
   shippingPerUnitBdt: optionalMoney("Shipping", 1_000_000),
   sellingPriceBdt: optionalMoney("Selling price", 100_000_000),
-  targetCustomer: optionalText(2000),
   problemSolved: optionalText(2000),
-  sellingAngle: optionalText(2000),
   referenceLinks: z.array(urlSchema).max(20, "Up to 20 links").default([]),
   priority: z.enum(Priority).default("MEDIUM"),
   targetLaunchDate: z

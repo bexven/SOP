@@ -20,9 +20,7 @@ export function ResearchSummary({ product }: { product: ProductDetail }) {
     ["Selling price", product.sellingPriceBdt],
   ];
   const texts: [string, string | null][] = [
-    ["Target customer", product.targetCustomer],
     ["Problem it solves", product.problemSolved],
-    ["Selling angle", product.sellingAngle],
   ];
   return (
     <section className="surface grid gap-5 rounded-panel p-4 sm:p-5" aria-label="Product details">
@@ -64,7 +62,7 @@ export function ResearchSummary({ product }: { product: ProductDetail }) {
         </div>
       </div>
       {texts.some(([, t]) => t) ? (
-        <dl className="grid gap-4 border-t border-slate-100 pt-4 md:grid-cols-3">
+        <dl className="grid gap-4 border-t border-slate-100 pt-4 md:grid-cols-1">
           {texts.map(([k, t]) => (
             <div key={k} className="min-w-0">
               <dt className="text-meta text-slate-500">{k}</dt>

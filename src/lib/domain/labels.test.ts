@@ -17,10 +17,10 @@ describe("submissionError", () => {
     expect(submissionError("VIDEO_MAIN", { links: 0 })).not.toBeNull();
     expect(submissionError("VIDEO_MAIN", { links: 1 })).toBeNull();
   });
-  it("website images need exactly one product page URL", () => {
+  it("website images need their image links; the store listing exactly one URL", () => {
     expect(submissionError("WEBSITE_IMAGE", { links: 0 })).not.toBeNull();
-    expect(submissionError("WEBSITE_IMAGE", { links: 1 })).toBeNull();
-    expect(submissionError("WEBSITE_IMAGE", { links: 2 })).not.toBeNull();
+    expect(submissionError("WEBSITE_IMAGE", { links: 3 })).toBeNull();
+    expect(submissionError("STORE_LISTING", { links: 2 })).not.toBeNull();
   });
   it("non-creative tasks aren't submitted this way", () => {
     expect(submissionError("CAMPAIGN_LAUNCH", { links: 1 })).not.toBeNull();

@@ -87,7 +87,7 @@ export type NewTask = {
 
 export type Plan = {
   changes: TaskChange[];
-  newBatch: { number: number; reason: string | null; dueAt: Date | null } | null;
+  newBatch: { number: number; name?: string | null; reason: string | null; dueAt: Date | null } | null;
   newTasks: NewTask[];
   stage: { from: ProductStage; to: ProductStage } | null;
   campaign: { from: CampaignStatus | null; to: CampaignStatus } | null;
@@ -360,7 +360,7 @@ export function planCampaignStatus(p: ProductSnap, to: CampaignStatus): PlanResu
 /** Creative fatigue: a new batch while LIVE. All tasks unlocked, no store listing, stage unchanged. */
 export function planNewBatch(
   p: ProductSnap,
-  input: { types: TaskType[]; dueAt: Date | null; reason: string | null },
+  input: { types: TaskType[]; dueAt: Date | null; reason: string | null; name?: string | null },
 ): PlanResult {
   if (p.stage !== "LIVE") return fail("New creative batches can only be requested while the product is live.");
   const types = [...new Set(input.types)];
@@ -369,7 +369,8 @@ export function planNewBatch(
     return fail("A new batch can only include creative formats.");
   }
   const plan = emptyPlan();
-  plan.newBatch = { number: nextBatchNumber(p), reason: input.reason?.trim() || null, dueAt: input.dueAt };
+  if (input.name !== undefined && !input.name?.trim()) return fail("Give the batch a name.");
+  plan.newBatch = { number: nextBatchNumber(p), name: input.name?.trim() || null, reason: input.reason?.trim() || null, dueAt: input.dueAt };
   // Square versions wait for the portrait / main version when both are requested.
   const parentOf: Partial<Record<TaskType, TaskType>> = { AD_IMAGE_SQUARE: "AD_IMAGE_VERTICAL", VIDEO_SQUARE: "VIDEO_MAIN" };
   plan.newTasks = CREATIVE_TYPES.filter((t) => types.includes(t)).map((type) => {
@@ -417,8 +418,8 @@ export function planKill(p: ProductSnap): PlanResult {
 export function sendBackTargets(stage: ProductStage, role: Role): ProductStage[] {
   const admin = role === "ADMIN";
   const mediaBuyer = role === "MEDIA_BUYER";
-  if (stage === "REVIEW" && (admin || role === "REVIEWER")) return ["RESEARCH"];
-  if (role === "REVIEWER") return [];
+  // Product review is a yes/no decision: approve for testing or not approved (no send-back).
+  if (stage === "REVIEW" || role === "REVIEWER") return [];
   if (stage === "CREATIVE" && (admin || mediaBuyer)) return ["RESEARCH"];
   if (stage === "READY_TO_LAUNCH") {
     if (admin) return ["CREATIVE", "RESEARCH"];

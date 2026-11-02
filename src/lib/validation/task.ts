@@ -28,3 +28,8 @@ export const markReadySchema = z.object({
   links: z.array(urlSchema).max(20, "Up to 20 links").default([]),
   note: z.string().trim().max(2000).optional().transform((v) => v || null),
 });
+
+/** "Is the product added on the website?" */
+export const websiteLinkSchema = z
+  .object({ productId: idSchema, added: z.boolean(), url: z.union([urlSchema, z.literal("")]).optional().transform((v) => v || null) })
+  .refine((v) => !v.added || v.url, { message: "Paste the product's link on the website", path: ["url"] });

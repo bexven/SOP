@@ -135,17 +135,15 @@ describe("research", () => {
     expect(byType(p, "RESEARCH").status).toBe("APPROVED");
   });
 
-  it("not approved closes the product; send back reopens research", () => {
+  it("not approved closes the product; there is no send-back from review", () => {
     const p = apply(newProduct(), planResearchSubmit(newProduct()));
     const rejected = apply(p, planRejectProduct(p));
     expect(rejected.stage).toBe("KILLED");
     expect(byType(rejected, "PRODUCT_APPROVAL").status).toBe("CANCELLED");
-    expect(sendBackTargets("REVIEW", "REVIEWER")).toEqual(["RESEARCH"]);
-    const back = apply(p, planSendBack(p, { target: "RESEARCH", actorRole: "REVIEWER", note: "Need a cheaper supplier", reopenTaskIds: [] }));
-    expect(back.stage).toBe("RESEARCH");
-    expect(byType(back, "RESEARCH").status).toBe("REVISION");
-    expect(byType(back, "PRODUCT_APPROVAL").status).toBe("CANCELLED");
-    expect(planApproveProduct(back).ok).toBe(false);
+    // Product review is approve / not approved only — no send-back to the researcher.
+    expect(sendBackTargets("REVIEW", "REVIEWER")).toEqual([]);
+    expect(sendBackTargets("REVIEW", "ADMIN")).toEqual([]);
+    expect(planSendBack(p, { target: "RESEARCH", actorRole: "ADMIN", note: "x", reopenTaskIds: [] }).ok).toBe(false);
   });
 
   it("approval creates Batch #1 (website → portrait ads → square ads; main → square video) and moves to CREATIVE", () => {
@@ -245,7 +243,9 @@ describe("launch & live", () => {
     let p = toReadyToLaunch();
     p = apply(p, planLaunch(p));
     const due = new Date("2026-11-10T12:00:00Z");
-    const result = planNewBatch(p, { types: ["VIDEO_SQUARE", "AD_IMAGE_SQUARE", "AD_IMAGE_SQUARE"], dueAt: due, reason: "Fatigue" });
+    expect(planNewBatch(p, { types: ["VIDEO_SQUARE"], dueAt: due, reason: null, name: "  " }).ok).toBe(false);
+    const result = planNewBatch(p, { types: ["VIDEO_SQUARE", "AD_IMAGE_SQUARE", "AD_IMAGE_SQUARE"], dueAt: due, reason: "Fatigue", name: "Winter angles" });
+    expect(result.ok && result.plan.newBatch?.name).toBe("Winter angles");
     expect(result.ok && result.plan.newTasks.every((t) => t.dueAt === due)).toBe(true);
     p = apply(p, result);
     expect(p.stage).toBe("LIVE");

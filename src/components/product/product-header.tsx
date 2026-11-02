@@ -40,7 +40,7 @@ export function ProductHeader({
         </div>
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </div>
-      <div className="surface rounded-panel px-4 pt-3.5 pb-2.5">
+      <div className="surface rounded-panel px-2 py-2 sm:px-3">
         <PipelineStepper stepper={product.stepper} {...stepper} />
       </div>
       {product.stage === "KILLED" && product.killReason ? (

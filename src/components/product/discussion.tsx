@@ -27,20 +27,33 @@ export const PHASE_DISCUSSION_LABEL: Record<DiscussionPhase, string> = {
 };
 
 /** One phase's discussion. Comments never leak between phases. */
-export function Discussion({ product, viewer, phase }: { product: ProductDetail; viewer: Viewer; phase: DiscussionPhase }) {
-  const mine = product.comments.filter((c) => c.phase === phase);
+export function Discussion({
+  product,
+  viewer,
+  phase,
+  taskId,
+  title,
+}: {
+  product: ProductDetail;
+  viewer: Viewer;
+  phase: DiscussionPhase;
+  /** A creative task's own discussion (otherwise the phase's general one). */
+  taskId?: string;
+  title?: string;
+}) {
+  const mine = product.comments.filter((c) => c.phase === phase && (c.taskId ?? null) === (taskId ?? null));
   const top = mine.filter((c) => !c.parentId);
   const replies = (id: string) => mine.filter((c) => c.parentId === id);
   return (
     <section aria-labelledby={`discussion-${phase}`} className="grid gap-3">
       <h2 id={`discussion-${phase}`} className="text-section text-slate-900">
-        Discussion · {PHASE_DISCUSSION_LABEL[phase]} {mine.length ? <span className="num text-meta text-slate-500">{mine.length}</span> : null}
+        {title ?? `Discussion · ${PHASE_DISCUSSION_LABEL[phase]}`} {mine.length ? <span className="num text-meta text-slate-500">{mine.length}</span> : null}
       </h2>
-      <Composer productId={product.id} phase={phase} people={product.people} placeholder="Write a comment… use @ to mention someone" />
+      <Composer productId={product.id} phase={phase} taskId={taskId} people={product.people} placeholder="Write a comment… use @ to mention someone" />
       {top.length === 0 ? (
         <p className="rounded-panel border border-dashed border-slate-200 px-4 py-5 text-center text-meta font-normal text-slate-500">
           <MessageSquareIcon className="mx-auto mb-1.5 size-4 text-slate-400" aria-hidden />
-          No comments in {PHASE_DISCUSSION_LABEL[phase]} yet. Questions and decisions for this step go here.
+          {taskId ? "No comments on this task yet. Feedback and questions about this work go here." : `No comments in ${PHASE_DISCUSSION_LABEL[phase]} yet. Questions and decisions for this step go here.`}
         </p>
       ) : (
         <ol className="grid gap-3">
@@ -164,6 +177,7 @@ function CommentItem({ comment, people, viewer, small }: { comment: CommentDTO; 
 function Composer({
   productId,
   phase = "REVIEW",
+  taskId,
   parentId,
   people,
   placeholder,
@@ -172,6 +186,7 @@ function Composer({
 }: {
   productId: string;
   phase?: DiscussionPhase;
+  taskId?: string;
   parentId?: string;
   people: Person[];
   placeholder: string;
@@ -210,7 +225,7 @@ function Composer({
 
   function post() {
     startTransition(async () => {
-      const r = await addCommentAction({ productId, body: text, parentId, phase });
+      const r = await addCommentAction({ productId, body: text, parentId, phase, taskId });
       if (!r.ok) {
         toast.error(r.error);
         return;

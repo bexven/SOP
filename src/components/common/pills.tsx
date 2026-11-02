@@ -1,4 +1,4 @@
-import { CheckIcon, LockIcon, RotateCcwIcon, SendIcon, XIcon } from "lucide-react";
+import { CheckIcon, ClockIcon, LockIcon, RotateCcwIcon, SendIcon, XIcon } from "lucide-react";
 import type { CampaignStatus, Priority, ProductStage, TaskStatus } from "@/generated/prisma/enums";
 import { dueBucket, dueLabel } from "@/lib/domain/due";
 import {
@@ -51,6 +51,8 @@ export function PriorityPill({ priority, className }: { priority: Priority; clas
   );
 }
 
+const DUE_TITLE = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+
 export function DuePill({ dueAt, className }: { dueAt: string | Date | null; className?: string }) {
   if (!dueAt) return null;
   const due = typeof dueAt === "string" ? new Date(dueAt) : dueAt;
@@ -58,7 +60,8 @@ export function DuePill({ dueAt, className }: { dueAt: string | Date | null; cla
   const bucket = dueBucket(due, now);
   const tone: PillTone = bucket === "overdue" ? "rose" : bucket === "today" ? "amber" : "slate";
   return (
-    <Pill tone={tone} className={className} suppressHydrationWarning>
+    <Pill tone={tone} className={className} suppressHydrationWarning title={DUE_TITLE.format(due)}>
+      <ClockIcon aria-hidden />
       <span className="num text-[11px]" suppressHydrationWarning>
         {dueLabel(due, now)}
       </span>

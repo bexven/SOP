@@ -27,7 +27,7 @@ export default async function CreativePage() {
       <PageHeader
         title="Creative"
         description={
-          "Your own creative tasks first — drag a card to “In review” when it's ready (you'll add the links), or click it to open its board. The whole team's work is below."
+          "Your own creative tasks first — click a card to open it, tick ready and add the links. The whole team's work is below."
         }
       />
       <section aria-labelledby="my-tasks" className="mb-10">

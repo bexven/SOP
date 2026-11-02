@@ -75,3 +75,20 @@ export function UserAvatar({
     </span>
   );
 }
+
+/** A person's name as a soft pill in their own colour, with their avatar. */
+export function PersonChip({
+  person,
+  className,
+}: {
+  person: { name: string; avatarColor: string; avatarAssetId?: string | null };
+  className?: string;
+}) {
+  const tone = isAvatarColor(person.avatarColor) ? COLOR_CLASSES[person.avatarColor] : COLOR_CLASSES.slate;
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full py-0.5 pr-2.5 pl-0.5 text-meta font-semibold ring-1 ring-inset", tone, className)}>
+      <UserAvatar name={person.name} color={person.avatarColor} imageId={person.avatarAssetId} size="xs" />
+      {person.name}
+    </span>
+  );
+}

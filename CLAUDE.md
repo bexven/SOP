@@ -22,7 +22,7 @@ every page.
 ## Stack (pinned)
 Next.js 16 App Router + TypeScript strict · Tailwind CSS v4 · shadcn-style components on `radix-ui`
 (hand-written in `src/components/ui`, the shadcn registry is not reachable from cloud sessions) ·
-lucide-react · motion · sonner · cmdk · TanStack Table **v8** (v9 is a different API) · @dnd-kit (checklist reordering + creative Kanban boards) ·
+lucide-react · motion · sonner · cmdk · TanStack Table **v8** (v9 is a different API) · @dnd-kit (checklist reordering only) ·
 Prisma 7 + PostgreSQL via `@prisma/adapter-pg` · zod v4 · Vitest · Geist fonts via the `geist` package.
 
 ## Portability (non-negotiable)
@@ -153,6 +153,23 @@ src/generated/     Prisma client (generated, git-ignored)
 - **Dashboard**: Admin tiles = whole team (open tasks on running products), others = their own queue; the
   menu badge uses the same queries. Tiles link to the matching list/filter. Auto-refresh every 30 s.
 - Floating UI on the product page sits bottom-left because toasts are bottom-right.
+
+## Round 6 (creative boards v2) — supersedes Round 5 where they differ
+- **No drag and drop on creative work** (dnd-kit is only for checklist reordering). Boards are status columns
+  (To do · In review · Needs changes · Approved) of **clickable cards**; a card opens the **task window**
+  (`components/creative/task-dialog.tsx`): links, "ready" form, Senior Approve / Needs changes /
+  Approve + ask for…, checklist, admin due-date editor, and the **task's own discussion** (`Comment.taskId`).
+- Image/video tabs: brief → (images) "Is the product added on the website?" + link (`Product.websiteUrl`,
+  set by the designer, a Senior or Admin) → **batch switcher** → board. No phase discussion under the boards.
+  Website product images are submitted as image links like the other tasks.
+- **Batches have names**: required when requesting a new batch (`CreativeBatch.name`); batch #1 shows as
+  "First creatives". The requester is shown as a `PersonChip` in their avatar colour.
+- **Product review**: no discussion, and **no send-back from review** (approve or not approved only).
+  Research form no longer has Target customer / Selling angle (DB columns kept, no longer written).
+- **Meta ads**: no floating asset buttons; two cards open the Image / Video creative tabs.
+- **Stepper** is clickable for everyone who has phase tabs; only the clicked step is highlighted (sliding
+  pill, `motion` layoutId). Phase tabs use a sliding pill and fade between panels. Respect reduced motion.
+- Due pills read "Due 6 Nov" / "Due tomorrow 6 pm" with a clock icon; full date/time in the tooltip.
 
 ## Agreed decisions (from the brief review)
 - Q1 Each product has an owning Media Buyer (`Product.mediaBuyerId`), auto-assigned at research submit;

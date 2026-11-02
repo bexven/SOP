@@ -45,6 +45,7 @@ const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date");
 
 export const newBatchSchema = z.object({
   productId: idSchema,
+  name: z.string().trim().min(2, "Give the batch a name").max(60, "Keep the name under 60 characters"),
   types: z.array(z.enum(TaskType)).min(1, "Pick at least one format"),
   dueDate: dayString,
   reason: optionalText(500),

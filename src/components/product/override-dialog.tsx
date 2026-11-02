@@ -33,9 +33,7 @@ function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: (
     shippingPerUnitBdt: product.shippingPerUnitBdt ?? "",
     sellingPriceBdt: product.sellingPriceBdt ?? "",
     courierChargePct: product.courierChargePct,
-    targetCustomer: product.targetCustomer ?? "",
     problemSolved: product.problemSolved ?? "",
-    sellingAngle: product.sellingAngle ?? "",
     referenceLinks: product.referenceLinks.join("\n"),
     priority: product.priority as Priority,
     targetLaunchDate: product.targetLaunchDate ?? "",
@@ -126,9 +124,7 @@ function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: (
           </Select>
         </Field>
       </div>
-      {text("targetCustomer", "Target customer", { area: true })}
       {text("problemSolved", "Problem it solves", { area: true })}
-      {text("sellingAngle", "Selling angle", { area: true })}
       <Field id="ov-links" label="Reference links (one per line)" error={err("referenceLinks")}>
         <Textarea {...fieldA11y("ov-links", err("referenceLinks"))} value={v.referenceLinks} onChange={set("referenceLinks")} rows={3} className="font-mono text-[13px]" />
       </Field>

@@ -48,6 +48,6 @@ export function dueLabel(dueAt: Date, now: Date): string {
   }).format(dueAt);
   if (bucket === "today") return `Due ${time}`;
   const days = dhakaDayNumber(dueAt) - dhakaDayNumber(now);
-  if (days === 1) return `Tomorrow ${time}`;
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", day: "numeric", month: "short" }).format(dueAt);
+  if (days === 1) return `Due tomorrow ${time}`;
+  return `Due ${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", day: "numeric", month: "short" }).format(dueAt)}`;
 }

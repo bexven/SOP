@@ -107,7 +107,7 @@ export const setCampaignStatusAction = defineAction({
 export const requestBatchAction = defineAction({
   capability: "batch.request",
   schema: newBatchSchema,
-  run: async ({ productId, types, dueDate, reason, brief }, { user }) => {
+  run: async ({ productId, name, types, dueDate, reason, brief }, { user }) => {
     const now = new Date();
     const dueAt = endOfDhakaDay(dueDate);
     if (dueAt.getTime() <= now.getTime()) {
@@ -121,7 +121,7 @@ export const requestBatchAction = defineAction({
         await tx.product.update({ where: { id: productId }, data: { creativeBrief: briefNow, creativeBriefUpdatedAt: now } });
         await logEvents(tx, [{ type: "BRIEF_UPDATED", actorId: user.id, productId }]);
       }
-      const planned = planNewBatch(snap, { types, dueAt, reason });
+      const planned = planNewBatch(snap, { types, dueAt, reason, name });
       if (!planned.ok) throw new ActionError(planned.error);
       const applied = await applyPlan(tx, planned.plan, {
         actorId: user.id,
@@ -133,13 +133,13 @@ export const requestBatchAction = defineAction({
           type: "BATCH_REQUESTED",
           actorId: user.id,
           productId,
-          data: { number: planned.plan.newBatch!.number, types, reason, dueAt: dueAt.toISOString() },
+          data: { number: planned.plan.newBatch!.number, name, types, reason, dueAt: dueAt.toISOString() },
         },
       ]);
-      return { number: planned.plan.newBatch!.number, count: applied.createdTasks.length };
+      return { number: planned.plan.newBatch!.number, count: applied.createdTasks.length, name };
     });
     revalidate();
-    return { ok: true, message: `Creative batch #${result.number} requested · ${result.count} task${result.count === 1 ? "" : "s"} assigned` };
+    return { ok: true, message: `Batch #${result.number} “${result.name}” requested · ${result.count} task${result.count === 1 ? "" : "s"} assigned` };
   },
 });
 

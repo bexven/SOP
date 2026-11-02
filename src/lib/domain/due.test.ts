@@ -39,7 +39,7 @@ describe("dueLabel", () => {
   });
   it("labels today and tomorrow in Dhaka time", () => {
     expect(dueLabel(new Date("2026-11-01T11:00:00Z"), now)).toMatch(/^Due 5:00\s?pm$/i);
-    expect(dueLabel(new Date("2026-11-02T03:00:00Z"), now)).toMatch(/^Tomorrow 9:00\s?am$/i);
-    expect(dueLabel(new Date("2026-11-12T03:00:00Z"), now)).toBe("12 Nov");
+    expect(dueLabel(new Date("2026-11-02T03:00:00Z"), now)).toMatch(/^Due tomorrow 9:00\s?am$/i);
+    expect(dueLabel(new Date("2026-11-12T03:00:00Z"), now)).toBe("Due 12 Nov");
   });
 });

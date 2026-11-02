@@ -14,12 +14,13 @@ import {
   planWithdraw,
   reassignError,
 } from "@/lib/domain/workflow";
-import { approveTaskSchema, markReadySchema, briefSchema, reassignSchema, revisionSchema } from "@/lib/validation/task";
+import { approveTaskSchema, markReadySchema, briefSchema, reassignSchema, revisionSchema, websiteLinkSchema } from "@/lib/validation/task";
 import { ActionError, defineAction } from "../action";
 import { db, type Tx } from "../db";
 import { applyPlan } from "../services/apply-plan";
 import { logEvents, notify } from "../services/events";
 import { loadSnapshot } from "../services/snapshot";
+import { reviewers } from "../services/reviewers";
 
 function revalidate() {
   revalidatePath("/", "layout");
@@ -29,21 +30,6 @@ async function taskWithProduct(tx: Tx, taskId: string) {
   const task = await tx.task.findUnique({ where: { id: taskId }, select: { id: true, productId: true } });
   if (!task) throw new ActionError("This task no longer exists.");
   return loadSnapshot(tx, task.productId);
-}
-
-/**
- * Who gets "ready for review": every active Senior (people with the "approve creative" permission).
- * Media buyers only for products they own (or products without an owner).
- */
-async function reviewers(tx: Tx, mediaBuyerId: string | null): Promise<string[]> {
-  const people = await tx.user.findMany({
-    where: { active: true },
-    select: { id: true, role: true, permissions: true, adminAccess: true, isMaster: true },
-  });
-  return people
-    .filter((u) => !u.adminAccess && !u.isMaster && u.role !== "ADMIN" && can({ role: u.role, permissions: u.permissions }, "task.review"))
-    .filter((u) => u.role !== "MEDIA_BUYER" || !mediaBuyerId || u.id === mediaBuyerId)
-    .map((u) => u.id);
 }
 
 export const approveTaskAction = defineAction({
@@ -264,5 +250,33 @@ export const markReadyAction = defineAction({
     });
     revalidate();
     return { ok: true, message: ready ? `${label} sent for review` : `${label} taken back` };
+  },
+});
+
+/**
+ * "Is the product added on the website?" — yes + link, or no (clears it).
+ * The image designer on this product, a Senior or an Admin can set it.
+ */
+export const setWebsiteLinkAction = defineAction({
+  schema: websiteLinkSchema,
+  run: async ({ productId, added, url }, { user }) => {
+    await db.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({
+        where: { id: productId },
+        include: { tasks: { where: { type: "WEBSITE_IMAGE" }, select: { assigneeId: true } } },
+      });
+      if (!product) throw new ActionError("This product no longer exists.");
+      const designer = product.tasks.some((t) => t.assigneeId === user.id);
+      if (!designer && !can(user, "task.review")) throw new ActionError("Only the image designer, a Senior or an Admin can change this.");
+      if (added && !url) throw new ActionError("Paste the product's link on the website.");
+      const next = added ? url : null;
+      if ((product.websiteUrl ?? null) === next) return;
+      await tx.product.update({ where: { id: productId }, data: { websiteUrl: next } });
+      await logEvents(tx, [
+        { type: "PRODUCT_UPDATED", actorId: user.id, productId, data: { changes: { websiteUrl: { old: product.websiteUrl, new: next } } } },
+      ]);
+    });
+    revalidate();
+    return { ok: true, message: added ? "Website link saved" : "Marked as not on the website yet" };
   },
 });

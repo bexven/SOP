@@ -2,18 +2,17 @@
 
 import { useState } from "react";
 import { PencilIcon } from "lucide-react";
-import type { Role, TaskType } from "@/generated/prisma/enums";
+import type { Role } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ProductBoard, type BoardGroupDef } from "@/components/creative/product-board";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { CreativePhase } from "@/components/creative/creative-phase";
 import { brandThemeStyle } from "@/lib/brand-color";
-import { boardGroupOf, laneOf } from "@/lib/domain/labels";
+import { laneOf } from "@/lib/domain/labels";
 import { can, isEarly } from "@/lib/domain/permissions";
 import { canWorkOnTask, isTerminalStage } from "@/lib/domain/workflow";
-import { formatDate } from "@/lib/format";
 import type { ProductDetail, TaskDTO } from "@/lib/server/queries/product";
 import { BriefCard } from "./brief-card";
-import { Discussion } from "./discussion";
 import { MarginCard } from "./margin-card";
 import { MetaAdsTab } from "./meta-ads-tab";
 import { OrdersTab } from "./orders-tab";
@@ -111,8 +110,14 @@ export function ProductView({
     if (available.includes(initialPhase as Phase)) setPhase(initialPhase as Phase);
   }
 
+  const reduce = useReducedMotion();
+  // Which stepper step is highlighted: the one clicked, else the step that belongs to the open tab.
+  const [stepPick, setStepPick] = useState<number | null>(null);
+  const shownStep = stepPick !== null && STEP_PHASE[stepPick] === phase ? stepPick : STEP_PHASE.lastIndexOf(phase);
+
   function choose(next: string) {
     setPhase(next as Phase);
+    setStepPick(null);
     const url = new URL(window.location.href);
     url.searchParams.set("phase", next);
     url.searchParams.delete("task");
@@ -124,7 +129,7 @@ export function ProductView({
     review: () => <ReviewPhase product={product} viewer={viewer} />,
     images: () => <CreativePhase product={product} viewer={viewer} lane="images" focusTaskId={focusTaskId} openReady={openReady} />,
     videos: () => <CreativePhase product={product} viewer={viewer} lane="videos" focusTaskId={focusTaskId} openReady={openReady} />,
-    ads: () => <MetaAdsTab product={product} viewer={viewer} />,
+    ads: () => <MetaAdsTab product={product} viewer={viewer} onOpenPhase={(p) => choose(p)} />,
     orders: () => <OrdersTab product={product} viewer={viewer} />,
   };
 
@@ -135,15 +140,16 @@ export function ProductView({
         viewer={viewer}
         actions={<ProductActions product={product} viewer={viewer} />}
         stepper={
-          viewer.role === "ADMIN" && !simple
+          !simple
             ? {
-                // Admin / Master Admin: click a step to see where that step stands.
+                // Click a step to see where that step stands (opens its tab).
                 canSelect: (i) => available.includes(STEP_PHASE[i]!),
                 onSelect: (i) => {
                   choose(STEP_PHASE[i]!);
-                  document.getElementById("product-phases")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setStepPick(i);
+                  document.getElementById("product-phases")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
                 },
-                selected: STEP_PHASE.flatMap((p, i) => (p === phase ? [i] : [])),
+                selected: [shownStep],
               }
             : undefined
         }
@@ -154,15 +160,40 @@ export function ProductView({
         <Tabs value={phase} onValueChange={choose} id="product-phases" className="scroll-mt-24">
           <TabsList aria-label="Product phases" className="relative max-w-full overflow-x-auto">
             {available.map((p) => (
-              <TabsTrigger key={p} value={p}>
-                {PHASE_LABEL[p]}
-                <PhaseCount product={product} phase={p} />
+              <TabsTrigger
+                key={p}
+                value={p}
+                className="relative h-8 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
+                {phase === p ? (
+                  <motion.span
+                    layoutId="phase-tab-pill"
+                    className="absolute inset-0 rounded-[8px] bg-white shadow-[0_1px_3px_rgb(15_23_42/0.12)]"
+                    transition={reduce ? { duration: 0 } : { type: "spring", bounce: 0.18, duration: 0.4 }}
+                  />
+                ) : null}
+                <span className="relative flex items-center gap-1.5">
+                  {PHASE_LABEL[p]}
+                  <PhaseCount product={product} phase={p} />
+                </span>
               </TabsTrigger>
             ))}
           </TabsList>
           {available.map((p) => (
-            <TabsContent key={p} value={p} className="mt-5">
-              {phase === p ? content[p]() : null}
+            <TabsContent key={p} value={p} className="mt-5 outline-none">
+              <AnimatePresence mode="wait" initial={false}>
+                {phase === p ? (
+                  <motion.div
+                    key={p}
+                    initial={reduce ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduce ? undefined : { opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    {content[p]()}
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
             </TabsContent>
           ))}
         </Tabs>
@@ -247,9 +278,7 @@ function ReviewPhase({ product, viewer }: { product: ProductDetail; viewer: View
               chinaPriceBdt: product.chinaPriceBdt ?? "",
               shippingPerUnitBdt: product.shippingPerUnitBdt ?? "",
               sellingPriceBdt: product.sellingPriceBdt ?? "",
-              targetCustomer: product.targetCustomer ?? "",
               problemSolved: product.problemSolved ?? "",
-              sellingAngle: product.sellingAngle ?? "",
               referenceLinks: product.referenceLinks,
               priority: product.priority,
               targetLaunchDate: product.targetLaunchDate ?? "",
@@ -262,91 +291,6 @@ function ReviewPhase({ product, viewer }: { product: ProductDetail; viewer: View
           </div>
         )}
       </section>
-      <Discussion product={product} viewer={viewer} phase="REVIEW" />
-    </div>
-  );
-}
-
-const GROUPS: Record<"images" | "videos", { key: "website" | "metaAds" | "videos"; title: string; hint: string }[]> = {
-  images: [
-    { key: "website", title: "Website product images", hint: "Tick ready, add the product page URL — a Senior reviews the link." },
-    { key: "metaAds", title: "Meta ad images", hint: "Portrait first. Once a Senior approves the portrait images, make the square versions." },
-  ],
-  videos: [{ key: "videos", title: "Videos", hint: "Main video first, then the square version once a Senior approves it." }],
-};
-
-/** Board order inside a group: by step (phase), then follow-ups right after their original. */
-function ordered(tasks: TaskDTO[]): TaskDTO[] {
-  const roots = tasks.filter((t) => !t.followUpOfId || !tasks.some((x) => x.id === t.followUpOfId)).sort((a, b) => a.phase - b.phase);
-  const out: TaskDTO[] = [];
-  const visit = (t: TaskDTO) => {
-    out.push(t);
-    tasks.filter((x) => x.followUpOfId === t.id).forEach(visit);
-  };
-  roots.forEach(visit);
-  return out;
-}
-
-function CreativePhase({
-  product,
-  viewer,
-  lane,
-  focusTaskId,
-  openReady,
-}: {
-  product: ProductDetail;
-  viewer: Viewer;
-  lane: "images" | "videos";
-  focusTaskId?: string;
-  openReady?: boolean;
-}) {
-  const batches = [...product.batches].sort((a, b) => b.number - a.number);
-  const laneTasks = product.tasks.filter((t) => laneOf(t.type) === lane && t.status !== "CANCELLED");
-  const canEditBrief = can(viewer, "brief.edit") && !isTerminalStage(product.stage);
-  const who = laneTasks.find((t) => t.assignee)?.assignee?.name;
-
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
-      <BriefCard productId={product.id} brief={product.creativeBrief} updatedAt={product.creativeBriefUpdatedAt} canEdit={canEditBrief} />
-      {laneTasks.length === 0 ? (
-        <p className="surface rounded-panel px-4 py-6 text-center text-body text-slate-600">
-          No {lane === "images" ? "image" : "video"} tasks right now. They are created when the product is approved for testing, or when the media buyer requests a new batch.
-        </p>
-      ) : (
-        batches.map((b) => {
-          const tasks = laneTasks.filter((t) => t.batchId === b.id);
-          if (!tasks.length) return null;
-          const groups: BoardGroupDef[] = GROUPS[lane]
-            .map((g) => ({ ...g, tasks: ordered(tasks.filter((t) => boardGroupOf(t.type as TaskType) === g.key)) }))
-            .filter((g) => g.tasks.length);
-          return (
-            <section key={b.id} aria-label={`Batch ${b.number}`} className="grid gap-3">
-              {batches.length > 1 || b.number > 1 ? (
-                <div className="flex flex-wrap items-baseline gap-x-2 border-b border-slate-200/70 pb-2">
-                  <h2 className="text-section text-slate-900">{b.number === 1 ? "First creatives" : `New creatives · batch #${b.number}`}</h2>
-                  <span className="text-meta font-normal text-slate-500">
-                    {b.requestedBy ? `${b.requestedBy} · ` : ""}
-                    <span className="num">{formatDate(new Date(b.createdAt))}</span>
-                    {b.reason ? ` · “${b.reason}”` : ""}
-                  </span>
-                </div>
-              ) : who ? (
-                <p className="text-meta font-normal text-slate-600">
-                  {lane === "images" ? "Image designer" : "Video editor"}: <span className="font-medium text-slate-800">{who}</span>
-                </p>
-              ) : null}
-              <ProductBoard
-                product={product}
-                viewer={viewer}
-                groups={groups}
-                focusTaskId={focusTaskId}
-                openReadyId={openReady && tasks.some((t) => t.id === focusTaskId) ? focusTaskId : undefined}
-              />
-            </section>
-          );
-        })
-      )}
-      <Discussion product={product} viewer={viewer} phase={lane === "images" ? "IMAGES" : "VIDEOS"} />
     </div>
   );
 }

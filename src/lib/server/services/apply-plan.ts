@@ -130,6 +130,7 @@ export async function applyPlan(tx: Tx, plan: Plan, ctx: ApplyContext): Promise<
       data: {
         productId: product.id,
         number: plan.newBatch.number,
+        name: plan.newBatch.name ?? null,
         reason: plan.newBatch.reason,
         dueAt: plan.newBatch.dueAt,
         briefSnapshot: product.creativeBrief,

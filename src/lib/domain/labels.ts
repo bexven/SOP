@@ -227,7 +227,7 @@ export function boardGroupOf(type: TaskType): BoardGroup | null {
 
 /** What the maker adds when marking a task ready. */
 export const SUBMIT_PROMPT: Partial<Record<TaskType, { ready: string; field: string; placeholder: string; many: boolean }>> = {
-  WEBSITE_IMAGE: { ready: "Website product images ready", field: "Product page URL on the website", placeholder: "https://yourstore.com/products/…", many: false },
+  WEBSITE_IMAGE: { ready: "Website product images ready", field: "Image links", placeholder: "https://drive.google.com/…", many: true },
   STORE_LISTING: { ready: "Store listing ready", field: "Store product URL", placeholder: "https://yourstore.com/products/…", many: false },
   AD_IMAGE_VERTICAL: { ready: "Portrait ad images ready", field: "Portrait image links", placeholder: "https://drive.google.com/…", many: true },
   AD_IMAGE_SQUARE: { ready: "Square ad images ready", field: "Square image links", placeholder: "https://drive.google.com/…", many: true },

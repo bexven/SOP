@@ -26,9 +26,7 @@ export type ResearchValues = {
   chinaPriceBdt: string;
   shippingPerUnitBdt: string;
   sellingPriceBdt: string;
-  targetCustomer: string;
   problemSolved: string;
-  sellingAngle: string;
   referenceLinks: string[];
   priority: Priority;
   targetLaunchDate: string;
@@ -209,14 +207,8 @@ export function ResearchForm({
               />
             </Field>
           </div>
-          <Field id="r-customer" label="Target customer" error={err("targetCustomer")}>
-            <Textarea {...fieldA11y("r-customer", err("targetCustomer"))} rows={2} value={v.targetCustomer} onChange={(e) => set("targetCustomer", e.target.value)} disabled={disabled} />
-          </Field>
           <Field id="r-problem" label="Problem it solves" error={err("problemSolved")}>
             <Textarea {...fieldA11y("r-problem", err("problemSolved"))} rows={2} value={v.problemSolved} onChange={(e) => set("problemSolved", e.target.value)} disabled={disabled} />
-          </Field>
-          <Field id="r-angle" label="Selling angle" error={err("sellingAngle")}>
-            <Textarea {...fieldA11y("r-angle", err("sellingAngle"))} rows={2} value={v.sellingAngle} onChange={(e) => set("sellingAngle", e.target.value)} disabled={disabled} />
           </Field>
           <fieldset className="grid gap-2">
             <legend className="mb-1.5 text-meta text-slate-700">Reference links</legend>

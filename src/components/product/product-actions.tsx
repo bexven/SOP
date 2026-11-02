@@ -180,6 +180,7 @@ function defaultDueDate(): string {
 }
 
 function NewBatchDialog({ open, onClose, product }: DialogProps) {
+  const [name, setName] = useState("");
   const [types, setTypes] = useState<TaskType[]>([]);
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [reason, setReason] = useState("");
@@ -187,6 +188,7 @@ function NewBatchDialog({ open, onClose, product }: DialogProps) {
   const { pending, errors, run } = useRun(() => {
     setTypes([]);
     setReason("");
+    setName("");
     onClose();
   });
   const next = product.batches.reduce((m, b) => Math.max(m, b.number), 0) + 1;
@@ -194,9 +196,12 @@ function NewBatchDialog({ open, onClose, product }: DialogProps) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Request creative batch #{next}</DialogTitle>
-          <DialogDescription>For creative fatigue. The campaign keeps running and the product stays live. Tasks start unlocked.</DialogDescription>
+          <DialogTitle>New creative batch #{next}</DialogTitle>
+          <DialogDescription>For creative fatigue or a new angle. The campaign keeps running and the product stays live.</DialogDescription>
         </DialogHeader>
+        <Field id="nb-name" label="Batch name *" hint="Shown on the boards, e.g. “Eid offer angles”" error={errors.name?.[0]}>
+          <Input {...fieldA11y("nb-name", errors.name?.[0], true)} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="e.g. Winter UGC angles" autoFocus />
+        </Field>
         <fieldset className="grid gap-2">
           <legend className="mb-1 text-meta text-slate-700">Formats needed *</legend>
           <div className="grid gap-1.5 sm:grid-cols-2">
@@ -228,8 +233,8 @@ function NewBatchDialog({ open, onClose, product }: DialogProps) {
             Cancel
           </Button>
           <Button
-            disabled={pending || types.length === 0 || !dueDate}
-            onClick={() => run(() => requestBatchAction({ productId: product.id, types, dueDate, reason, brief }))}
+            disabled={pending || types.length === 0 || !dueDate || name.trim().length < 2}
+            onClick={() => run(() => requestBatchAction({ productId: product.id, name, types, dueDate, reason, brief }))}
           >
             <SparklesIcon /> Request batch
           </Button>
