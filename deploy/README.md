@@ -1,105 +1,62 @@
-# Deploying Product SOP on a VPS (Hostinger)
+# Going live with Docker — sop.bexven.tech
 
-Everything runs on one Ubuntu server: the app, its PostgreSQL database, HTTPS (Caddy),
-nightly backups and the 10:00 morning summary. One command installs it, one command updates it.
+## How the two repos work
+| | Repo | Runs on | Data |
+|---|---|---|---|
+| **Testing** | `bexven/sop` | Vercel (preview links) | test data |
+| **Live** | `bexven/sop-domain-live` | your VPS, in Docker | the real data |
 
-## What you need
-- A **Hostinger VPS** with **Ubuntu 24.04** (KVM 1 is enough; KVM 2 is more comfortable). Pick the location closest to Bangladesh.
-- A **domain or subdomain** for the app, e.g. `sop.bexven.com`.
-- About 30 minutes.
+New features are built and checked in `sop`. When you say **"Push it to live domain"**, the approved
+version is pushed to `sop-domain-live`. Within ~5 minutes the server picks it up by itself and updates:
+**backup → build next to the running version → database changes (additive only) → switch → health check →
+automatic switch-back if anything fails.** The database lives in its own container and volume, so updates
+never touch your data.
 
-## 1. Point the domain at the server
-In your domain's DNS (Hostinger → Domains → DNS, or wherever the domain is managed), add:
+## On the server: three containers
+- **db** — PostgreSQL 17. Data in the Docker volume `sop-db-data` (external: `docker compose down` can't delete it).
+- **app** — Product SOP.
+- **caddy** — HTTPS for `sop.bexven.tech` (free certificate, renewed automatically).
 
-| Type | Name | Value |
-|---|---|---|
-| A | `sop` (for sop.bexven.com) | your VPS IP address (Hostinger → VPS → Overview) |
-
-DNS can take a few minutes to an hour to work.
-
-## 2. Install (once)
-Open the VPS terminal (Hostinger → VPS → **Browser terminal**, or `ssh root@YOUR-IP`) and run:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/bexven/sop/main/deploy/setup.sh -o setup.sh
-sudo bash setup.sh
-```
-
-It asks for the domain (`sop.bexven.com`) and the GitHub repository (press Enter for the default).
-It then installs everything and starts the app — about 5–10 minutes. When it says **Done**, open
-`https://sop.bexven.com`. The HTTPS certificate is created automatically on the first visit.
-
-> If the repository is ever made private, the script prints how to add a read-only *deploy key*.
-
-## 3. Bring your current data over from Neon (once)
-1. Vercel → your project → **Settings → Environment Variables** → copy the value of
-   **`DATABASE_URL_UNPOOLED`** (or Neon → Connect → turn **Connection pooling off** → copy).
-   It looks like `postgresql://…@ep-xxxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require`
-   (no `-pooler` in it).
-2. On the VPS:
+## One-time setup (about 20 minutes)
+1. **VPS:** Hostinger KVM 1 or 2 with **Ubuntu 24.04** (the "with Docker" template is fine).
+2. **DNS:** where `bexven.tech` is managed, add an **A record**: name `sop` → the VPS IP.
+3. **Install:** Hostinger → VPS → **Browser terminal**:
    ```bash
-   sudo sop import "postgresql://…paste it here…"
+   curl -fsSL https://raw.githubusercontent.com/bexven/sop/main/deploy/setup.sh -o setup.sh
    ```
-   Type `yes`. Everything comes across: people, PINs, products, tasks, comments, orders, photos, settings.
-3. Sign in at `https://sop.bexven.com` and check your products are there.
+   ```bash
+   sudo bash setup.sh
+   ```
+   Press Enter for `sop.bexven.tech`. The script shows a **deploy key** — add it in GitHub →
+   `bexven/sop-domain-live` → Settings → **Deploy keys** → Add (title `sop-server`, *no* write access) — then press Enter.
+   It builds and starts everything.
+4. **Bring the data from Neon:** Vercel → project → Settings → Environment Variables → copy
+   `DATABASE_URL_UNPOOLED` (no `-pooler`). On the server:
+   ```bash
+   sudo sop import "postgresql://…"
+   ```
+5. Open **https://sop.bexven.tech** and sign in.
+6. **Notifications** (after the move — they belong to the address): Settings → Notifications → connect the
+   Telegram bot; everyone turns phone notifications on again in My profile.
+7. The Vercel copy becomes the **test** site: give it its own test database and don't connect the Telegram bot there.
 
-## 4. Switch off the old Vercel copy
-So two copies don't run side by side: Vercel → project → **Settings → General → Pause Project**
-(you can resume it any time). Keep Neon for a few weeks as an extra backup, then delete it if you like.
-
-## 5. Notifications (after the move)
-Phone notifications and the Telegram bot belong to the address people use, so set them up on the new domain:
-- **Telegram:** Admin ▾ → Settings → Notifications → paste the bot token → **Connect bot**.
-  (Use the same bot. People who already connected stay connected.)
-- **Phone notifications:** everyone opens My profile → **Turn on** again (once per phone/computer).
-  On iPhone, first "Add to Home Screen" from the new address.
-- The **10:00 morning summary** is already scheduled on the server.
-
-## Updating later
-When a new version is ready on GitHub (`main`):
-
-```bash
-sudo sop update
-```
-
-That's all. It:
-1. **backs up the database** first,
-2. builds the new version **next to** the running one (the team keeps working),
-3. applies any database changes — these only ever **add** to your data,
-4. switches over (a few seconds) and checks the app is healthy,
-5. if anything fails, it **switches back automatically** and tells you. Your data is never touched by a failed update.
-
-Your data lives in the database, separate from the program, so updates never lose products, tasks,
-photos or settings — and the look you have now stays until a new version changes it on purpose.
-
-## Everyday commands
+## Commands on the server
 | Command | What it does |
 |---|---|
-| `sudo sop update` | Update to the latest version |
+| `sudo sop update` | Update now (it also runs by itself every 5 minutes) |
 | `sudo sop rollback` | Go back to the previous version |
-| `sudo sop backup` | Back up the database now |
-| `sop backups` | List backups |
+| `sudo sop backup` | Back up the database now (also every night at 02:30 Dhaka) |
+| `sop backups` | List backups (`/opt/sop/backups`) |
 | `sudo sop restore <file>` | Put the database back to a backup (takes a safety backup first) |
-| `sop status` | Version, health, free disk, latest backup |
-| `sop logs` | Watch the app's log |
-| `sudo sop restart` | Restart the app |
+| `sop status` | Version, health, containers, disk, backups |
+| `sop logs` | Follow the app log |
 
-## Backups
-- **Every night at 02:30 (Dhaka)** automatically, kept 14 days; plus one before every update (kept 30 days).
-- Stored in `/opt/sop/backups`. Hostinger's own **VPS snapshots/backups** are a good second layer — turn them on.
-- Off-server copies (optional): install `rclone`, connect Google Drive, then add to `/opt/sop/shared/.env`:
-  `BACKUP_COPY_CMD='rclone copy {} gdrive:sop-backups'`
-
-## Where things are
+## Files on the server
 | Path | What |
 |---|---|
-| `/opt/sop/shared/.env` | Settings and passwords (private — don't share) |
-| `/opt/sop/current` | The version that's running |
-| `/opt/sop/releases` | The last 5 versions (for rollback) |
-| `/opt/sop/backups` | Database backups |
-| `/opt/sop/logs` | App, build and backup logs |
+| `/opt/sop/.env` | Passwords and settings — keep a copy somewhere safe |
+| `/opt/sop/repo` | Code from `sop-domain-live` |
+| `/opt/sop/backups` | Database backups (nightly kept 14 days, before each update 30 days) |
+| Docker volume `sop-db-data` | The live database |
 
-## If something goes wrong
-- **The site doesn't open:** `sop status`. If the app is stopped: `sudo sop restart`, then `sop logs`.
-- **After an update something looks wrong:** `sudo sop rollback`.
-- **Data was changed by mistake:** `sop backups`, then `sudo sop restore /opt/sop/backups/<file>`.
+Also turn on **Hostinger's VPS backups** as a second safety net.

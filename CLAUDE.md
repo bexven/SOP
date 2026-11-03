@@ -31,12 +31,14 @@ Prisma 7 + PostgreSQL via `@prisma/adapter-pg` · zod v4 · Vitest · Geist font
 - Uploads: images (creative work, profile photos) are compressed in the browser (WebP, ≤2000 px; avatars
   384 px square) and stored in Postgres (`Asset.bytes`), served by `/api/assets/[id]`. No object storage
   service, so it stays portable. Videos stay as Drive links (too large). Can move to S3/R2 later.
-- VPS deployment kit lives in `deploy/` (see `deploy/README.md`): `setup.sh` (one-time, Ubuntu 24.04: Node 22,
-  PostgreSQL 17, Caddy HTTPS, systemd `sop` service, cron for backups + morning summary, ufw) and the `sop` command
-  (`update`, `rollback`, `backup`, `restore`, `import`, `status`, `logs`). Releases live in `/opt/sop/releases/<utc>-<sha>`,
-  `/opt/sop/current` is a symlink; `update.sh` backs up → builds next to the running version → `prisma migrate deploy`
-  → switches → checks `/api/health` → switches back on failure. **Migrations must stay additive / backwards-compatible**
-  (the old version briefly runs on the new schema, and rollback keeps the new schema). No Docker.
+- **Two repos.** `bexven/sop` = development + Vercel previews (test data). `bexven/sop-domain-live` = live
+  (**sop.bexven.tech**, Docker on the owner's VPS, real data). "Push it to live domain" = push the approved
+  `sop` main to `sop-domain-live` main (`git push live main`; remote `live`). The server polls every 5 min.
+- Live stack (`Dockerfile`, `deploy/docker-compose.yml`): `db` (postgres:17, external volume `sop-db-data`),
+  `app` (standalone image `sop-app:<sha>`), `migrate` (one-off `prisma migrate deploy`), `caddy` (HTTPS).
+  `deploy/setup.sh` sets up the server once; `deploy/sop.sh` is the `sop` command (update, rollback, backup,
+  restore, import, status, logs). Update = backup → build → migrate → switch → `/api/health` release check →
+  switch back on failure. **Migrations must stay additive / backwards-compatible.**
 
 ## Rendering model
 - `cacheComponents` is **off** on purpose: every page is authenticated and request-specific.
