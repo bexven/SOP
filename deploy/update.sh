@@ -73,8 +73,8 @@ git --git-dir="$SOP_HOME/repo.git" archive "$SHA" | $AS_SOP tar -x -C "$REL"
 echo "$SHA" | $AS_SOP tee "$REL/RELEASE" >/dev/null
 $AS_SOP ln -s "$SOP_HOME/shared/.env" "$REL/.env"
 cd "$REL"
-$AS_SOP npm ci --no-audit --no-fund --loglevel=error >"$SOP_HOME/logs/build-$SHA.log" 2>&1 || fail "Installing packages failed — see $SOP_HOME/logs/build-$SHA.log. Nothing was changed."
-$AS_SOP npm run build >>"$SOP_HOME/logs/build-$SHA.log" 2>&1 || fail "The build failed — see $SOP_HOME/logs/build-$SHA.log. Nothing was changed."
+$AS_SOP npm ci --no-audit --no-fund --loglevel=error >"$SOP_HOME/logs/build-$SHA.log" 2>&1 || { rm -rf "$REL"; fail "Installing packages failed — see $SOP_HOME/logs/build-$SHA.log. Nothing was changed."; }
+$AS_SOP npm run build >>"$SOP_HOME/logs/build-$SHA.log" 2>&1 || { rm -rf "$REL"; fail "The build failed — see $SOP_HOME/logs/build-$SHA.log. Nothing was changed."; }
 # The standalone server needs the static files and public folder next to it.
 $AS_SOP cp -r "$REL/public" "$REL/.next/standalone/public"
 $AS_SOP cp -r "$REL/.next/static" "$REL/.next/standalone/.next/static"
@@ -82,7 +82,7 @@ $AS_SOP cp "$REL/RELEASE" "$REL/.next/standalone/RELEASE"
 ok "built"
 
 say "Applying database changes"
-$AS_SOP npx prisma migrate deploy >>"$SOP_HOME/logs/build-$SHA.log" 2>&1 || fail "A database change failed — see $SOP_HOME/logs/build-$SHA.log. The app was not switched; your data is unchanged (backup in $SOP_HOME/backups)."
+$AS_SOP npx prisma migrate deploy >>"$SOP_HOME/logs/build-$SHA.log" 2>&1 || { rm -rf "$REL"; fail "A database change failed — see $SOP_HOME/logs/build-$SHA.log. The app was not switched; your data is unchanged (backup in $SOP_HOME/backups)."; }
 ok "database up to date"
 
 say "Switching to the new version"
@@ -97,6 +97,7 @@ else
     $RESTART 9>&-
     health && echo "  Switched back to the previous version ($(cat "$PREV/RELEASE"))."
   fi
+  rm -rf "$REL"  # never leave a broken version around for a later rollback
   fail "The new version didn't start (see $SOP_HOME/logs/app.log). Previous version restored."
 fi
 

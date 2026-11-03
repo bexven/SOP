@@ -6,7 +6,8 @@
 set -euo pipefail
 SOP_HOME="${SOP_HOME:-/opt/sop}"
 CURRENT="$(readlink -f "$SOP_HOME/current")"
-PREV="$(ls -1dt "$SOP_HOME"/releases/*/ | sed 's#/$##' | grep -vx "$CURRENT" | head -1 || true)"
+# Releases are named <UTC time>-<version>, so name order = install order. Take the one just before the current.
+PREV="$(ls -1d "$SOP_HOME"/releases/*/ | sed 's#/$##' | sort | awk -v cur="$CURRENT" '$0 == cur { print prev; exit } { prev = $0 }')"
 [[ -n "$PREV" ]] || { echo "There is no previous version to go back to."; exit 1; }
 echo "Now:      $(cat "$CURRENT/RELEASE")"
 echo "Go back:  $(cat "$PREV/RELEASE")"

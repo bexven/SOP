@@ -163,3 +163,7 @@ it can arrive any time between 10:00 and 10:59. On a VPS add a cron job:
 `*/10 * * * * curl -fsS https://your-domain/api/cron/morning` (it only sends once a day, from 10:00).
 Optionally set `CRON_SECRET` in the environment (Vercel sends it automatically; on a VPS add
 `-H "Authorization: Bearer $CRON_SECRET"`).
+
+## Hosting on your own server (VPS)
+See **[deploy/README.md](deploy/README.md)** — one command to install on an Ubuntu VPS (e.g. Hostinger), one
+command (`sudo sop update`) to update safely with automatic backup and automatic undo.
