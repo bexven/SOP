@@ -16,6 +16,8 @@ RUN --mount=type=secret,id=extra_ca,required=false \
     npm ci --no-audit --no-fund --loglevel=error
 
 FROM deps AS build
+ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build"
+ENV SESSION_SECRET="dummy-build-secret-that-is-at-least-32-chars-long"
 COPY . .
 RUN npm run build \
  && cp -r public .next/standalone/public \

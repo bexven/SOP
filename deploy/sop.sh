@@ -41,7 +41,7 @@ set_release() { printf 'APP_TAG=%s\nPREV_TAG=%s\n' "$1" "$2" > "$REL_FILE"; APP_
 healthy_as() {
   local want="$1"
   for _ in $(seq 1 45); do
-    if curl -fsS -m 3 http://127.0.0.1:3000/api/health 2>/dev/null | grep -q "\"release\":\"$want\""; then return 0; fi
+    if curl -fsS -m 3 http://127.0.0.1:8097/api/health 2>/dev/null | grep -q "\"release\":\"$want\""; then return 0; fi
     sleep 2
   done
   return 1
@@ -116,7 +116,7 @@ update() {
     docker image rm -f "sop-app:$sha" "sop-migrate:$sha" >/dev/null 2>&1 || true
     fail "The new version didn't start (sop logs). Previous version restored."
   fi
-  compose --profile web up -d caddy >/dev/null
+  # compose --profile web up -d caddy >/dev/null
 
   # Keep the last few versions for rollback, remove older ones.
   for repo in sop-app sop-migrate; do
@@ -158,11 +158,11 @@ case "$cmd" in
     echo "    Next: Settings → Notifications → connect the Telegram bot (it must point at this server)." ;;
   morning)  # called by cron
     secret="$(grep '^CRON_SECRET=' "$ENV_FILE" | cut -d= -f2-)"
-    curl -fsS -m 50 -H "Authorization: Bearer $secret" http://127.0.0.1:3000/api/cron/morning >/dev/null ;;
+    curl -fsS -m 50 -H "Authorization: Bearer $secret" http://127.0.0.1:8097/api/cron/morning >/dev/null ;;
   status)
     echo "Version:   $APP_TAG   (previous: $PREV_TAG)"
     echo "Newest:    $(git -C "$REPO" rev-parse --short=10 "origin/$BRANCH" 2>/dev/null)"
-    curl -fsS -m 3 http://127.0.0.1:3000/api/health 2>/dev/null && echo || echo "Health:    not responding"
+    curl -fsS -m 3 http://127.0.0.1:8097/api/health 2>/dev/null && echo || echo "Health:    not responding"
     compose ps --format 'table {{.Service}}\t{{.Status}}' 2>/dev/null || true
     echo "Disk:      $(df -h "$SOP_HOME" | awk 'NR==2 {print $4 " free"}')"
     echo "Backups:   $(ls -1 "$SOP_HOME/backups" 2>/dev/null | wc -l) (latest: $(ls -1t "$SOP_HOME/backups" 2>/dev/null | head -1))" ;;
