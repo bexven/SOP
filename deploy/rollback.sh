@@ -10,8 +10,10 @@ PREV="$(ls -1dt "$SOP_HOME"/releases/*/ | sed 's#/$##' | grep -vx "$CURRENT" | h
 [[ -n "$PREV" ]] || { echo "There is no previous version to go back to."; exit 1; }
 echo "Now:      $(cat "$CURRENT/RELEASE")"
 echo "Go back:  $(cat "$PREV/RELEASE")"
-read -rp "Continue? Type yes: " yes
-[[ "$yes" == "yes" ]] || { echo "Cancelled."; exit 1; }
+if [[ "${SOP_YES:-}" != "1" ]]; then
+  read -rp "Continue? Type yes: " yes
+  [[ "$yes" == "yes" ]] || { echo "Cancelled."; exit 1; }
+fi
 ln -sfn "$PREV" "$SOP_HOME/current.new" && mv -Tf "$SOP_HOME/current.new" "$SOP_HOME/current"
-systemctl restart sop
+${SOP_RESTART:-systemctl restart sop}
 echo "  ✓ running $(cat "$PREV/RELEASE") again"

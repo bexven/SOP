@@ -88,13 +88,13 @@ ok "database up to date"
 say "Switching to the new version"
 PREV="$(readlink -f "$SOP_HOME/current" 2>/dev/null || true)"
 ln -sfn "$REL" "$SOP_HOME/current.new" && mv -Tf "$SOP_HOME/current.new" "$SOP_HOME/current"
-$RESTART
+$RESTART 9>&-
 if health; then
   ok "healthy — now running $SHA"
 else
   if [[ -n "$PREV" && -d "$PREV" ]]; then
     ln -sfn "$PREV" "$SOP_HOME/current.new" && mv -Tf "$SOP_HOME/current.new" "$SOP_HOME/current"
-    $RESTART
+    $RESTART 9>&-
     health && echo "  Switched back to the previous version ($(cat "$PREV/RELEASE"))."
   fi
   fail "The new version didn't start (see $SOP_HOME/logs/app.log). Previous version restored."

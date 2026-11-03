@@ -9,17 +9,22 @@ SRC="${1:-}"
 [[ "$SRC" == postgres* ]] || { echo 'Usage: sudo sop import "postgresql://…"'; exit 1; }
 set -a; source "$SOP_HOME/shared/.env"; set +a
 DEST="${DIRECT_URL:-$DATABASE_URL}"
-read -rp "This replaces ALL data on this server with the data from the other database. Type yes: " yes
-[[ "$yes" == "yes" ]] || { echo "Cancelled."; exit 1; }
+STOP="${SOP_STOP:-systemctl stop sop}"
+START="${SOP_START:-systemctl start sop}"
+AS_SOP="${SOP_AS_USER-runuser -u sop --}"
+if [[ "${SOP_YES:-}" != "1" ]]; then
+  read -rp "This replaces ALL data on this server with the data from the other database. Type yes: " yes
+  [[ "$yes" == "yes" ]] || { echo "Cancelled."; exit 1; }
+fi
 "$SOP_HOME/bin/backup.sh" before-import
 TMP="$SOP_HOME/backups/import-$(date -u +%Y%m%d-%H%M%S).dump"
 echo "  … downloading from the other database"
 pg_dump --format=custom --no-owner --no-acl --dbname="$SRC" --file="$TMP"
-systemctl stop sop
+$STOP
 echo "  … loading into this server"
 pg_restore --clean --if-exists --no-owner --no-acl --dbname="$DEST" "$TMP" || true
-cd "$SOP_HOME/current" && runuser -u sop -- npx prisma migrate deploy >/dev/null
-systemctl start sop
+(cd "$SOP_HOME/current" && $AS_SOP npx prisma migrate deploy >/dev/null)
+$START
 chmod 600 "$TMP"
 echo "  ✓ data imported. Sign in and check everything is there."
 echo "    Next: Settings → Notifications → connect the Telegram bot again (it must point at this server)."
