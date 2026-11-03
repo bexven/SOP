@@ -18,7 +18,7 @@ BIN="$SOP_HOME/bin"
 KEEP_RELEASES=5
 PORT="${SOP_PORT:-3000}"
 RESTART="${SOP_RESTART:-systemctl restart sop}"
-AS_SOP="${SOP_AS_USER:-runuser -u sop --}"
+AS_SOP="${SOP_AS_USER-runuser -u sop --}"
 [[ -f "$SOP_HOME/shared/deploy.conf" ]] && source "$SOP_HOME/shared/deploy.conf"
 BRANCH="${BRANCH:-main}"
 
