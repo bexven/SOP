@@ -36,10 +36,10 @@ function toItem(t: Row) {
 export type QueueItem = Omit<ReturnType<typeof toItem>, "dueAt"> & { dueAt: string | null };
 const ser = (i: ReturnType<typeof toItem>): QueueItem => ({ ...i, dueAt: i.dueAt?.toISOString() ?? null });
 
-type QueueUser = { id: string; role: Role; jobRole: Role; permissions: readonly string[] };
+export type QueueUser = { id: string; role: Role; jobRole: Role; permissions: readonly string[] };
 
 /** Submitted creative work this person should review (Senior permission). Media buyers: their products + unowned. */
-function reviewWhere(user: QueueUser): Prisma.TaskWhereInput | null {
+export function reviewWhere(user: QueueUser): Prisma.TaskWhereInput | null {
   if (!can(user, "task.review")) return null;
   const ownOnly = user.role !== "ADMIN" && user.jobRole === "MEDIA_BUYER";
   return {

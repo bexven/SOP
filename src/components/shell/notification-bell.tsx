@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BellIcon, CheckCheckIcon } from "lucide-react";
+import Link from "next/link";
+import { BellIcon, CheckCheckIcon, SmartphoneIcon } from "lucide-react";
 import { UserAvatar } from "@/components/common/user-avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatRelative } from "@/lib/format";
@@ -112,6 +113,13 @@ export function NotificationBell() {
             ))}
           </ul>
         )}
+        <Link
+          href="/profile#alerts"
+          onClick={() => setOpen(false)}
+          className="flex items-center justify-center gap-1.5 border-t border-slate-900/[0.06] px-4 py-2.5 text-meta text-indigo-700 transition-colors hover:bg-white/70"
+        >
+          <SmartphoneIcon className="size-3.5" /> Get alerts on your phone &amp; Telegram
+        </Link>
       </PopoverContent>
     </Popover>
   );

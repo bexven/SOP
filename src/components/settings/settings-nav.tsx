@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/settings", label: "General" },
   { href: "/settings/checklists", label: "Checklists" },
   { href: "/settings/brands", label: "Brands" },
+  { href: "/settings/notifications", label: "Notifications" },
 ];
 
 export function SettingsNav() {

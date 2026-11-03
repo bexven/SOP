@@ -1,8 +1,11 @@
 import "server-only";
 import { unstable_rethrow } from "next/navigation";
+import { after } from "next/server";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { can, type Capability } from "@/lib/domain/permissions";
 import { getCurrentUser, type CurrentUser } from "./auth/current-user";
+import { flushAlerts, rememberAppUrl } from "./services/alerts";
 
 /**
  * Every mutation goes through defineAction, which enforces the pipeline:
@@ -51,7 +54,20 @@ export function defineAction<S extends z.ZodType, T = undefined>(options: Option
       };
     }
     try {
-      return await options.run(parsed.data, { user });
+      const result = await options.run(parsed.data, { user });
+      if (result.ok) {
+        // After the response: send any new notifications to phones / Telegram.
+        after(async () => {
+          try {
+            const h = await headers();
+            await rememberAppUrl(h.get("x-forwarded-host") ?? h.get("host"), h.get("x-forwarded-proto"));
+            await flushAlerts();
+          } catch (e) {
+            console.error("[alerts] flush failed", e);
+          }
+        });
+      }
+      return result;
     } catch (error) {
       unstable_rethrow(error); // let redirect()/notFound() through
       if (error instanceof ActionError) return { ok: false, error: error.message };

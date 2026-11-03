@@ -6,14 +6,25 @@ import { RolePill } from "@/components/common/pill";
 import { PhotoEditor } from "@/components/profile/photo-editor";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/server/auth/current-user";
+import { db } from "@/lib/server/db";
+import { vapidKeys } from "@/lib/server/services/alerts";
+import { AlertsCard } from "@/components/profile/alerts-card";
 
 export const metadata: Metadata = { title: "My profile" };
 
 export default async function ProfilePage() {
   const user = await requireUser();
+  const [me, settings, keys] = await Promise.all([
+    db.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: { telegramChatId: true, alertsInstant: true, alertsDigest: true, _count: { select: { pushDevices: true } } },
+    }),
+    db.settings.findUnique({ where: { id: 1 }, select: { telegramBotUsername: true } }),
+    vapidKeys(),
+  ]);
   return (
     <>
-      <PageHeader title="My profile" description="Your photo appears on your tasks, comments and across the team's screens." />
+      <PageHeader title="My profile" description="Your photo, alerts on your phone and Telegram, and your PIN." />
       <div className="grid max-w-2xl gap-4">
         <section className="surface rounded-panel p-5" aria-labelledby="photo-h">
           <h2 id="photo-h" className="mb-4 text-section text-slate-900">
@@ -21,6 +32,14 @@ export default async function ProfilePage() {
           </h2>
           <PhotoEditor name={user.name} color={user.avatarColor} assetId={user.avatarAssetId} />
         </section>
+        <AlertsCard
+          vapidPublicKey={keys.publicKey}
+          botUsername={settings?.telegramBotUsername ?? null}
+          telegramConnected={Boolean(me.telegramChatId)}
+          devices={me._count.pushDevices}
+          instant={me.alertsInstant}
+          digest={me.alertsDigest}
+        />
         <section className="surface rounded-panel p-5" aria-labelledby="acct-h">
           <h2 id="acct-h" className="text-section text-slate-900">
             Account

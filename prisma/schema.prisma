@@ -185,6 +185,15 @@ model User {
   isMaster          Boolean   @default(false)
   /// Individual permissions (capability keys), ticked by the Master Admin. Defaults come from the job role.
   permissions       String[]  @default([])
+  /// Telegram chat this person connected (via the bot's /start link). Null = not connected.
+  telegramChatId    String?   @unique
+  /// One-time code in the "Connect Telegram" link; expires after 15 minutes.
+  telegramLinkCode  String?   @unique
+  telegramLinkUntil DateTime?
+  /// Send each notification to their phone/Telegram as it happens.
+  alertsInstant     Boolean   @default(true)
+  /// The 10:00 (Dhaka) morning summary of what's waiting on them.
+  alertsDigest      Boolean   @default(true)
   active            Boolean   @default(true)
   /// Forces a PIN change on next login (seeded users, admin PIN resets).
   mustChangePin     Boolean   @default(false)
@@ -209,6 +218,7 @@ model User {
   avatarAsset     Asset?           @relation("UserAvatar", fields: [avatarAssetId], references: [id])
   assetComments   AssetComment[]
   orders          ProductOrder[]   @relation("OrderCreator")
+  pushDevices     PushDevice[]
 
   @@index([role, active])
 }
@@ -547,6 +557,8 @@ model Notification {
   type      NotificationType
   message   String
   readAt    DateTime?
+  /// When this was sent to the person's devices / Telegram (null = not yet, or not wanted).
+  pushedAt  DateTime?
   createdAt DateTime         @default(now())
 
   user    User     @relation("NotifRecipient", fields: [userId], references: [id])
@@ -568,14 +580,25 @@ model LoginAttempt {
 
 /// Single row, id = 1.
 model Settings {
-  id               Int      @id @default(1)
-  rmbToBdtRate     Decimal  @db.Decimal(10, 4)
-  usdToBdtRate     Decimal  @db.Decimal(10, 4)
-  courierChargePct Decimal  @default(2) @db.Decimal(5, 2)
-  healthyMarginPct Decimal  @db.Decimal(5, 2)
-  thinMarginPct    Decimal  @db.Decimal(5, 2)
-  updatedById      String?
-  updatedAt        DateTime @updatedAt
+  id                    Int      @id @default(1)
+  rmbToBdtRate          Decimal  @db.Decimal(10, 4)
+  usdToBdtRate          Decimal  @db.Decimal(10, 4)
+  courierChargePct      Decimal  @default(2) @db.Decimal(5, 2)
+  healthyMarginPct      Decimal  @db.Decimal(5, 2)
+  thinMarginPct         Decimal  @db.Decimal(5, 2)
+  /// Web push keys, created automatically the first time push is used.
+  vapidPublicKey        String?
+  vapidPrivateKey       String?
+  /// Telegram bot, connected by an Admin in Settings → Notifications.
+  telegramBotToken      String?
+  telegramBotUsername   String?
+  telegramWebhookSecret String?
+  /// Public address of the app (for links in Telegram messages).
+  appUrl                String?
+  /// Dhaka date (YYYY-MM-DD) of the last morning summary, so it goes out once a day.
+  lastDigestOn          String?
+  updatedById           String?
+  updatedAt             DateTime @updatedAt
 }
 
 /// Store brands (Timtom, Mr.WOW, …). Every new product belongs to one.
@@ -613,4 +636,20 @@ model ProductOrder {
   createdBy User    @relation("OrderCreator", fields: [createdById], references: [id])
 
   @@unique([productId, number])
+}
+
+/// A browser / phone that turned on push notifications for one person.
+model PushDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  label      String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

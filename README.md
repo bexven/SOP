@@ -136,3 +136,30 @@ with `node .next/standalone/server.js`. (A full VPS guide will come separately.)
 
 See [`CLAUDE.md`](./CLAUDE.md) for architecture rules, the design system and the agreed business
 decisions.
+
+## Alerts: phone notifications, Telegram and the 10:00 summary
+
+Everything is free and needs no extra hosting settings.
+
+**Phone / computer notifications (each person, once per device)**
+1. Open the app → your photo (top right) → **My profile** → *Alerts on your phone* → **Turn on** → allow.
+2. **iPhone:** first open the app in Safari → Share → **Add to Home Screen**, open it from the home screen, then turn it on.
+   **Android / computers:** Chrome, Edge or Firefox work straight away.
+3. Tap **Send me a test** to check.
+
+**Telegram bot (an Admin, once for the whole team)**
+1. In Telegram, open **@BotFather** → send `/newbot` → choose a name (e.g. *Product SOP*) and a username ending in `bot`
+   (e.g. `bexven_sop_bot`).
+2. BotFather replies with a **token** like `1234567890:AA…`. Keep it private.
+3. In the app (on its public address, not localhost): **Admin ▾ → Settings → Notifications** → paste the token → **Connect bot**.
+4. Optional, in BotFather: `/setuserpic` (logo) and `/setdescription`.
+
+**Each person connects their Telegram:** My profile → **Connect Telegram** → Telegram opens → press **Start**.
+They can send `/today` to the bot any time, or `/stop` to disconnect.
+
+**Morning summary:** every day at 10:00 Dhaka, people with something waiting get one message (tasks to do, overdue,
+due today, sent back, reviews, approvals, new mentions). On Vercel this is scheduled in `vercel.json`; on the free plan
+it can arrive any time between 10:00 and 10:59. On a VPS add a cron job:
+`*/10 * * * * curl -fsS https://your-domain/api/cron/morning` (it only sends once a day, from 10:00).
+Optionally set `CRON_SECRET` in the environment (Vercel sends it automatically; on a VPS add
+`-H "Authorization: Bearer $CRON_SECRET"`).

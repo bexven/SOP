@@ -171,6 +171,22 @@ src/generated/     Prisma client (generated, git-ignored)
   pill, `motion` layoutId). Phase tabs use a sliding pill and fade between panels. Respect reduced motion.
 - Due pills read "Due 6 Nov" / "Due tomorrow 6 pm" with a clock icon; full date/time in the tooltip.
 
+## Alerts: phone push + Telegram + 10:00 summary
+- **Web Push** (free, `web-push`): `public/sw.js` shows notifications; `src/app/manifest.ts` + `/public/icons`
+  make the app installable (iPhone only allows push from a home-screen app). VAPID keys are generated on first
+  use and stored in `Settings` — no env vars. Devices: `PushDevice` (removed when the push service says 404/410).
+- **Telegram** (free): an Admin pastes the BotFather token in **Settings → Notifications**; the server checks it
+  (`getMe`), sets the webhook to `/api/telegram/webhook` with a random `secret_token` and stores token/username/
+  secret in `Settings`. People link from **My profile → Connect Telegram** (one-time `/start <code>`, 15 min).
+  Bot commands: `/today`, `/stop`. Telegram needs a public https address (won't work on localhost).
+- **Instant alerts**: every in-app `Notification` is also sent to the person's devices/Telegram after the
+  action's response (`after()` in `defineAction` → `flushAlerts()`, claimed via `pushedAt`). Per-person
+  `alertsInstant` / `alertsDigest` toggles.
+- **Morning summary** (`domain/digest.ts`, `runMorningDigest`): `/api/cron/morning`, scheduled by `vercel.json`
+  (`0 4 * * *` UTC = 10:00 Dhaka; on Vercel Hobby it may arrive any time within that hour). On a VPS use system
+  cron. Idempotent: never before 10:00 Dhaka and once per day (`Settings.lastDigestOn`). Optional `CRON_SECRET`.
+- `/api/telegram`, `/api/cron`, `/sw.js`, `/manifest.webmanifest` are public in `proxy.ts` (they check their callers).
+
 ## Agreed decisions (from the brief review)
 - Q1 Each product has an owning Media Buyer (`Product.mediaBuyerId`), auto-assigned at research submit;
   they write the brief, get review notifications and launch. Any Media Buyer or Admin may still review.

@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   title: { default: "Product SOP", template: "%s · Product SOP" },
   description: "Product launch pipeline — SOPs, tasks and handoffs in one place.",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "Product SOP", statusBarStyle: "default" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {

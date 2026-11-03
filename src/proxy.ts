@@ -7,7 +7,9 @@ import { SESSION_COOKIE, verifySession } from "@/lib/server/auth/session-token";
  * the server in every page loader and server action.
  */
 // /api/assets checks access itself (profile photos are public for the login screen).
-const PUBLIC_PATHS = ["/login", "/api/assets"];
+// /api/telegram (signed by Telegram) and /api/cron (scheduler; optional CRON_SECRET) check their own callers.
+// The service worker and the app manifest must load without a session.
+const PUBLIC_PATHS = ["/login", "/api/assets", "/api/telegram", "/api/cron", "/sw.js", "/manifest.webmanifest", "/icons"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
