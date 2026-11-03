@@ -14,8 +14,8 @@ import { getOverview } from "@/lib/server/queries/overview";
 export const metadata: Metadata = { title: "Overview" };
 
 export default async function OverviewPage() {
-  await requireCapability("overview.view");
-  const o = await getOverview();
+  const user = await requireCapability("overview.view");
+  const o = await getOverview(user);
   const measured = o.averages.filter((a) => a.avgMs !== null);
   const bottleneck = measured.reduce<(typeof measured)[number] | null>((m, a) => (!m || a.avgMs! > m.avgMs! ? a : m), null);
 

@@ -12,6 +12,7 @@ export async function getLoginRoster() {
 
 export async function getTeam() {
   const users = await db.user.findMany({
+    where: { removedAt: null },
     select: {
       id: true,
       name: true,
@@ -21,6 +22,7 @@ export async function getTeam() {
       adminAccess: true,
       isMaster: true,
       permissions: true,
+      brandAccess: true,
       mustChangePin: true,
       pinHash: true,
       lockedUntil: true,

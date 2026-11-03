@@ -169,7 +169,38 @@ export function ProductsTable({
           description={filtersActive ? "Try clearing a filter or searching for something else." : "Killed products are hidden — tick “Killed” to include them."}
         />
       ) : (
-        <div className="surface relative overflow-x-auto rounded-panel">
+        <>
+        <ul className="surface divide-y divide-slate-100 overflow-hidden rounded-panel md:hidden" aria-label="Products">
+          {table.getRowModel().rows.map(({ original: r }) => (
+            <li key={r.id}>
+              <Link href={`/products/${r.id}`} className="flex items-start gap-3 px-3 py-3 transition-colors active:bg-slate-50">
+                <Thumbnail src={r.imageUrl} alt="" className="size-10" />
+                <span className="min-w-0 flex-1">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <BrandPill brand={r.brand} />
+                    <span className="truncate text-body font-medium text-slate-900">{r.name}</span>
+                  </span>
+                  <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="num text-meta text-slate-500">{r.ref}</span>
+                    <StagePill stage={r.stage} />
+                    <PriorityPill priority={r.priority} />
+                    <DuePill dueAt={r.nextDueAt} />
+                  </span>
+                  <span className="mt-1.5 flex items-center gap-2">
+                    <MiniStepper stepper={r.stepper} />
+                    <span className="truncate text-meta font-normal text-slate-500">
+                      {r.stage === "KILLED" && r.killReason ? KILL_REASON_LABELS[r.killReason] : r.stepper.steps[r.stepper.index]?.label ?? "Completed"}
+                    </span>
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+          <li className="px-4 py-2 text-meta font-normal text-slate-500">
+            <span className="num">{data.length}</span> of <span className="num">{rows.length}</span> products
+          </li>
+        </ul>
+        <div className="surface relative hidden overflow-x-auto rounded-panel md:block">
           <table className="w-full min-w-[56rem] text-left text-body">
             <thead className="border-b border-slate-100 bg-slate-50/60">
               {table.getHeaderGroups().map((hg) => (
@@ -208,6 +239,7 @@ export function ProductsTable({
             <span className="num">{data.length}</span> of <span className="num">{rows.length}</span> products
           </p>
         </div>
+        </>
       )}
     </div>
   );

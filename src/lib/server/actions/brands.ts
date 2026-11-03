@@ -12,14 +12,16 @@ const color = z.string().trim().regex(HEX_COLOR, "Pick a colour like #15803D").t
 
 export const saveBrandAction = defineAction({
   capability: "settings.manage",
-  schema: z.object({ id: idSchema.optional(), name, color, active: z.boolean().default(true) }),
-  run: async ({ id, name, color, active }) => {
+  schema: z.object({ id: idSchema.optional(), name, color, active: z.boolean().default(true), restricted: z.boolean().optional() }),
+  run: async ({ id, name, color, active, restricted }, { user }) => {
+    // Only the Master Admin decides which brands are restricted.
+    const restrictedData = user.isMaster && restricted !== undefined ? { restricted } : {};
     const clash = await db.brand.findFirst({ where: { name: { equals: name, mode: "insensitive" }, ...(id ? { id: { not: id } } : {}) } });
     if (clash) throw new ActionError("A brand with that name already exists.");
-    if (id) await db.brand.update({ where: { id }, data: { name, color, active } });
+    if (id) await db.brand.update({ where: { id }, data: { name, color, active, ...restrictedData } });
     else {
       const last = await db.brand.aggregate({ _max: { order: true } });
-      await db.brand.create({ data: { name, color, order: (last._max.order ?? -1) + 1 } });
+      await db.brand.create({ data: { name, color, order: (last._max.order ?? -1) + 1, ...restrictedData } });
     }
     revalidatePath("/", "layout");
     return { ok: true, message: id ? "Brand saved" : `${name} added` };

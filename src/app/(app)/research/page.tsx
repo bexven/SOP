@@ -27,7 +27,7 @@ type TabKey = (typeof TABS)[number]["key"];
 export default async function ResearchPage({ searchParams }: PageProps<"/research">) {
   const user = await requireUser();
   if (!canSeeEarlyStages(user)) redirect("/dashboard");
-  const [board, brands, sp] = await Promise.all([getResearchBoard(user), getBrands(), searchParams]);
+  const [board, brands, sp] = await Promise.all([getResearchBoard(user), getBrands(user), searchParams]);
   const canAdd = can(user, "product.create");
   const canApprove = can(user, "product.approve");
   const counts: Record<TabKey, number> = {
@@ -59,8 +59,8 @@ export default async function ResearchPage({ searchParams }: PageProps<"/researc
         }
       />
 
-      <nav aria-label="Research lists" className="relative mb-5 max-w-full overflow-x-auto">
-        <ul className="inline-flex rounded-control bg-slate-900/[0.04] p-1">
+      <nav aria-label="Research lists" className="relative mb-5 max-w-full">
+        <ul className="grid grid-cols-2 gap-1 rounded-control bg-slate-900/[0.04] p-1 sm:inline-flex sm:gap-0">
           {TABS.map((t) => {
             const active = t.key === tab;
             return (
@@ -70,7 +70,7 @@ export default async function ResearchPage({ searchParams }: PageProps<"/researc
                   aria-current={active ? "page" : undefined}
                   scroll={false}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-body font-medium whitespace-nowrap transition-colors",
+                    "flex items-center justify-between gap-1.5 rounded-[8px] px-3 py-1.5 text-body font-medium whitespace-nowrap transition-colors sm:inline-flex sm:justify-start",
                     active ? "bg-white text-slate-900 shadow-[0_1px_2px_rgb(15_23_42/0.08)]" : "text-slate-600 hover:text-slate-900",
                   )}
                 >

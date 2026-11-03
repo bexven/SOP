@@ -65,7 +65,7 @@ export function TaskDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[calc(100dvh-2rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 outline-none sm:max-h-[calc(100dvh-4rem)]"
+        className="flex max-h-[calc(100dvh-2rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 outline-none max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[92dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none max-sm:data-[state=open]:slide-in-from-bottom-8 sm:max-h-[calc(100dvh-4rem)]"
         style={brandThemeStyle(product.brand?.color)}
         aria-describedby={undefined}
         tabIndex={-1}

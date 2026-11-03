@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { KanbanSquareIcon } from "lucide-react";
+import { ChevronDownIcon, KanbanSquareIcon } from "lucide-react";
 import type { ProductStage } from "@/generated/prisma/enums";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
@@ -46,7 +46,42 @@ export default async function PipelinePage() {
           action={canCreate ? <Button asChild><Link href="/research?add=1">Go to Research</Link></Button> : undefined}
         />
       ) : (
-        <div className="-mx-4 relative overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6">
+        <>
+        {/* Phones: one stage under another; stages with products open, empty ones collapse to a line. */}
+        <div className="grid gap-2 md:hidden">
+          {STAGES.map((stage) => {
+            const all = byStage(stage);
+            const closed = stage === "COMPLETED" || stage === "KILLED";
+            const shown = closed ? all.slice(0, CLOSED_LIMIT) : all;
+            return (
+              <details key={stage} open={all.length > 0 && !closed} className="group rounded-panel bg-slate-900/[0.025] p-2 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center gap-2 rounded-control px-1.5 py-1.5 text-body font-semibold text-slate-800">
+                  <span className={`size-2 rounded-full ${STAGE_DOT[stage]}`} aria-hidden />
+                  {STAGE_LABELS[stage]}
+                  <span className="num ml-auto text-meta text-slate-500">{all.length}</span>
+                  <ChevronDownIcon className="size-4 text-slate-400 transition-transform duration-200 group-open:rotate-180" aria-hidden />
+                </summary>
+                {all.length ? (
+                  <ul className="mt-1.5 grid gap-2">
+                    {shown.map((p) => (
+                      <li key={p.id}>
+                        <PipelineCard p={p} />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-2 py-2 text-meta font-normal text-slate-500">Nothing here</p>
+                )}
+                {closed && all.length > CLOSED_LIMIT ? (
+                  <Link href={`/products?stage=${stage}`} className="mt-2 block px-2 py-1.5 text-center text-meta text-indigo-700 hover:underline">
+                    View all {all.length} in Products
+                  </Link>
+                ) : null}
+              </details>
+            );
+          })}
+        </div>
+        <div className="-mx-4 relative hidden overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 md:block">
           <div className="grid auto-cols-[minmax(15.5rem,1fr)] grid-flow-col gap-3">
             {STAGES.map((stage) => {
               const all = byStage(stage);
@@ -77,6 +112,7 @@ export default async function PipelinePage() {
             })}
           </div>
         </div>
+        </>
       )}
     </>
   );

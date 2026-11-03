@@ -2,19 +2,22 @@ import "server-only";
 import { orderSummary } from "@/lib/domain/orders";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
+import { productScope } from "../services/brand-scope";
+import type { BrandViewer } from "@/lib/domain/permissions";
 
 const brand = { select: { id: true, name: true, color: true } } as const;
 
 /** Products in ordering (with totals), plus live campaigns that could move to ordering. */
-export async function getOrdersBoard() {
+export async function getOrdersBoard(viewer: BrandViewer) {
+  const scope = productScope(viewer);
   const [inOrdering, live] = await Promise.all([
     db.product.findMany({
-      where: { orderingSince: { not: null } },
+      where: { AND: [scope], orderingSince: { not: null } },
       orderBy: { orderingSince: "desc" },
       include: { brand, campaign: { select: { status: true } }, orders: { orderBy: { number: "desc" } } },
     }),
     db.product.findMany({
-      where: { stage: "LIVE", orderingSince: null },
+      where: { AND: [scope], stage: "LIVE", orderingSince: null },
       orderBy: { stageEnteredAt: "asc" },
       include: { brand, campaign: { select: { status: true, launchedAt: true } } },
     }),

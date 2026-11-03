@@ -5,13 +5,16 @@ import { STAGES } from "@/lib/domain/labels";
 import { averageStageDurations } from "@/lib/domain/stage-time";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
+import { productScope } from "../services/brand-scope";
+import type { BrandViewer } from "@/lib/domain/permissions";
 
-export async function getOverview() {
+export async function getOverview(viewer: BrandViewer) {
   const now = new Date();
+  const scope = productScope(viewer);
   const [stageGroups, overdue, people, openTasks, transitions, killed] = await Promise.all([
-    db.product.groupBy({ by: ["stage"], _count: { _all: true } }),
+    db.product.groupBy({ by: ["stage"], where: scope, _count: { _all: true } }),
     db.task.findMany({
-      where: { status: { in: ["TODO", "REVISION"] }, dueAt: { lt: now } },
+      where: { status: { in: ["TODO", "REVISION"] }, dueAt: { lt: now }, product: scope },
       orderBy: { dueAt: "asc" },
       take: 12,
       include: {
@@ -20,10 +23,10 @@ export async function getOverview() {
       },
     }),
     db.user.findMany({ where: { active: true }, select: { id: true, name: true, avatarColor: true, avatarAssetId: true, role: true }, orderBy: { name: "asc" } }),
-    db.task.groupBy({ by: ["assigneeId", "status"], where: { status: { in: [...OPEN_STATUSES] } }, _count: { _all: true } }),
-    db.stageTransition.findMany({ select: { productId: true, toStage: true, at: true }, orderBy: { at: "asc" } }),
+    db.task.groupBy({ by: ["assigneeId", "status"], where: { status: { in: [...OPEN_STATUSES] }, product: scope }, _count: { _all: true } }),
+    db.stageTransition.findMany({ where: { product: scope }, select: { productId: true, toStage: true, at: true }, orderBy: { at: "asc" } }),
     db.product.findMany({
-      where: { stage: "KILLED" },
+      where: { AND: [scope], stage: "KILLED" },
       orderBy: { killedAt: "desc" },
       select: { id: true, number: true, name: true, killReason: true, killNote: true, killedAt: true, stageBeforeKill: true },
     }),

@@ -65,9 +65,10 @@ export const createProductAction = defineAction({
         data: { productId: product.id, fromStage: null, toStage: "RESEARCH", actorId: user.id, at: now },
       });
 
-      // The research task belongs to its creator when they are a researcher;
-      // otherwise (Admin) it is auto-assigned to a researcher.
-      const assigneeId = user.jobRole === "RESEARCHER" ? user.id : ((await autoAssign(tx, ["RESEARCHER"], now))[0] ?? null);
+      // The research task belongs to its creator when they are a researcher; otherwise
+      // (e.g. an Admin) it goes to a researcher — or stays with the creator if there is none.
+      const assigneeId =
+        user.jobRole === "RESEARCHER" ? user.id : ((await autoAssign(tx, ["RESEARCHER"], now, { brandId: product.brandId }))[0] ?? user.id);
       if (assigneeId === user.id) await tx.user.update({ where: { id: user.id }, data: { lastAssignedAt: now } });
       const [templates, sla] = await Promise.all([
         tx.checklistTemplateItem.findMany({ where: { taskType: "RESEARCH", active: true } }),
@@ -241,7 +242,7 @@ export const approveProductAction = defineAction({
       let mediaBuyerId = product.mediaBuyerId;
       const owner = mediaBuyerId ? await tx.user.findUnique({ where: { id: mediaBuyerId } }) : null;
       if (!owner?.active) {
-        mediaBuyerId = (await autoAssign(tx, ["MEDIA_BUYER"], now))[0] ?? null;
+        mediaBuyerId = (await autoAssign(tx, ["MEDIA_BUYER"], now, { brandId: product.brandId }))[0] ?? null;
         await tx.product.update({ where: { id: productId }, data: { mediaBuyerId } });
       }
       const applied = await applyPlan(tx, planned.plan, { actorId: user.id, product, now });

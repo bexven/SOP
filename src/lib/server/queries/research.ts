@@ -4,6 +4,8 @@ import type { Prisma } from "@/generated/prisma/client";
 import { computeMargin, marginBand } from "@/lib/domain/margin";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
+import { productScope } from "../services/brand-scope";
+import type { BrandViewer } from "@/lib/domain/permissions";
 import { getMarginThresholds } from "./product";
 
 const person = { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } } satisfies Prisma.UserDefaultArgs;
@@ -38,7 +40,8 @@ function marginOf(p: Priced, thresholds: Awaited<ReturnType<typeof getMarginThre
  *  - Not approved: killed at research / review.
  * Everyone who can see the page sees every product (Q12); researchers without admin access see only their own drafts.
  */
-export async function getResearchBoard(user: { id: string; role: Role; jobRole: Role }) {
+export async function getResearchBoard(user: { id: string; role: Role; jobRole: Role } & BrandViewer) {
+  const scope = productScope(user);
   const admin = user.role !== "RESEARCHER";
   const decided = {
     events: {
@@ -51,6 +54,7 @@ export async function getResearchBoard(user: { id: string; role: Role; jobRole: 
   const [inResearch, inReview, approved, notApproved, thresholds] = await Promise.all([
     db.product.findMany({
       where: {
+        AND: [scope],
         stage: "RESEARCH",
         ...(admin ? {} : { tasks: { some: { type: "RESEARCH", assigneeId: user.id } } }),
       },
@@ -61,7 +65,7 @@ export async function getResearchBoard(user: { id: string; role: Role; jobRole: 
       },
     }),
     db.product.findMany({
-      where: { stage: "REVIEW" },
+      where: { AND: [scope], stage: "REVIEW" },
       orderBy: { stageEnteredAt: "asc" },
       include: {
         brand: brandSel,
@@ -74,6 +78,7 @@ export async function getResearchBoard(user: { id: string; role: Role; jobRole: 
     }),
     db.product.findMany({
       where: {
+        AND: [scope],
         stage: { notIn: [...EARLY] },
         NOT: { stage: "KILLED", stageBeforeKill: { in: [...EARLY] } },
       },
@@ -82,7 +87,7 @@ export async function getResearchBoard(user: { id: string; role: Role; jobRole: 
       include: { brand: brandSel, createdBy: person, ...decided },
     }),
     db.product.findMany({
-      where: { stage: "KILLED", stageBeforeKill: { in: [...EARLY] } },
+      where: { AND: [scope], stage: "KILLED", stageBeforeKill: { in: [...EARLY] } },
       orderBy: { killedAt: "desc" },
       take: 100,
       include: { brand: brandSel, createdBy: person, ...decided },

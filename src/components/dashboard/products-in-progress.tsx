@@ -47,7 +47,7 @@ export function ProductsInProgress({ rows, filter, counts }: { rows: ProductRow[
         <h2 id="pip" className="text-section text-slate-900">
           Products in progress <span className="num text-meta text-slate-500">{rows.length}</span>
         </h2>
-        <nav aria-label="Filter products" className="relative flex max-w-full gap-1 overflow-x-auto">
+        <nav aria-label="Filter products" className="no-scrollbar relative -mx-4 flex max-w-[calc(100%+2rem)] gap-1 overflow-x-auto px-4 sm:mx-0 sm:max-w-full sm:px-0">
           {PIP_FILTERS.map((f) => (
             <Link
               key={f.key}

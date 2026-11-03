@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { PlusIcon } from "lucide-react";
+import { LockIcon, PlusIcon } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { BrandPill } from "@/components/common/pills";
 import { Button } from "@/components/ui/button";
@@ -15,26 +16,27 @@ import { SettingsCard } from "./settings-card";
 /** Quick picks; any hex colour can be typed or chosen with the picker. */
 const PRESETS = ["#15803D", "#0369A1", "#4F46E5", "#7C3AED", "#BE123C", "#C2410C", "#B45309", "#334155"] as const;
 
-export function BrandEditor({ brands }: { brands: BrandDTO[] }) {
+export function BrandEditor({ brands, canRestrict }: { brands: BrandDTO[]; canRestrict: boolean }) {
   return (
-    <SettingsCard title="Brands" description="Every new product is added for one brand. Inactive brands stay on old products but can't be picked for new ones.">
+    <SettingsCard title="Brands" description="Every new product is added for one brand. Inactive brands stay on old products but can't be picked for new ones. Restricted brands (🔒) are only visible to people given access on Roles & permissions.">
       <ul className="grid gap-2">
         {brands.map((b) => (
-          <BrandRow key={b.id + b.name + b.color + b.active} brand={b} />
+          <BrandRow key={b.id + b.name + b.color + b.active + b.restricted} brand={b} canRestrict={canRestrict} />
         ))}
-        <BrandRow />
+        <BrandRow canRestrict={canRestrict} />
       </ul>
     </SettingsCard>
   );
 }
 
-function BrandRow({ brand }: { brand?: BrandDTO }) {
+function BrandRow({ brand, canRestrict }: { brand?: BrandDTO; canRestrict: boolean }) {
+  const [restricted, setRestricted] = useState(brand?.restricted ?? false);
   const [name, setName] = useState(brand?.name ?? "");
   const [color, setColor] = useState<string>(brand && HEX_COLOR.test(brand.color) ? brand.color : DEFAULT_BRAND_COLOR);
   const [pending, startTransition] = useTransition();
   const save = (active = brand?.active ?? true) =>
     startTransition(async () => {
-      const r = await saveBrandAction({ id: brand?.id, name, color, active });
+      const r = await saveBrandAction({ id: brand?.id, name, color, active, ...(canRestrict ? { restricted } : {}) });
       if (r.ok) {
         toast.success(r.message);
         if (!brand) setName("");
@@ -68,6 +70,16 @@ function BrandRow({ brand }: { brand?: BrandDTO }) {
         />
         <Input value={color} onChange={(e) => setColor(e.target.value.trim())} aria-label="Colour hex code" className="num h-8 w-24" maxLength={7} />
       </div>
+      {canRestrict ? (
+        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-meta text-slate-700" title="Only people you give access to (Roles & permissions) can see this brand's products">
+          <Checkbox checked={restricted} onCheckedChange={(v) => setRestricted(v === true)} aria-label={`${name || "New brand"}: restricted`} />
+          <LockIcon className="size-3.5 text-slate-500" /> Restricted
+        </label>
+      ) : brand?.restricted ? (
+        <span className="flex shrink-0 items-center gap-1 text-meta text-slate-600">
+          <LockIcon className="size-3.5" /> Restricted
+        </span>
+      ) : null}
       <div className="flex gap-2">
         {brand ? (
           <Button variant="ghost" size="sm" disabled={pending} onClick={() => save(!brand.active)}>

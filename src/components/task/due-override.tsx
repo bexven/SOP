@@ -28,12 +28,13 @@ export function DueOverride({ taskId, dueAt }: { taskId: string; dueAt: string |
       <label htmlFor={`due-${taskId}`} className="flex items-center gap-1.5 text-meta text-slate-700">
         <CalendarClockIcon className="size-3.5 text-slate-500" /> Change due date <span className="font-normal text-slate-500">(Dhaka time)</span>
       </label>
-      <div className="flex flex-wrap items-center gap-2">
-        <Input id={`due-${taskId}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} className="num h-8 w-40" />
-        <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="num h-8 w-28" aria-label="Due time" />
+      <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <Input id={`due-${taskId}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} className="num h-9 min-w-0 sm:w-40" />
+        <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="num h-9 min-w-0 sm:w-28" aria-label="Due time" />
         <Button
           size="sm"
           variant="outline"
+          className="col-span-2 sm:col-span-1"
           disabled={pending || !changed || !date}
           onClick={() =>
             startTransition(async () => {

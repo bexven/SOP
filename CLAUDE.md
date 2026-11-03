@@ -187,6 +187,28 @@ src/generated/     Prisma client (generated, git-ignored)
   cron. Idempotent: never before 10:00 Dhaka and once per day (`Settings.lastDigestOn`). Optional `CRON_SECRET`.
 - `/api/telegram`, `/api/cron`, `/sw.js`, `/manifest.webmanifest` are public in `proxy.ts` (they check their callers).
 
+## Team & restricted brands (Nov 2026)
+- Team: Sk Moni (Master Admin) · Inamul (Reviewer, every permission except Bexven) · Jewel Rana (Admin) ·
+  Shohagh (Media Buyer) · Rony (Video Editor) · Shakil (Image Designer, took over Kamrul's open work) ·
+  Antu (Customer Support) · Fahim (Office Secretary). New job roles: `CUSTOMER_SUPPORT`, `OFFICE_SECRETARY`
+  (no default permissions). No PINs in migrations/seed: the Master Admin uses **Team → PIN for everyone**
+  (sets one temporary PIN, forces a new PIN at next sign-in).
+- **Removed people**: `User.removedAt` (Team → inactive → Remove). Hidden everywhere, history kept; sessions die.
+- **Restricted brands** (`Brand.restricted`, e.g. **Bexven**): only the Master Admin and people ticked in the
+  brand's column on Roles & permissions (`User.brandAccess`) see its products — even Admins need the tick.
+  Enforced by `productScope()/taskScope()` (`services/brand-scope.ts`) in every product/task query,
+  `getProductDetail(id, viewer)` (null → 404), `brandAllowed()` in `defineAction` (any action naming a
+  productId/taskId/brandId), `notify()` (no notifications to people without access) and auto-assignment
+  (`autoAssign(..., { brandId })` only picks people with access; otherwise unassigned).
+  Only the Master Admin can mark a brand restricted (Settings → Brands).
+- Research task: creator keeps it when they're a researcher **or when no researcher exists**.
+
+## Mobile patterns
+- Horizontal swipe rows use `no-scrollbar` (no visible scrollbar). Phase tabs never wrap and keep the open
+  tab in view. Stepper has a compact phone layout (`CompactStepper`). Wide tables become card lists below
+  `md` (products, orders); the pipeline stacks stages as collapsible sections; the task window is a
+  bottom sheet on phones; empty board columns collapse to one line.
+
 ## Agreed decisions (from the brief review)
 - Q1 Each product has an owning Media Buyer (`Product.mediaBuyerId`), auto-assigned at research submit;
   they write the brief, get review notifications and launch. Any Media Buyer or Admin may still review.
@@ -207,7 +229,7 @@ src/generated/     Prisma client (generated, git-ignored)
 - Q13 Stepper shows "Creative: step 2 & store" once both Phase 1 tasks are approved.
 - Q14 Campaign STOPPED ≠ COMPLETED; completion is an explicit action.
 - Auto-assignment counts LOCKED + TODO + REVISION + SUBMITTED as open; tie → least recently assigned.
-- Research task belongs to its creator (Admin-created → auto-assigned to a Researcher).
+- Research task belongs to its creator (Admin-created → auto-assigned to a Researcher; if none, the creator keeps it).
 - Rate snapshot refreshes on every save while in RESEARCH and freezes at submit.
 - Due dates = unlock time + SLA hours (wall clock, Asia/Dhaka for display/"due today").
 - Margin badge is informational only, never blocks submit.

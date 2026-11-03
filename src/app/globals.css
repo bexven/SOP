@@ -136,6 +136,15 @@
   transform: translateY(-1px);
 }
 
+/* Horizontal scrollers on phones: swipe without a visible scrollbar. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Clickable cards: lift on hover, settle on press. */
 @utility raised-hover {
   transition:

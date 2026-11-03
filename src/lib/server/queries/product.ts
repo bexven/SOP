@@ -1,4 +1,5 @@
 import "server-only";
+import { canSeeBrand, type BrandViewer } from "@/lib/domain/permissions";
 import type { ProductStage, TaskType } from "@/generated/prisma/enums";
 import { laneOf } from "@/lib/domain/labels";
 import { computeMargin, marginBand, type MarginBand, type MarginResult } from "@/lib/domain/margin";
@@ -40,14 +41,15 @@ export function laneProgress(
   return { images: of("images"), videos: of("videos") };
 }
 
-export async function getProductDetail(id: string) {
+/** A product for this viewer, or null if it doesn't exist or is a restricted brand they can't see. */
+export async function getProductDetail(id: string, viewer: BrandViewer) {
   const [p, thresholds] = await Promise.all([
     db.product.findUnique({
       where: { id },
       include: {
         createdBy: person,
         mediaBuyer: person,
-        brand: { select: { id: true, name: true, color: true } },
+        brand: { select: { id: true, name: true, color: true, restricted: true } },
         campaign: true,
         batches: { orderBy: { number: "asc" } },
         transitions: { orderBy: { at: "asc" } },
@@ -71,10 +73,13 @@ export async function getProductDetail(id: string) {
     }),
     getMarginThresholds(),
   ]);
-  if (!p) return null;
-  const brands = await getBrands();
+  if (!p || !canSeeBrand(viewer, p.brand)) return null;
+  const brands = await getBrands(viewer);
 
-  const people = await db.user.findMany({ select: { id: true, name: true, avatarColor: true, avatarAssetId: true, role: true, active: true } });
+  const people = await db.user.findMany({
+    where: { removedAt: null },
+    select: { id: true, name: true, avatarColor: true, avatarAssetId: true, role: true, active: true, isMaster: true, brandAccess: true },
+  });
   const nameOf = (uid: string | null | undefined) => (uid ? (people.find((u) => u.id === uid)?.name ?? null) : null);
 
   const comments = await db.comment.findMany({
@@ -231,7 +236,8 @@ export async function getProductDetail(id: string) {
     marginBand: band,
     thresholds,
     stepper,
-    people: people.filter((u) => u.active).map(({ id, name, avatarColor, avatarAssetId, role }) => ({ id, name, avatarColor, avatarAssetId, role })),
+    // Only people who may see this brand can be assigned or @mentioned.
+    people: people.filter((u) => u.active && canSeeBrand(u, p.brand)).map(({ id, name, avatarColor, avatarAssetId, role }) => ({ id, name, avatarColor, avatarAssetId, role })),
   };
 }
 
@@ -240,7 +246,9 @@ export type TaskDTO = ProductDetail["tasks"][number];
 export type OrderDTO = ProductDetail["orders"][number];
 export type StageKey = ProductStage;
 
-export async function getBrands() {
-  return db.brand.findMany({ orderBy: [{ order: "asc" }, { name: "asc" }], select: { id: true, name: true, color: true, active: true } });
+/** Brands, optionally only those a viewer may use (restricted brands need access). */
+export async function getBrands(viewer?: BrandViewer) {
+  const brands = await db.brand.findMany({ orderBy: [{ order: "asc" }, { name: "asc" }], select: { id: true, name: true, color: true, active: true, restricted: true } });
+  return viewer ? brands.filter((b) => canSeeBrand(viewer, b)) : brands;
 }
 export type BrandDTO = Awaited<ReturnType<typeof getBrands>>[number];

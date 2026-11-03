@@ -43,6 +43,8 @@ const ROLE_TONES: Record<Role, PillTone> = {
   MEDIA_BUYER: "emerald",
   REVIEWER: "amber",
   ADMIN: "indigo",
+  CUSTOMER_SUPPORT: "sky",
+  OFFICE_SECRETARY: "slate",
 };
 
 export function RolePill({ role, className }: { role: Role; className?: string }) {

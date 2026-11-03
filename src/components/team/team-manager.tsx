@@ -9,6 +9,8 @@ import {
   PlusIcon,
   UserCheckIcon,
   UserXIcon,
+  Trash2Icon,
+  UsersRoundIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Pill, RolePill } from "@/components/common/pill";
@@ -29,7 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { setMemberActiveAction, unlockMemberAction } from "@/lib/server/actions/team";
+import { removeMemberAction, setMemberActiveAction, setTeamPinAction, unlockMemberAction } from "@/lib/server/actions/team";
 import type { TeamRow } from "@/lib/server/queries/team";
 import { cn } from "@/lib/utils";
 import { MemberDialog, ResetPinDialog } from "./member-dialogs";
@@ -135,9 +137,14 @@ function MemberRow({ member, isSelf }: { member: TeamRow; isSelf: boolean }) {
               <UserXIcon /> Deactivate
             </DropdownMenuItem>
           ) : (
-            <DropdownMenuItem onSelect={() => run(() => setMemberActiveAction({ id: member.id, active: true }))}>
-              <UserCheckIcon /> Reactivate
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem onSelect={() => run(() => setMemberActiveAction({ id: member.id, active: true }))}>
+                <UserCheckIcon /> Reactivate
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={() => run(() => removeMemberAction({ id: member.id }))}>
+                <Trash2Icon /> Remove from team
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -172,5 +179,61 @@ function MemberRow({ member, isSelf }: { member: TeamRow; isSelf: boolean }) {
         </DialogContent>
       </Dialog>
     </li>
+  );
+}
+
+/** Master Admin: give everyone (except you) the same temporary PIN. */
+export function TeamPinButton() {
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pending, startTransition] = useTransition();
+  const valid = /^\d{4,6}$/.test(pin);
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        <UsersRoundIcon /> PIN for everyone
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Same temporary PIN for everyone</DialogTitle>
+            <DialogDescription>
+              Everyone except you gets this PIN and is signed out. At their next sign-in they must choose their own PIN.
+            </DialogDescription>
+          </DialogHeader>
+          <label htmlFor="team-pin" className="text-meta text-slate-700">
+            Temporary PIN (4–6 digits)
+          </label>
+          <input
+            id="team-pin"
+            inputMode="numeric"
+            autoComplete="off"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            className="num h-10 w-40 rounded-control border border-slate-200 bg-white px-3 text-[18px] tracking-[0.3em] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={pending || !valid}
+              onClick={() =>
+                startTransition(async () => {
+                  const r = await setTeamPinAction({ pin });
+                  if (r.ok) {
+                    toast.success(r.message);
+                    setOpen(false);
+                    setPin("");
+                  } else toast.error(r.error);
+                })
+              }
+            >
+              Set PIN for everyone
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -9,15 +9,15 @@ import { requireUser } from "@/lib/server/auth/current-user";
 import { getProductDetail } from "@/lib/server/queries/product";
 
 export async function generateMetadata({ params }: PageProps<"/products/[id]">): Promise<Metadata> {
-  const { id } = await params;
-  const product = await getProductDetail(id);
+  const [{ id }, user] = await Promise.all([params, requireUser()]);
+  const product = await getProductDetail(id, user);
   return { title: product?.name ?? "Product" };
 }
 
 export default async function ProductPage({ params, searchParams }: PageProps<"/products/[id]">) {
   const user = await requireUser();
   const [{ id }, sp] = await Promise.all([params, searchParams]);
-  const product = await getProductDetail(id);
+  const product = await getProductDetail(id, user);
   if (!product || !canSeeProduct(user, product.stage, product.stageBeforeKill)) notFound();
   const task = typeof sp.task === "string" ? sp.task : undefined;
   const phase = typeof sp.phase === "string" ? sp.phase : undefined;

@@ -99,7 +99,7 @@ export function CreativePhase({
       ) : (
         <section aria-label="Creative board" className="surface grid gap-4 rounded-panel p-3 sm:p-4">
           {batches.length > 1 ? (
-            <div role="tablist" aria-label="Batches" className="relative -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            <div role="tablist" aria-label="Batches" className="no-scrollbar relative -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
               {batches.map((b) => {
                 const active = b.id === batch.id;
                 return (
@@ -149,7 +149,7 @@ export function CreativePhase({
               {COLS.map((c) => {
                 const items = tasks.filter((t) => colOf(t) === c.key);
                 return (
-                  <div key={c.key} className="flex min-h-32 flex-col gap-2 rounded-control bg-slate-900/[0.025] p-2">
+                  <div key={c.key} className={cn("flex flex-col gap-2 rounded-control bg-slate-900/[0.025] p-2 md:min-h-32", items.length === 0 && "py-1.5 md:py-2")}>
                     <h3 className="flex items-center gap-2 px-1.5 pt-0.5 text-meta font-semibold text-slate-700">
                       <span className={cn("size-2 rounded-full", c.dot)} aria-hidden />
                       {c.title}
@@ -170,7 +170,7 @@ export function CreativePhase({
                         />
                       ))}
                     </ul>
-                    {items.length === 0 ? <p className="px-2 py-4 text-center text-meta font-normal text-slate-500">{c.empty}</p> : null}
+                    {items.length === 0 ? <p className="hidden px-2 py-4 text-center text-meta font-normal text-slate-500 md:block">{c.empty}</p> : null}
                   </div>
                 );
               })}

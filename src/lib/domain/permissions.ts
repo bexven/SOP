@@ -71,3 +71,13 @@ export function isEarly(stage: string, stageBeforeKill: string | null): boolean 
 export function canSeeProduct(subject: Subject, stage: string, stageBeforeKill: string | null): boolean {
   return canSeeEarlyStages(subject) || !isEarly(stage, stageBeforeKill);
 }
+
+// ── Restricted brands (e.g. Bexven) ─────────────────────────────────────────
+
+/** Who can see a brand's products: everyone for normal brands; for restricted ones, the Master Admin and people given access. */
+export type BrandViewer = { isMaster: boolean; brandAccess: readonly string[] };
+
+export function canSeeBrand(viewer: BrandViewer, brand: { id: string; restricted: boolean } | null | undefined): boolean {
+  if (!brand || !brand.restricted) return true;
+  return viewer.isMaster || viewer.brandAccess.includes(brand.id);
+}

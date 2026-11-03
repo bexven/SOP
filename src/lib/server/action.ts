@@ -3,7 +3,8 @@ import { unstable_rethrow } from "next/navigation";
 import { after } from "next/server";
 import { headers } from "next/headers";
 import { z } from "zod";
-import { can, type Capability } from "@/lib/domain/permissions";
+import { can, canSeeBrand, type Capability } from "@/lib/domain/permissions";
+import { db } from "./db";
 import { getCurrentUser, type CurrentUser } from "./auth/current-user";
 import { flushAlerts, rememberAppUrl } from "./services/alerts";
 
@@ -54,6 +55,7 @@ export function defineAction<S extends z.ZodType, T = undefined>(options: Option
       };
     }
     try {
+      if (!(await brandAllowed(user, parsed.data))) return { ok: false, error: "You don't have access to this brand." };
       const result = await options.run(parsed.data, { user });
       if (result.ok) {
         // After the response: send any new notifications to phones / Telegram.
@@ -75,4 +77,19 @@ export function defineAction<S extends z.ZodType, T = undefined>(options: Option
       return { ok: false, error: "Something went wrong. Please try again." };
     }
   };
+}
+
+/**
+ * Restricted brands (e.g. Bexven): an action that names a product, task or brand
+ * the person may not see is refused here, for every action at once.
+ */
+async function brandAllowed(user: CurrentUser, input: unknown): Promise<boolean> {
+  if (user.isMaster || !input || typeof input !== "object") return true;
+  const { productId, taskId, brandId } = input as { productId?: unknown; taskId?: unknown; brandId?: unknown };
+  const brandSel = { select: { id: true, restricted: true } } as const;
+  const brands: ({ id: string; restricted: boolean } | null)[] = [];
+  if (typeof productId === "string") brands.push((await db.product.findUnique({ where: { id: productId }, select: { brand: brandSel } }))?.brand ?? null);
+  if (typeof taskId === "string") brands.push((await db.task.findUnique({ where: { id: taskId }, select: { product: { select: { brand: brandSel } } } }))?.product.brand ?? null);
+  if (typeof brandId === "string" && brandId) brands.push(await db.brand.findUnique({ where: { id: brandId }, select: { id: true, restricted: true } }));
+  return brands.every((b) => canSeeBrand(user, b));
 }

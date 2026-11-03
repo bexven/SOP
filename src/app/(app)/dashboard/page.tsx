@@ -38,7 +38,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const [q, products, team] = await Promise.all([
     getQueue(user),
     isAdmin ? listProducts(user) : Promise.resolve([]),
-    isAdmin ? getTeamStats() : Promise.resolve(null),
+    isAdmin ? getTeamStats(user) : Promise.resolve(null),
   ]);
   const running = products.filter((p) => p.stage !== "COMPLETED" && p.stage !== "KILLED");
   const mine = q.today.length + q.upcoming.length + q.overdue.length + q.revision.length;
@@ -80,7 +80,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
 
       <section aria-label={team ? "Whole team right now" : "My work right now"} className="mb-8">
         <p className="mb-2 text-meta font-normal text-slate-500">{team ? "Whole team, right now" : "Your work, right now"} · updates every 30 seconds</p>
-        <div className={cn("grid grid-cols-2 gap-3", tiles.length === 5 ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4")}>
+        <div className={cn("grid grid-cols-2 gap-3 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2", tiles.length === 5 ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4")}>
           {tiles.map((t) => {
             const body = (
               <>

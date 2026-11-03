@@ -12,12 +12,16 @@ export const updateMemberSchema = z.object({ id: idSchema, name, role, avatarCol
 export const setActiveSchema = z.object({ id: idSchema, active: z.boolean() });
 export const resetPinSchema = z.object({ id: idSchema, pin: pinSchema, requireChange: z.boolean().default(false) });
 export const unlockSchema = z.object({ id: idSchema });
+export const removeMemberSchema = z.object({ id: idSchema });
+/** One temporary PIN for everyone except the Master Admin; each person picks their own at next sign-in. */
+export const teamPinSchema = z.object({ pin: pinSchema });
 /** Roles page: job role, admin access and individual permissions for one person. */
 export const accessSchema = z.object({
   id: idSchema,
   role,
   adminAccess: z.boolean(),
   permissions: z.array(z.string().max(40)).max(40),
+  brandAccess: z.array(idSchema).max(50).default([]),
 });
 
 export type CreateMemberInput = z.infer<typeof createMemberSchema>;

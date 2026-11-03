@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/common/page-header";
-import { AddMemberButton, TeamList } from "@/components/team/team-manager";
+import { AddMemberButton, TeamList, TeamPinButton } from "@/components/team/team-manager";
 import { TeamNav } from "@/components/team/team-nav";
 import { requireMaster } from "@/lib/server/auth/current-user";
 import { getTeam } from "@/lib/server/queries/team";
@@ -15,7 +15,12 @@ export default async function TeamPage() {
       <PageHeader
         title="Team"
         description="Only you (Master Admin) can manage the team: add people, change names and PINs. Use Roles & permissions to tick what each person can do."
-        actions={<AddMemberButton />}
+        actions={
+          <>
+            <TeamPinButton />
+            <AddMemberButton />
+          </>
+        }
       />
       <TeamNav />
       <TeamList team={team} currentUserId={user.id} />

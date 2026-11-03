@@ -18,6 +18,8 @@ export type CurrentUser = {
   isMaster: boolean;
   /** Ticked permissions (ignored for ADMIN access, which has everything). */
   permissions: string[];
+  /** Restricted brands (e.g. Bexven) this person may see. */
+  brandAccess: string[];
   avatarColor: string;
   avatarAssetId: string | null;
   mustChangePin: boolean;
@@ -33,9 +35,9 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!session) return null;
   const user = await db.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, name: true, role: true, permissions: true, adminAccess: true, isMaster: true, avatarColor: true, avatarAssetId: true, mustChangePin: true, active: true, sessionVersion: true },
+    select: { id: true, name: true, role: true, permissions: true, brandAccess: true, removedAt: true, adminAccess: true, isMaster: true, avatarColor: true, avatarAssetId: true, mustChangePin: true, active: true, sessionVersion: true },
   });
-  if (!user || !user.active || user.sessionVersion !== session.version) return null;
+  if (!user || !user.active || user.removedAt || user.sessionVersion !== session.version) return null;
   return {
     id: user.id,
     name: user.name,
@@ -44,6 +46,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     adminAccess: user.adminAccess,
     isMaster: user.isMaster,
     permissions: normalizePermissions(user.permissions),
+    brandAccess: user.brandAccess,
     avatarColor: user.avatarColor,
     avatarAssetId: user.avatarAssetId,
     mustChangePin: user.mustChangePin,

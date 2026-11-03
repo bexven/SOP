@@ -1,7 +1,8 @@
 import "server-only";
 import { isOpenStatus } from "@/lib/domain/assignment";
 import { computeMargin, marginBand } from "@/lib/domain/margin";
-import { canSeeProduct, type Subject } from "@/lib/domain/permissions";
+import { canSeeProduct, type BrandViewer, type Subject } from "@/lib/domain/permissions";
+import { productScope } from "../services/brand-scope";
 import { deriveStepper } from "@/lib/domain/stepper";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
@@ -9,9 +10,10 @@ import { getMarginThresholds, laneProgress } from "./product";
 
 /** Every product as a compact row (pipeline cards, products table, palette). */
 /** Every product the viewer may see, as a compact row (pipeline, table, dashboard). */
-export async function listProducts(viewer: Subject) {
+export async function listProducts(viewer: Subject & BrandViewer) {
   const [products, thresholds] = await Promise.all([
     db.product.findMany({
+      where: productScope(viewer),
       orderBy: [{ updatedAt: "desc" }],
       include: {
         campaign: { select: { status: true } },

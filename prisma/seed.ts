@@ -17,7 +17,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import type { Role, TaskType } from "../src/generated/prisma/enums";
 import { isValidPinFormat, isWeakPin } from "../src/lib/domain/pin";
-import { defaultPermissions } from "../src/lib/domain/permissions";
+import { CAPABILITY_KEYS, defaultPermissions } from "../src/lib/domain/permissions";
 
 const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
 if (!url) throw new Error("Set DIRECT_URL (or DATABASE_URL) before seeding.");
@@ -34,15 +34,18 @@ function requirePin(name: string): string {
 const TEAM: { name: string; role: Role; avatarColor: string; adminAccess?: boolean; isMaster?: boolean }[] = [
   { name: "Sk Moni", role: "ADMIN", avatarColor: "indigo", isMaster: true },
   { name: "Inamul", role: "REVIEWER", avatarColor: "violet" },
-  { name: "Jewel", role: "RESEARCHER", avatarColor: "sky", adminAccess: true },
+  { name: "Jewel Rana", role: "ADMIN", avatarColor: "sky" },
+  { name: "Shohagh", role: "MEDIA_BUYER", avatarColor: "emerald" },
   { name: "Rony", role: "VIDEO_EDITOR", avatarColor: "rose" },
-  { name: "Kamrul", role: "IMAGE_DESIGNER", avatarColor: "orange" },
-  { name: "Shohag", role: "MEDIA_BUYER", avatarColor: "emerald" },
+  { name: "Shakil", role: "IMAGE_DESIGNER", avatarColor: "teal" },
+  { name: "Antu", role: "CUSTOMER_SUPPORT", avatarColor: "amber" },
+  { name: "Fahim", role: "OFFICE_SECRETARY", avatarColor: "fuchsia" },
 ];
 
 const BRANDS = [
-  { name: "Timtom", color: "#0369A1" },
-  { name: "Mr.WOW", color: "#15803D" },
+  { name: "Timtom", color: "#0369A1", restricted: false },
+  { name: "Mr.WOW", color: "#15803D", restricted: false },
+  { name: "Bexven", color: "#111827", restricted: true },
 ];
 
 // Starting values only — Admin should confirm them in Settings.
@@ -97,7 +100,7 @@ async function seedTeam() {
         role: person.role,
         avatarColor: person.avatarColor,
         adminAccess: Boolean(person.adminAccess),
-        permissions: defaultPermissions(person.role),
+        permissions: person.name === "Inamul" ? CAPABILITY_KEYS : defaultPermissions(person.role),
         isMaster,
         pinHash: isMaster ? adminHash : defaultHash,
         mustChangePin: !isMaster,

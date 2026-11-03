@@ -6,6 +6,6 @@ import { getBrands } from "@/lib/server/queries/product";
 export const metadata: Metadata = { title: "Brands" };
 
 export default async function BrandsPage() {
-  await requireCapability("settings.manage");
-  return <BrandEditor brands={await getBrands()} />;
+  const user = await requireCapability("settings.manage");
+  return <BrandEditor brands={await getBrands(user)} canRestrict={user.isMaster} />;
 }

@@ -51,7 +51,25 @@ export async function notify(tx: Tx, actorId: string, items: NotificationInput[]
       productId: n.productId ?? null,
       taskId: n.taskId ?? null,
     }));
-  if (data.length) await tx.notification.createMany({ data });
+  if (data.length === 0) return;
+  // Restricted brands (e.g. Bexven): never tell people who can't see the product.
+  const productIds = [...new Set(data.map((d) => d.productId).filter((id): id is string => Boolean(id)))];
+  const restricted = productIds.length
+    ? await tx.product.findMany({ where: { id: { in: productIds }, brand: { restricted: true } }, select: { id: true, brandId: true } })
+    : [];
+  let allowed = data;
+  if (restricted.length) {
+    const brandOf = new Map(restricted.map((p) => [p.id, p.brandId!]));
+    const users = await tx.user.findMany({ where: { id: { in: [...new Set(data.map((d) => d.userId))] } }, select: { id: true, isMaster: true, brandAccess: true } });
+    const byId = new Map(users.map((u) => [u.id, u]));
+    allowed = data.filter((d) => {
+      const brandId = d.productId ? brandOf.get(d.productId) : undefined;
+      if (!brandId) return true;
+      const u = byId.get(d.userId);
+      return Boolean(u && (u.isMaster || u.brandAccess.includes(brandId)));
+    });
+  }
+  if (allowed.length) await tx.notification.createMany({ data: allowed });
 }
 
 export async function activeAdminIds(tx: Tx): Promise<string[]> {

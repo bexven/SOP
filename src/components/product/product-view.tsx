@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PencilIcon } from "lucide-react";
 import type { Role } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
@@ -115,6 +115,11 @@ export function ProductView({
   const [stepPick, setStepPick] = useState<number | null>(null);
   const shownStep = stepPick !== null && STEP_PHASE[stepPick] === phase ? stepPick : STEP_PHASE.lastIndexOf(phase);
 
+  // Phones: keep the open tab visible in the swipeable tab row.
+  useEffect(() => {
+    document.querySelector<HTMLElement>('[aria-label="Product phases"] [data-state="active"]')?.scrollIntoView({ block: "nearest", inline: "center", behavior: reduce ? "auto" : "smooth" });
+  }, [phase, reduce]);
+
   function choose(next: string) {
     setPhase(next as Phase);
     setStepPick(null);
@@ -158,12 +163,12 @@ export function ProductView({
         <ReviewPhase product={product} viewer={viewer} />
       ) : (
         <Tabs value={phase} onValueChange={choose} id="product-phases" className="scroll-mt-24">
-          <TabsList aria-label="Product phases" className="relative max-w-full overflow-x-auto">
+          <TabsList aria-label="Product phases" className="no-scrollbar relative flex w-full max-w-full justify-start overflow-x-auto sm:inline-flex sm:w-auto">
             {available.map((p) => (
               <TabsTrigger
                 key={p}
                 value={p}
-                className="relative h-8 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                className="relative h-8 shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none"
               >
                 {phase === p ? (
                   <motion.span

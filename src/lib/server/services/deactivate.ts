@@ -15,10 +15,16 @@ export async function redistributeWork(tx: Tx, userId: string, actorId: string) 
   const now = new Date();
   const tasks = await tx.task.findMany({
     where: { assigneeId: userId, status: { in: [...OPEN_STATUSES] } },
-    include: { product: { select: { id: true, name: true } } },
+    include: { product: { select: { id: true, name: true, brandId: true } } },
     orderBy: { createdAt: "asc" },
   });
-  const picks = await autoAssign(tx, tasks.map((t) => t.role), now);
+  // One brand at a time, so restricted brands only go to people with access.
+  const picks: (string | null)[] = new Array(tasks.length).fill(null);
+  for (const brandId of [...new Set(tasks.map((t) => t.product.brandId))]) {
+    const idx = tasks.flatMap((t, i) => (t.product.brandId === brandId ? [i] : []));
+    const got = await autoAssign(tx, idx.map((i) => tasks[i]!.role), now, { brandId });
+    idx.forEach((i, k) => (picks[i] = got[k] ?? null));
+  }
   const admins = await activeAdminIds(tx);
   const events: EventInput[] = [];
   const notes: NotificationInput[] = [];
@@ -59,10 +65,11 @@ export async function redistributeWork(tx: Tx, userId: string, actorId: string) 
 
   const owned = await tx.product.findMany({
     where: { mediaBuyerId: userId, stage: { notIn: ["COMPLETED", "KILLED"] } },
-    select: { id: true, name: true },
+    select: { id: true, name: true, brandId: true },
   });
   if (owned.length) {
-    const owners = await autoAssign(tx, owned.map(() => "MEDIA_BUYER" as const), now);
+    const owners: (string | null)[] = [];
+    for (const p of owned) owners.push((await autoAssign(tx, ["MEDIA_BUYER"], now, { brandId: p.brandId }))[0] ?? null);
     for (const [i, p] of owned.entries()) {
       await tx.product.update({ where: { id: p.id }, data: { mediaBuyerId: owners[i] ?? null } });
       notes.push({

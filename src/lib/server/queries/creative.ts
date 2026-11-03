@@ -3,14 +3,17 @@ import type { Role } from "@/generated/prisma/enums";
 import { IMAGE_LANE, VIDEO_LANE } from "@/lib/domain/labels";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
+import { taskScope } from "../services/brand-scope";
+import type { BrandViewer } from "@/lib/domain/permissions";
 
 /** Open creative work, split into the image and video lanes. */
-export async function getCreativeBoard(user: { id: string; role: Role; jobRole: Role }, scope: "mine" | "all") {
+export async function getCreativeBoard(user: { id: string; role: Role; jobRole: Role } & BrandViewer, scope: "mine" | "all") {
   const lanes: ("images" | "videos")[] =
     user.jobRole === "IMAGE_DESIGNER" ? ["images"] : user.jobRole === "VIDEO_EDITOR" ? ["videos"] : ["images", "videos"];
   const types = [...(lanes.includes("images") ? IMAGE_LANE : []), ...(lanes.includes("videos") ? VIDEO_LANE : [])];
   const tasks = await db.task.findMany({
     where: {
+      ...taskScope(user),
       type: { in: types },
       status: { in: ["TODO", "REVISION", "SUBMITTED", "LOCKED"] },
       ...(scope === "mine" ? { assigneeId: user.id } : {}),

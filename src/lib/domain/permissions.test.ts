@@ -70,3 +70,18 @@ describe("early-stage visibility", () => {
     expect(canSeeProduct(as("MEDIA_BUYER"), "RESEARCH", null)).toBe(true);
   });
 });
+
+import { canSeeBrand } from "./permissions";
+describe("restricted brands", () => {
+  const bexven = { id: "bx", restricted: true };
+  const timtom = { id: "tt", restricted: false };
+  it("normal brands are visible to everyone", () => {
+    expect(canSeeBrand({ isMaster: false, brandAccess: [] }, timtom)).toBe(true);
+    expect(canSeeBrand({ isMaster: false, brandAccess: [] }, null)).toBe(true);
+  });
+  it("restricted brands only for the Master Admin and people given access — not for other admins", () => {
+    expect(canSeeBrand({ isMaster: true, brandAccess: [] }, bexven)).toBe(true);
+    expect(canSeeBrand({ isMaster: false, brandAccess: ["bx"] }, bexven)).toBe(true);
+    expect(canSeeBrand({ isMaster: false, brandAccess: ["tt"] }, bexven)).toBe(false);
+  });
+});

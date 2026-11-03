@@ -99,7 +99,55 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
               </p>
             ) : null
           ) : (
-            <div className="surface relative overflow-x-auto rounded-panel">
+            <>
+            <ul className="grid gap-2 md:hidden" aria-label="Orders">
+              {product.orders.map((o) => {
+                const m = orderMath(o);
+                return (
+                  <li key={o.id} className="surface rounded-panel p-3.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-body font-semibold text-slate-900">
+                          <span className="num">#{o.number}</span> · <span className="num">{o.quantity.toLocaleString("en-IN")}</span> units
+                        </p>
+                        <p className="num text-meta font-normal text-slate-500">{formatDate(new Date(`${o.orderedOn}T00:00:00Z`))}</p>
+                      </div>
+                      {canManage ? (
+                        <Button variant="ghost" size="icon-sm" aria-label={`Edit order ${o.number}`} onClick={() => setEditing(o)} disabled={Boolean(blocked)}>
+                          <PencilIcon />
+                        </Button>
+                      ) : null}
+                    </div>
+                    {o.note ? <p className="mt-1 text-meta font-normal [overflow-wrap:anywhere] text-slate-600">{o.note}</p> : null}
+                    <dl className="mt-3 grid grid-cols-3 gap-2 text-meta">
+                      {[
+                        ["Buying", o.buyingPriceBdt],
+                        ["Shipping", o.shippingCostBdt],
+                        ["Selling", o.sellingPriceBdt],
+                      ].map(([k, v]) => (
+                        <div key={k} className="rounded-control bg-slate-50 px-2 py-1.5">
+                          <dt className="text-slate-500">{k} / unit</dt>
+                          <dd className="num text-body font-medium text-slate-900">{formatBdt(v)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <dl className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-2 text-meta">
+                      <div>
+                        <dt className="text-slate-500">Total cost</dt>
+                        <dd className="num text-body font-medium text-slate-900">{m ? formatBdt(m.totalCost) : "—"}</dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-slate-500">Expected profit{m?.marginPct ? ` · ${m.marginPct}%` : ""}</dt>
+                        <dd className={cn("num text-body font-semibold", m && Number(m.expectedProfit) < 0 ? "text-rose-700" : "text-emerald-800")}>
+                          {m ? formatBdt(m.expectedProfit) : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="surface relative hidden overflow-x-auto rounded-panel md:block">
               <table className="w-full min-w-[46rem] text-left text-body">
                 <thead className="border-b border-slate-100 text-meta text-slate-500">
                   <tr>
@@ -149,6 +197,7 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
                 </tbody>
               </table>
             </div>
+            </>
           )}
           <p className="text-meta font-normal text-slate-500">
             Each order keeps its own prices, separate from the research prices. Profit = selling − buying − shipping − courier ({product.thresholds?.courierChargePct ?? product.courierChargePct}% of selling).

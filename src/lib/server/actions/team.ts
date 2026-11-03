@@ -11,6 +11,8 @@ import {
   unlockSchema,
   updateMemberSchema,
   accessSchema,
+  removeMemberSchema,
+  teamPinSchema,
 } from "@/lib/validation/team";
 import { defaultPermissions, normalizePermissions } from "@/lib/domain/permissions";
 import { ActionError, defineAction } from "../action";
@@ -157,7 +159,7 @@ export const unlockMemberAction = defineAction({
 export const setAccessAction = defineAction({
   masterOnly: true,
   schema: accessSchema,
-  run: async ({ id, role, adminAccess, permissions }, { user }) => {
+  run: async ({ id, role, adminAccess, permissions, brandAccess }, { user }) => {
     const target = await db.user.findUnique({ where: { id } });
     if (!target) throw new ActionError("That person no longer exists.");
     if (target.isMaster) throw new ActionError("The Master Admin always has every permission.");
@@ -167,9 +169,45 @@ export const setAccessAction = defineAction({
     }
     await db.user.update({
       where: { id },
-      data: { role, adminAccess: role === "ADMIN" ? false : adminAccess, permissions: normalizePermissions(permissions) },
+      data: {
+        role,
+        adminAccess: role === "ADMIN" ? false : adminAccess,
+        permissions: normalizePermissions(permissions),
+        brandAccess: (await db.brand.findMany({ where: { id: { in: brandAccess }, restricted: true }, select: { id: true } })).map((b) => b.id),
+      },
     });
     revalidatePath("/", "layout");
     return done(`${target.name}'s access saved`);
+  },
+});
+
+/** Removes someone who is already inactive: hidden from the team and every list; their past work stays. */
+export const removeMemberAction = defineAction({
+  masterOnly: true,
+  schema: removeMemberSchema,
+  run: async ({ id }) => {
+    const target = await db.user.findUnique({ where: { id } });
+    if (!target) throw new ActionError("That person no longer exists.");
+    if (target.isMaster) throw new ActionError("The Master Admin can't be removed.");
+    if (target.active) throw new ActionError("Deactivate them first — that hands their open work to others.");
+    await db.$transaction([
+      db.user.update({ where: { id }, data: { removedAt: new Date(), telegramChatId: null, telegramLinkCode: null, sessionVersion: { increment: 1 } } }),
+      db.pushDevice.deleteMany({ where: { userId: id } }),
+    ]);
+    return done(`${target.name} removed from the team`);
+  },
+});
+
+/** Sets one temporary PIN for everyone except the Master Admin. They choose their own at next sign-in. */
+export const setTeamPinAction = defineAction({
+  masterOnly: true,
+  schema: teamPinSchema,
+  run: async ({ pin }) => {
+    const hash = await hashPin(pin);
+    const r = await db.user.updateMany({
+      where: { isMaster: false, active: true, removedAt: null },
+      data: { pinHash: hash, mustChangePin: true, failedPinAttempts: 0, lockedUntil: null, sessionVersion: { increment: 1 } },
+    });
+    return done(`Temporary PIN set for ${r.count} people. Each will choose their own at next sign-in.`);
   },
 });

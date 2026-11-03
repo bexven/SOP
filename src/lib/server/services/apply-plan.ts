@@ -23,7 +23,7 @@ const CHANGE_EVENT: Partial<Record<TaskChange["kind"], EventType>> = {
 
 export type ApplyContext = {
   actorId: string;
-  product: { id: string; name: string; creativeBrief: string | null };
+  product: { id: string; name: string; creativeBrief: string | null; brandId?: string | null };
   now: Date;
 };
 
@@ -148,7 +148,9 @@ export async function applyPlan(tx: Tx, plan: Plan, ctx: ApplyContext): Promise<
       (await tx.user.findMany({ where: { id: { in: explicitIds }, active: true }, select: { id: true } })).map((u) => u.id),
     );
     const needsAuto = plan.newTasks.filter((t) => !(t.assigneeId && activeExplicit.has(t.assigneeId)));
-    const picks = await autoAssign(tx, needsAuto.map((t) => t.role), now);
+    const brandId =
+      ctx.product.brandId !== undefined ? ctx.product.brandId : (await tx.product.findUnique({ where: { id: ctx.product.id }, select: { brandId: true } }))?.brandId;
+    const picks = await autoAssign(tx, needsAuto.map((t) => t.role), now, { brandId });
     const autoByKey = new Map(needsAuto.map((t, i) => [t.key, picks[i] ?? null]));
 
     const templates = await tx.checklistTemplateItem.findMany({

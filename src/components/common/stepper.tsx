@@ -28,7 +28,9 @@ export function PipelineStepper({
   const reduce = useReducedMotion();
   const id = useId();
   return (
-    <ol className={cn("relative flex w-full items-start overflow-x-auto pb-0.5", className)} aria-label="Pipeline progress">
+    <>
+      <CompactStepper stepper={stepper} onSelect={onSelect} canSelect={canSelect} selected={selected} className={className} />
+    <ol className={cn("relative hidden w-full items-start overflow-x-auto pb-0.5 sm:flex", className)} aria-label="Pipeline progress">
       {stepper.steps.map((step, i) => {
         const done = step.state === "done";
         const current = step.state === "current";
@@ -102,6 +104,90 @@ export function PipelineStepper({
         );
       })}
     </ol>
+    </>
+  );
+}
+
+/** Phones: six dots that fit the width, with the shown (or current) step's name underneath. */
+function CompactStepper({
+  stepper,
+  onSelect,
+  canSelect,
+  selected,
+  className,
+}: {
+  stepper: Stepper;
+  onSelect?: (index: number) => void;
+  canSelect?: (index: number) => boolean;
+  selected?: number[];
+  className?: string;
+}) {
+  const reduce = useReducedMotion();
+  const shown = selected?.[0] ?? Math.min(stepper.index, stepper.steps.length - 1);
+  const step = stepper.steps[shown];
+  return (
+    <div className={cn("grid gap-2 px-1 py-1 sm:hidden", className)}>
+      <ol className="flex items-center" aria-label="Pipeline progress">
+        {stepper.steps.map((s, i) => {
+          const done = s.state === "done";
+          const current = s.state === "current";
+          const killed = s.state === "killed";
+          const clickable = Boolean(onSelect && canSelect?.(i));
+          const isShown = i === shown;
+          const dot = (
+            <span
+              className={cn(
+                "relative flex size-7 items-center justify-center rounded-full text-[11px] font-semibold ring-1 transition-[transform,box-shadow] duration-200",
+                done && "bg-primary text-white ring-primary",
+                current && "bg-white text-primary ring-2 ring-primary",
+                killed && "bg-rose-600 text-white ring-rose-600",
+                s.state === "upcoming" && "bg-white text-slate-500 ring-slate-300",
+                isShown && "scale-110 shadow-[0_0_0_4px_var(--color-accent)]",
+              )}
+            >
+              {done ? <CheckIcon className="size-3.5" /> : killed ? <XIcon className="size-3.5" /> : i + 1}
+            </span>
+          );
+          return (
+            <li key={s.label} className={cn("flex items-center", i < stepper.steps.length - 1 && "flex-1")} aria-current={current ? "step" : undefined}>
+              {clickable ? (
+                <button type="button" onClick={() => onSelect!(i)} aria-pressed={isShown} aria-label={`${s.label} (${s.state})`} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-90">
+                  {dot}
+                </button>
+              ) : (
+                <span aria-label={`${s.label} (${s.state})`}>{dot}</span>
+              )}
+              {i < stepper.steps.length - 1 ? <span className={cn("mx-1 h-[2px] flex-1 rounded-full", done ? "bg-primary" : "bg-slate-200")} aria-hidden /> : null}
+            </li>
+          );
+        })}
+      </ol>
+      {step ? (
+        <motion.p
+          key={shown}
+          initial={reduce ? false : { opacity: 0, y: 3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 }}
+          className="flex items-center justify-between gap-2 text-meta"
+        >
+          <span className={cn("font-semibold", step.state === "killed" ? "text-rose-700" : "text-slate-900")}>
+            <span className="num font-normal text-slate-500">Step {shown + 1} of {stepper.steps.length} · </span>
+            {step.label}
+          </span>
+          <span className="num font-normal text-slate-500">
+            {step.state === "current" && stepper.progress
+              ? `${stepper.progress.approved}/${stepper.progress.total} approved`
+              : step.state === "done"
+                ? "Done"
+                : step.state === "killed"
+                  ? "Killed here"
+                  : step.state === "current"
+                    ? "Now"
+                    : "Later"}
+          </span>
+        </motion.p>
+      ) : null}
+    </div>
   );
 }
 

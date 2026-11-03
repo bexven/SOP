@@ -141,12 +141,17 @@ export async function flushAlerts() {
 // ── Morning summary ──────────────────────────────────────────────────────────
 
 /** What's waiting on one person right now. */
-export async function digestFor(user: { id: string; name: string; role: string; adminAccess: boolean; isMaster: boolean; permissions: string[] }, now = new Date()): Promise<Digest | null> {
+export async function digestFor(
+  user: { id: string; name: string; role: string; adminAccess: boolean; isMaster: boolean; permissions: string[]; brandAccess: string[] },
+  now = new Date(),
+): Promise<Digest | null> {
   const subject = {
     id: user.id,
     role: (user.role === "ADMIN" || user.adminAccess || user.isMaster ? "ADMIN" : user.role) as "ADMIN",
     jobRole: user.role as "ADMIN",
     permissions: normalizePermissions(user.permissions),
+    isMaster: user.isMaster,
+    brandAccess: user.brandAccess,
   };
   const running = { stage: { notIn: ["COMPLETED", "KILLED"] as ("COMPLETED" | "KILLED")[] } };
   const [mine, review, mentions] = await Promise.all([
@@ -171,7 +176,7 @@ export async function digestFor(user: { id: string; name: string; role: string; 
   return buildDigest(user.name, counts);
 }
 
-const PERSON = { id: true, name: true, role: true, adminAccess: true, isMaster: true, permissions: true, telegramChatId: true } as const;
+const PERSON = { id: true, name: true, role: true, adminAccess: true, isMaster: true, permissions: true, brandAccess: true, telegramChatId: true } as const;
 
 export function digestAlert(d: Digest): Alert {
   return { title: d.title, body: d.lines.join("\n"), url: "/dashboard", tag: "morning-summary" };
@@ -191,7 +196,7 @@ export async function runMorningDigest(now = new Date()) {
   });
   if (claimed.count !== 1) return { sent: 0, skipped: "already sent" as const };
 
-  const people = await db.user.findMany({ where: { active: true, alertsDigest: true }, select: PERSON });
+  const people = await db.user.findMany({ where: { active: true, removedAt: null, alertsDigest: true }, select: PERSON });
   let sent = 0;
   for (const p of people) {
     const d = await digestFor(p, now);

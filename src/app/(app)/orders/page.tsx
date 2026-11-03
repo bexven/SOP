@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Orders" };
 
 export default async function OrdersPage() {
   const user = await requireUser();
-  const board = await getOrdersBoard();
+  const board = await getOrdersBoard(user);
   const canManage = can(user, "orders.manage");
 
   return (
