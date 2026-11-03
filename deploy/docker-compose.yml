@@ -34,7 +34,7 @@ services:
       - traefik.http.routers.sop.tls.certresolver=letsencrypt
       - traefik.http.services.sop.loadbalancer.server.port=3000
     ports:
-      - 8097:3000
+      - 127.0.0.1:8097:3000
 
   migrate:
     image: sop-migrate:${APP_TAG:-latest}

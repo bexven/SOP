@@ -5,9 +5,13 @@
 #   curl -fsSL https://raw.githubusercontent.com/bexven/sop/main/deploy/setup.sh -o setup.sh
 #   sudo bash setup.sh
 #
-# Runs the app and its database in Docker containers, with automatic HTTPS
-# (Caddy), nightly backups, the 10:00 morning summary, and automatic updates
-# whenever a new version is pushed to the live repo. Safe to run again.
+# Runs the app and its database in Docker containers, with nightly backups,
+# the 10:00 morning summary, and automatic updates whenever a new version is
+# pushed to the live repo. Safe to run again.
+#
+# HTTPS comes from the server's existing Traefik (entrypoint "websecure",
+# certresolver "letsencrypt"), which reads the labels on the app container.
+# The app is published only on 127.0.0.1:8097 (health checks, morning cron).
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo "Please run as root:  sudo bash setup.sh"; exit 1; }
@@ -85,15 +89,6 @@ EOF
 else
   ok "kept $SOP_HOME/.env"
 fi
-cat > "$SOP_HOME/Caddyfile" <<EOF
-${DOMAIN} {
-	encode zstd gzip
-	request_body {
-		max_size 25MB
-	}
-	reverse_proxy app:3000
-}
-EOF
 docker volume inspect sop-db-data >/dev/null 2>&1 || docker volume create sop-db-data >/dev/null
 ok "data volume 'sop-db-data' (kept across every update)"
 
@@ -119,8 +114,9 @@ cat <<EOF
 
 ────────────────────────────────────────────────────────────────────────
  Done.  https://${DOMAIN}
- (The domain's A record must point at this server; the HTTPS certificate
-  is issued automatically on the first visit.)
+ (The domain's A record must point at this server. Traefik must be running
+  with a "websecure" entrypoint and a "letsencrypt" certresolver; it issues
+  the HTTPS certificate automatically.)
 
  Bring your current data from Neon:  sudo sop import "<Neon direct connection string>"
  Everything else:                     sop help

@@ -116,7 +116,6 @@ update() {
     docker image rm -f "sop-app:$sha" "sop-migrate:$sha" >/dev/null 2>&1 || true
     fail "The new version didn't start (sop logs). Previous version restored."
   fi
-  # compose --profile web up -d caddy >/dev/null
 
   # Keep the last few versions for rollback, remove older ones.
   for repo in sop-app sop-migrate; do

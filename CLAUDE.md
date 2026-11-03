@@ -35,7 +35,8 @@ Prisma 7 + PostgreSQL via `@prisma/adapter-pg` · zod v4 · Vitest · Geist font
   (**sop.bexven.tech**, Docker on the owner's VPS, real data). "Push it to live domain" = push the approved
   `sop` main to `sop-domain-live` main (`git push live main`; remote `live`). The server polls every 5 min.
 - Live stack (`Dockerfile`, `deploy/docker-compose.yml`): `db` (postgres:17, external volume `sop-db-data`),
-  `app` (standalone image `sop-app:<sha>`), `migrate` (one-off `prisma migrate deploy`), `caddy` (HTTPS).
+  `app` (standalone image `sop-app:<sha>`), `migrate` (one-off `prisma migrate deploy`). HTTPS = the server's existing
+  Traefik (labels on `app`); `app` is published on `127.0.0.1:8097` only.
   `deploy/setup.sh` sets up the server once; `deploy/sop.sh` is the `sop` command (update, rollback, backup,
   restore, import, status, logs). Update = backup → build → migrate → switch → `/api/health` release check →
   switch back on failure. **Migrations must stay additive / backwards-compatible.**

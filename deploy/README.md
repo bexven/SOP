@@ -12,10 +12,13 @@ version is pushed to `sop-domain-live`. Within ~5 minutes the server picks it up
 automatic switch-back if anything fails.** The database lives in its own container and volume, so updates
 never touch your data.
 
-## On the server: three containers
+## On the server
 - **db** — PostgreSQL 17. Data in the Docker volume `sop-db-data` (external: `docker compose down` can't delete it).
-- **app** — Product SOP.
-- **caddy** — HTTPS for `sop.bexven.tech` (free certificate, renewed automatically).
+- **app** — Product SOP. Published only on `127.0.0.1:8097` (used by health checks and the morning summary;
+  not reachable from the internet).
+- **Traefik** (already on the server, not part of this stack) — HTTPS for `sop.bexven.tech`. It reads the
+  `traefik.*` labels on the app container (entrypoint `websecure`, certresolver `letsencrypt`) and renews the
+  certificate automatically.
 
 ## One-time setup (about 20 minutes)
 1. **VPS:** Hostinger KVM 1 or 2 with **Ubuntu 24.04** (the "with Docker" template is fine).
@@ -29,7 +32,7 @@ never touch your data.
    ```
    Press Enter for `sop.bexven.tech`. The script shows a **deploy key** — add it in GitHub →
    `bexven/sop-domain-live` → Settings → **Deploy keys** → Add (title `sop-server`, *no* write access) — then press Enter.
-   It builds and starts everything.
+   It builds and starts everything. Traefik must already be running (see above).
 4. **Bring the data from Neon:** Vercel → project → Settings → Environment Variables → copy
    `DATABASE_URL_UNPOOLED` (no `-pooler`). On the server:
    ```bash
