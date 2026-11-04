@@ -14,11 +14,12 @@ type Values = {
   usdToBdtRate: string;
   courierChargePct: string;
   shippingRatePerKgBdt: string;
+  seaShippingRatePerKgBdt: string;
   healthyMarginPct: string;
   thinMarginPct: string;
 };
 
-const EMPTY: Values = { rmbToBdtRate: "", usdToBdtRate: "", courierChargePct: "2", shippingRatePerKgBdt: "", healthyMarginPct: "", thinMarginPct: "" };
+const EMPTY: Values = { rmbToBdtRate: "", usdToBdtRate: "", courierChargePct: "2", shippingRatePerKgBdt: "", seaShippingRatePerKgBdt: "", healthyMarginPct: "", thinMarginPct: "" };
 
 export function GeneralSettingsForm({ initial }: { initial: (Values & { updatedAt: string }) | null }) {
   const [values, setValues] = useState<Values>(initial ?? EMPTY);
@@ -94,7 +95,9 @@ export function GeneralSettingsForm({ initial }: { initial: (Values & { updatedA
           {num("rmbToBdtRate", "RMB → BDT rate", { suffix: "BDT", hint: "Reference only. Product prices are entered in BDT." })}
           {num("usdToBdtRate", "USD → BDT rate", { suffix: "BDT", hint: "Taka per 1 US dollar ($)" })}
           {num("courierChargePct", "Courier charge", { suffix: "%", hint: "Percent of the selling price" })}
-          {num("shippingRatePerKgBdt", "Shipping rate per kg", { suffix: "BDT", hint: "Shipping per unit = product weight × this rate" })}
+          <div className="hidden sm:block" />
+          {num("shippingRatePerKgBdt", "Air shipping rate per kg", { suffix: "BDT", hint: "Shipping by Air = weight × this rate" })}
+          {num("seaShippingRatePerKgBdt", "Sea shipping rate per kg", { suffix: "BDT", hint: "Shipping by Sea = weight × this rate" })}
           {num("healthyMarginPct", "Healthy margin", { suffix: "%", hint: "At or above this is green" })}
           {num("thinMarginPct", "Thin margin", { suffix: "%", hint: "Below this is red; in between is amber" })}
         </div>

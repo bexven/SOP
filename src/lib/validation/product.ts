@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Priority } from "@/generated/prisma/enums";
+import { Priority, ShippingMethod } from "@/generated/prisma/enums";
 import { idSchema } from "./common";
 
 const optionalText = (max: number) =>
@@ -59,6 +59,7 @@ export const researchFieldsSchema = z.object({
   imageUrl: optionalUrl,
   chinaPriceBdt: optionalMoney("China price", 1_000_000),
   weightKg: optionalWeight,
+  shippingMethod: z.enum(ShippingMethod).nullable().optional().or(z.literal("")).transform((v) => v || null),
   sellingPriceBdt: optionalMoney("Selling price", 100_000_000),
   problemSolved: optionalText(2000),
   referenceLinks: z.array(urlSchema).max(20, "Up to 20 links").default([]),

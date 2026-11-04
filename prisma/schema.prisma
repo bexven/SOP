@@ -230,34 +230,36 @@ model User {
 }
 
 model Product {
-  id                     String        @id @default(cuid())
+  id                     String          @id @default(cuid())
   /// Human reference, shown as PRD-0042.
-  number                 Int           @unique @default(autoincrement())
+  number                 Int             @unique @default(autoincrement())
   name                   String
   /// Research fields are nullable so a draft can be saved; the submit gate enforces them.
   supplierUrl            String?
   imageUrl               String?
   /// All prices are entered in BDT (owner's rule). Older RMB values were converted with each product's rate.
-  chinaPriceBdt          Decimal?      @db.Decimal(12, 2)
+  chinaPriceBdt          Decimal?        @db.Decimal(12, 2)
   /// Worked out by the server: weightKg × shippingRatePerKgBdt (owner's rule). Older products were entered by hand.
-  shippingPerUnitBdt     Decimal?      @db.Decimal(12, 2)
+  shippingPerUnitBdt     Decimal?        @db.Decimal(12, 2)
   /// Weight of one unit in kg, entered by the researcher.
-  weightKg               Decimal?      @db.Decimal(10, 3)
-  /// Snapshot of Settings.shippingRatePerKgBdt; refreshed while in RESEARCH, frozen at submit.
-  shippingRatePerKgBdt   Decimal?      @db.Decimal(10, 2)
-  sellingPriceBdt        Decimal?      @db.Decimal(12, 2)
+  weightKg               Decimal?        @db.Decimal(10, 3)
+  /// Air or Sea, chosen by the researcher (required to submit).
+  shippingMethod         ShippingMethod?
+  /// Snapshot of the chosen method's rate per kg; refreshed while in RESEARCH, frozen at submit.
+  shippingRatePerKgBdt   Decimal?        @db.Decimal(10, 2)
+  sellingPriceBdt        Decimal?        @db.Decimal(12, 2)
   /// Snapshot; refreshed while in RESEARCH, frozen at submit.
-  rmbToBdtRate           Decimal       @db.Decimal(10, 4)
+  rmbToBdtRate           Decimal         @db.Decimal(10, 4)
   /// Snapshot; refreshed while in RESEARCH, frozen at submit.
-  courierChargePct       Decimal       @db.Decimal(5, 2)
+  courierChargePct       Decimal         @db.Decimal(5, 2)
   targetCustomer         String?
   problemSolved          String?
   sellingAngle           String?
-  referenceLinks         String[]      @default([])
-  priority               Priority      @default(MEDIUM)
-  targetLaunchDate       DateTime?     @db.Date
-  stage                  ProductStage  @default(RESEARCH)
-  stageEnteredAt         DateTime      @default(now())
+  referenceLinks         String[]        @default([])
+  priority               Priority        @default(MEDIUM)
+  targetLaunchDate       DateTime?       @db.Date
+  stage                  ProductStage    @default(RESEARCH)
+  stageEnteredAt         DateTime        @default(now())
   /// Markdown.
   creativeBrief          String?
   creativeBriefUpdatedAt DateTime?
@@ -276,10 +278,10 @@ model Product {
   /// Set when the media buyer moves a well-performing live product to ordering.
   orderingSince          DateTime?
   scalable               ScaleVerdict?
-  scalePlans             ScalePlan[]   @default([])
+  scalePlans             ScalePlan[]     @default([])
   scaleNote              String?
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
   orders        ProductOrder[]
   createdBy     User              @relation("ProductCreator", fields: [createdById], references: [id])
@@ -590,28 +592,35 @@ model LoginAttempt {
 }
 
 /// Single row, id = 1.
+enum ShippingMethod {
+  AIR
+  SEA
+}
+
 model Settings {
-  id                    Int      @id @default(1)
-  rmbToBdtRate          Decimal  @db.Decimal(10, 4)
-  usdToBdtRate          Decimal  @db.Decimal(10, 4)
-  courierChargePct      Decimal  @default(2) @db.Decimal(5, 2)
-  /// Shipping cost per kg (BDT). Shipping per unit = weight × this rate.
-  shippingRatePerKgBdt  Decimal? @db.Decimal(10, 2)
-  healthyMarginPct      Decimal  @db.Decimal(5, 2)
-  thinMarginPct         Decimal  @db.Decimal(5, 2)
+  id                      Int      @id @default(1)
+  rmbToBdtRate            Decimal  @db.Decimal(10, 4)
+  usdToBdtRate            Decimal  @db.Decimal(10, 4)
+  courierChargePct        Decimal  @default(2) @db.Decimal(5, 2)
+  /// AIR shipping cost per kg (BDT). Shipping per unit = weight × the chosen method's rate.
+  shippingRatePerKgBdt    Decimal? @db.Decimal(10, 2)
+  /// SEA shipping cost per kg (BDT).
+  seaShippingRatePerKgBdt Decimal? @db.Decimal(10, 2)
+  healthyMarginPct        Decimal  @db.Decimal(5, 2)
+  thinMarginPct           Decimal  @db.Decimal(5, 2)
   /// Web push keys, created automatically the first time push is used.
-  vapidPublicKey        String?
-  vapidPrivateKey       String?
+  vapidPublicKey          String?
+  vapidPrivateKey         String?
   /// Telegram bot, connected by an Admin in Settings → Notifications.
-  telegramBotToken      String?
-  telegramBotUsername   String?
-  telegramWebhookSecret String?
+  telegramBotToken        String?
+  telegramBotUsername     String?
+  telegramWebhookSecret   String?
   /// Public address of the app (for links in Telegram messages).
-  appUrl                String?
+  appUrl                  String?
   /// Dhaka date (YYYY-MM-DD) of the last morning summary, so it goes out once a day.
-  lastDigestOn          String?
-  updatedById           String?
-  updatedAt             DateTime @updatedAt
+  lastDigestOn            String?
+  updatedById             String?
+  updatedAt               DateTime @updatedAt
 }
 
 /// Store brands (Timtom, Mr.WOW, …). Every new product belongs to one.

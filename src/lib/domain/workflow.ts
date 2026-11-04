@@ -176,6 +176,7 @@ export type ResearchFields = {
   supplierUrl: string | null;
   chinaPriceBdt: string | null;
   weightKg: string | null;
+  shippingMethod: string | null;
   sellingPriceBdt: string | null;
 };
 
@@ -184,6 +185,7 @@ const RESEARCH_REQUIRED: { key: keyof ResearchFields; label: string }[] = [
   { key: "supplierUrl", label: "Supplier link" },
   { key: "chinaPriceBdt", label: "China unit price" },
   { key: "weightKg", label: "Weight (kg)" },
+  { key: "shippingMethod", label: "Shipping by (Air / Sea)" },
   { key: "sellingPriceBdt", label: "Selling price" },
 ];
 

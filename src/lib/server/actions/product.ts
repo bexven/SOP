@@ -26,7 +26,7 @@ import { db } from "../db";
 import { applyPlan } from "../services/apply-plan";
 import { autoAssign } from "../services/assign";
 import { logEvents, notify } from "../services/events";
-import { currentRates, researchData, shippingData } from "../services/product-helpers";
+import { adminShippingData, currentRates, researchData, settingsRateFor, shippingData } from "../services/product-helpers";
 import { loadSnapshot } from "../services/snapshot";
 
 function revalidateProduct() {
@@ -40,6 +40,8 @@ const FIELD_LABELS: Record<string, string> = {
   imageUrl: "image",
   chinaPriceBdt: "China price",
   weightKg: "weight",
+  shippingMethod: "shipping method",
+  shippingRatePerKgBdt: "shipping rate",
   shippingPerUnitBdt: "shipping",
   sellingPriceBdt: "selling price",
   targetCustomer: "target customer",
@@ -58,9 +60,9 @@ export const createProductAction = defineAction({
     const id = await db.$transaction(async (tx) => {
       const brand = await tx.brand.findUnique({ where: { id: input.brandId! } });
       if (!brand?.active) throw new ActionError("Choose one of the brands.");
-      const rates = await currentRates(tx);
+      const { rates, settings } = await currentRates(tx);
       const product = await tx.product.create({
-        data: { ...researchData(input), ...rates, ...shippingData(input.weightKg, rates.shippingRatePerKgBdt), createdById: user.id, stageEnteredAt: now },
+        data: { ...researchData(input), ...rates, ...shippingData(input.weightKg, settingsRateFor(input.shippingMethod, settings)), createdById: user.id, stageEnteredAt: now },
       });
       await tx.stageTransition.create({
         data: { productId: product.id, fromStage: null, toStage: "RESEARCH", actorId: user.id, at: now },
@@ -126,15 +128,12 @@ export const updateResearchAction = defineAction({
       }
 
       // Rate snapshot refreshes on every save while in RESEARCH; after that it stays frozen.
-      const rates = inResearch ? await currentRates(tx) : null;
+      const current = inResearch ? await currentRates(tx) : null;
       const data: Record<string, unknown> = researchData(input);
-      if (inResearch) {
-        Object.assign(data, shippingData(input.weightKg, rates!.shippingRatePerKgBdt));
-      } else if (input.weightKg) {
-        // Admin edit: re-work shipping from the new weight with the product's own rate (older products: today's rate).
-        const rate = product.shippingRatePerKgBdt ?? (await tx.settings.findUnique({ where: { id: 1 } }))?.shippingRatePerKgBdt ?? null;
-        const shipping = shippingData(input.weightKg, rate);
-        if (shipping.shippingPerUnitBdt) Object.assign(data, shipping, product.shippingRatePerKgBdt ? {} : { shippingRatePerKgBdt: rate });
+      if (current) {
+        Object.assign(data, shippingData(input.weightKg, settingsRateFor(input.shippingMethod, current.settings)));
+      } else {
+        Object.assign(data, await adminShippingData(tx, product, input.weightKg, input.shippingMethod));
       }
       const changed = Object.entries(data)
         .filter(([key, value]) => {
@@ -161,7 +160,7 @@ export const updateResearchAction = defineAction({
         if (changed.length) await logEvents(tx, [{ type: "OVERRIDE", actorId: user.id, productId, data: { changes } }]);
         return;
       }
-      await tx.product.update({ where: { id: productId }, data: { ...data, ...rates } });
+      await tx.product.update({ where: { id: productId }, data: { ...data, ...current!.rates } });
       if (changed.length) {
         await logEvents(tx, [
           {
@@ -195,6 +194,7 @@ export const submitResearchAction = defineAction({
           supplierUrl: product.supplierUrl,
           chinaPriceBdt: product.chinaPriceBdt?.toString() ?? null,
           weightKg: product.weightKg?.toString() ?? null,
+          shippingMethod: product.shippingMethod,
           sellingPriceBdt: product.sellingPriceBdt?.toString() ?? null,
         },
         missingRequiredCount(checklist),

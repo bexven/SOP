@@ -2,6 +2,7 @@ import { ExternalLinkIcon, LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ProductDetail } from "@/lib/server/queries/product";
 import { formatBdt, formatDate } from "@/lib/format";
+import { SHIPPING_METHOD_LABELS } from "@/lib/domain/margin";
 import { Thumbnail } from "@/components/common/thumbnail";
 
 function host(url: string): string {
@@ -17,7 +18,10 @@ export function ResearchSummary({ product }: { product: ProductDetail }) {
   const prices: [string, string | null][] = [
     ["China price / unit", product.chinaPriceBdt ? formatBdt(product.chinaPriceBdt) : null],
     ["Weight / unit", product.weightKg ? `${Number(product.weightKg)} kg` : null],
-    ["Shipping / unit", product.shippingPerUnitBdt ? formatBdt(product.shippingPerUnitBdt) : null],
+    [
+      product.shippingMethod ? `Shipping / unit · ${SHIPPING_METHOD_LABELS[product.shippingMethod]}` : "Shipping / unit",
+      product.shippingPerUnitBdt ? formatBdt(product.shippingPerUnitBdt) : null,
+    ],
     ["Selling price", product.sellingPriceBdt ? formatBdt(product.sellingPriceBdt) : null],
   ];
   const texts: [string, string | null][] = [

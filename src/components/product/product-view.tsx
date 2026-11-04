@@ -272,14 +272,13 @@ function ReviewPhase({ product, viewer }: { product: ProductDetail; viewer: View
                     courierChargePct: product.thresholds.courierChargePct,
                     healthyMarginPct: product.thresholds.healthyMarginPct,
                     thinMarginPct: product.thresholds.thinMarginPct,
-                    // In research the rate follows Settings; afterwards the product keeps its own snapshot.
-                    shippingRatePerKgBdt: inResearch
-                      ? product.thresholds.shippingRatePerKgBdt
-                      : (product.shippingRatePerKgBdt ?? product.thresholds.shippingRatePerKgBdt),
+                    airRatePerKgBdt: product.thresholds.shippingRatePerKgBdt,
+                    seaRatePerKgBdt: product.thresholds.seaShippingRatePerKgBdt,
                   }
                 : null
             }
             savedShippingBdt={product.shippingPerUnitBdt}
+            frozenShipping={{ method: product.shippingMethod, rate: product.shippingRatePerKgBdt }}
             initial={{
               brandId: product.brandId ?? "",
               name: product.name,
@@ -287,6 +286,7 @@ function ReviewPhase({ product, viewer }: { product: ProductDetail; viewer: View
               imageUrl: product.imageUrl ?? "",
               chinaPriceBdt: product.chinaPriceBdt ?? "",
               weightKg: product.weightKg ?? "",
+              shippingMethod: product.shippingMethod ?? "",
               sellingPriceBdt: product.sellingPriceBdt ?? "",
               problemSolved: product.problemSolved ?? "",
               referenceLinks: product.referenceLinks,

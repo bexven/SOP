@@ -2,7 +2,7 @@ import Decimal from "decimal.js";
 
 /**
  * Live margin check (pure). All prices are in BDT (owner's rule).
- *   Shipping (BDT)     = weight (kg) × shipping rate per kg (Settings)
+ *   Shipping (BDT)     = weight (kg) × the rate per kg of the chosen method (Air or Sea, Settings)
  *   Landed cost (BDT)  = China unit price + shipping per unit
  *   Courier (BDT)      = selling price × courier %
  *   Gross margin (BDT) = selling price − landed cost − courier
@@ -32,6 +32,19 @@ function parse(value: string | null | undefined): Decimal | null {
   const trimmed = value.trim();
   if (trimmed === "" || !/^-?\d+(\.\d+)?$/.test(trimmed)) return null;
   return new Decimal(trimmed);
+}
+
+export type ShippingMethodKey = "AIR" | "SEA";
+export const SHIPPING_METHOD_LABELS: Record<ShippingMethodKey, string> = { AIR: "Air", SEA: "Sea" };
+
+/** The rate per kg for the chosen method (null until a method is chosen and its rate is set). */
+export function rateForMethod(
+  method: ShippingMethodKey | null | undefined,
+  rates: { air: string | null; sea: string | null },
+): string | null {
+  if (method === "AIR") return rates.air;
+  if (method === "SEA") return rates.sea;
+  return null;
 }
 
 /** Shipping per unit = weight × rate per kg, rounded to paisa. Null until both are valid numbers. */

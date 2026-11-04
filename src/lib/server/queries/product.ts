@@ -24,6 +24,7 @@ export async function getMarginThresholds() {
         rmbToBdtRate: s.rmbToBdtRate.toString(),
         courierChargePct: s.courierChargePct.toString(),
         shippingRatePerKgBdt: str(s.shippingRatePerKgBdt),
+        seaShippingRatePerKgBdt: str(s.seaShippingRatePerKgBdt),
       }
     : null;
 }
@@ -122,6 +123,7 @@ export async function getProductDetail(id: string, viewer: BrandViewer) {
     chinaPriceBdt: str(p.chinaPriceBdt),
     shippingPerUnitBdt: str(p.shippingPerUnitBdt),
     weightKg: str(p.weightKg),
+    shippingMethod: p.shippingMethod,
     shippingRatePerKgBdt: str(p.shippingRatePerKgBdt),
     sellingPriceBdt: str(p.sellingPriceBdt),
     rmbToBdtRate: p.rmbToBdtRate.toString(),

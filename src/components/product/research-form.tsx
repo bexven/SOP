@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightIcon, ExternalLinkIcon, PlusIcon, SaveIcon, XIcon } from "lucide-react";
+import { ArrowRightIcon, ExternalLinkIcon, PlaneIcon, PlusIcon, SaveIcon, ShipIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { Priority } from "@/generated/prisma/enums";
 import { BrandPicker } from "@/components/common/brand-picker";
@@ -13,8 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/domain/labels";
-import { computeMargin, marginBand, shippingFromWeight } from "@/lib/domain/margin";
+import { computeMargin, marginBand, rateForMethod, SHIPPING_METHOD_LABELS, shippingFromWeight, type ShippingMethodKey } from "@/lib/domain/margin";
 import { formatBdt } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { researchBlockers } from "@/lib/domain/workflow";
 import { submitResearchAction, updateResearchAction } from "@/lib/server/actions/product";
 import { MarginCard } from "./margin-card";
@@ -26,6 +27,8 @@ export type ResearchValues = {
   imageUrl: string;
   chinaPriceBdt: string;
   weightKg: string;
+  /** "" until the researcher picks Air or Sea. */
+  shippingMethod: "" | ShippingMethodKey;
   sellingPriceBdt: string;
   problemSolved: string;
   referenceLinks: string[];
@@ -45,9 +48,12 @@ export function ResearchForm({
   mode = "research",
   onDone,
   savedShippingBdt = null,
+  frozenShipping = null,
 }: {
   /** Shipping already saved on the product (older products were entered by hand, without a weight). */
   savedShippingBdt?: string | null;
+  /** After research: the method and rate the product was submitted with (kept while the method stays). */
+  frozenShipping?: { method: ShippingMethodKey | null; rate: string | null } | null;
   brands: { id: string; name: string; color: string; active: boolean }[];
   /** "admin": an Admin editing a product after research (no checklist / submit; changes are logged). */
   mode?: "research" | "admin";
@@ -55,7 +61,7 @@ export function ResearchForm({
   productId: string;
   initial: ResearchValues;
   checklist: ChecklistItemDTO[];
-  rates: { courierChargePct: string; healthyMarginPct: string; thinMarginPct: string; shippingRatePerKgBdt: string | null } | null;
+  rates: { courierChargePct: string; healthyMarginPct: string; thinMarginPct: string; airRatePerKgBdt: string | null; seaRatePerKgBdt: string | null } | null;
   editable: boolean;
 }) {
   const router = useRouter();
@@ -71,9 +77,13 @@ export function ResearchForm({
   const money = (key: "chinaPriceBdt" | "weightKg" | "sellingPriceBdt") => (e: React.ChangeEvent<HTMLInputElement>) =>
     set(key, e.target.value.replace(/[^\d.]/g, ""));
 
-  const ratePerKg = rates?.shippingRatePerKgBdt ?? null;
+  const method = v.shippingMethod || null;
+  const ratePerKg =
+    mode === "admin" && frozenShipping?.rate && method === frozenShipping.method
+      ? frozenShipping.rate
+      : rateForMethod(method, { air: rates?.airRatePerKgBdt ?? null, sea: rates?.seaRatePerKgBdt ?? null });
   // Shipping = weight × rate per kg. Without a weight, an Admin edit keeps the shipping already saved.
-  const shipping = v.weightKg ? shippingFromWeight(v.weightKg, ratePerKg) : mode === "admin" ? savedShippingBdt : null;
+  const shipping = v.weightKg && method ? shippingFromWeight(v.weightKg, ratePerKg) : mode === "admin" ? savedShippingBdt : null;
   const margin = useMemo(
     () =>
       rates
@@ -96,6 +106,7 @@ export function ResearchForm({
       supplierUrl: v.supplierUrl,
       chinaPriceBdt: v.chinaPriceBdt,
       weightKg: v.weightKg,
+      shippingMethod: v.shippingMethod,
       sellingPriceBdt: v.sellingPriceBdt,
     },
     missingChecklist,
@@ -183,6 +194,13 @@ export function ResearchForm({
               />
             </Field>
           </div>
+          <ShippingMethodPicker
+            value={v.shippingMethod}
+            onChange={(m) => set("shippingMethod", m)}
+            rates={{ AIR: rates?.airRatePerKgBdt ?? null, SEA: rates?.seaRatePerKgBdt ?? null }}
+            error={err("shippingMethod")}
+            disabled={disabled}
+          />
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <MoneyField id="r-china" label="China price / unit *" unit="BDT" value={v.chinaPriceBdt} onChange={money("chinaPriceBdt")} error={err("chinaPriceBdt")} disabled={disabled} />
             <MoneyField
@@ -198,7 +216,13 @@ export function ResearchForm({
             <Field
               id="r-ship"
               label="Shipping / unit"
-              hint={ratePerKg ? `Weight × ${formatBdt(ratePerKg)} per kg` : "An Admin sets the rate per kg in Settings"}
+              hint={
+                !method
+                  ? "Choose Air or Sea above"
+                  : ratePerKg
+                    ? `${SHIPPING_METHOD_LABELS[method]}: weight × ${formatBdt(ratePerKg)} per kg`
+                    : `An Admin sets the ${SHIPPING_METHOD_LABELS[method].toLowerCase()} rate per kg in Settings`
+              }
             >
               <div className="relative">
                 <Input
@@ -359,5 +383,62 @@ function MoneyField({
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-meta text-slate-500">{unit}</span>
       </div>
     </Field>
+  );
+}
+
+/** Air or Sea: a two-option radio group showing each method's rate per kg. */
+function ShippingMethodPicker({
+  value,
+  onChange,
+  rates,
+  error,
+  disabled,
+}: {
+  value: "" | ShippingMethodKey;
+  onChange: (m: ShippingMethodKey) => void;
+  rates: Record<ShippingMethodKey, string | null>;
+  error?: string;
+  disabled?: boolean;
+}) {
+  const options: { key: ShippingMethodKey; icon: React.ReactNode }[] = [
+    { key: "AIR", icon: <PlaneIcon className="size-4" aria-hidden /> },
+    { key: "SEA", icon: <ShipIcon className="size-4" aria-hidden /> },
+  ];
+  return (
+    <div className="grid gap-1.5">
+      <span id="r-method-label" className="text-meta text-slate-700 select-none">
+        Shipping by *
+      </span>
+      <div role="radiogroup" aria-labelledby="r-method-label" aria-describedby={error ? "r-method-error" : undefined} className="flex flex-wrap gap-2">
+        {options.map(({ key, icon }) => {
+          const selected = value === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              disabled={disabled}
+              onClick={() => onChange(key)}
+              className={cn(
+                "inline-flex h-10 items-center gap-2 rounded-control px-3.5 text-body font-medium ring-1 transition-colors duration-150 ease-out ring-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed",
+                selected ? "bg-primary text-primary-foreground ring-primary" : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50",
+              )}
+            >
+              {icon}
+              {SHIPPING_METHOD_LABELS[key]}
+              <span className={cn("num text-meta", selected ? "text-primary-foreground" : "text-slate-500")}>
+                {rates[key] ? `${formatBdt(rates[key]!)}/kg` : "rate not set"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {error ? (
+        <p id="r-method-error" className="text-meta text-rose-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shippingFromWeight, computeMargin, marginBand } from "./margin";
+import { rateForMethod, shippingFromWeight, computeMargin, marginBand } from "./margin";
 
 const base = { courierChargePct: "2" };
 
@@ -55,5 +55,17 @@ describe("shippingFromWeight", () => {
     expect(shippingFromWeight("", "750")).toBeNull();
     expect(shippingFromWeight("0.5", null)).toBeNull();
     expect(shippingFromWeight("abc", "750")).toBeNull();
+  });
+});
+
+describe("rateForMethod", () => {
+  const rates = { air: "750", sea: "300" };
+  it("picks the chosen method's rate", () => {
+    expect(rateForMethod("AIR", rates)).toBe("750");
+    expect(rateForMethod("SEA", rates)).toBe("300");
+  });
+  it("is null until a method is chosen", () => {
+    expect(rateForMethod(null, rates)).toBeNull();
+    expect(rateForMethod("SEA", { air: "750", sea: null })).toBeNull();
   });
 });

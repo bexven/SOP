@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/domain/labels";
+import type { ShippingMethodKey } from "@/lib/domain/margin";
 import { overrideProductAction } from "@/lib/server/actions/exceptions";
 import type { ProductDetail } from "@/lib/server/queries/product";
 
@@ -31,6 +32,7 @@ function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: (
     imageUrl: product.imageUrl ?? "",
     chinaPriceBdt: product.chinaPriceBdt ?? "",
     weightKg: product.weightKg ?? "",
+    shippingMethod: (product.shippingMethod ?? "") as "" | ShippingMethodKey,
     sellingPriceBdt: product.sellingPriceBdt ?? "",
     courierChargePct: product.courierChargePct,
     problemSolved: product.problemSolved ?? "",
@@ -104,7 +106,19 @@ function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: (
         {text("supplierUrl", "Supplier link")}
         {text("imageUrl", "Image URL")}
         {text("chinaPriceBdt", "China price / unit (BDT)", { mono: true })}
-        {text("weightKg", "Weight / unit (kg) · shipping = weight × rate per kg", { mono: true })}
+        {text("weightKg", "Weight / unit (kg)", { mono: true })}
+        <Field id="ov-method" label="Shipping by" hint="Shipping = weight × this method's rate per kg">
+          <Select value={v.shippingMethod || "none"} onValueChange={(m) => setV({ ...v, shippingMethod: m === "none" ? "" : (m as ShippingMethodKey) })}>
+            <SelectTrigger id="ov-method" aria-describedby="ov-method-hint">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Not set</SelectItem>
+              <SelectItem value="AIR">Air</SelectItem>
+              <SelectItem value="SEA">Sea</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
         {text("sellingPriceBdt", "Selling price (BDT)", { mono: true })}
         {text("targetLaunchDate", "Target launch (YYYY-MM-DD)", { mono: true })}
         {text("courierChargePct", "Courier % snapshot", { mono: true })}

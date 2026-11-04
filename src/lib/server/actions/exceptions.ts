@@ -9,7 +9,7 @@ import { ActionError, defineAction } from "../action";
 import { db } from "../db";
 import { applyPlan } from "../services/apply-plan";
 import { logEvents, notify } from "../services/events";
-import { researchData, shippingData } from "../services/product-helpers";
+import { adminShippingData, researchData } from "../services/product-helpers";
 import { loadSnapshot } from "../services/snapshot";
 
 function revalidate() {
@@ -104,12 +104,7 @@ export const overrideProductAction = defineAction({
         if (!mb?.active || mb.role !== "MEDIA_BUYER") throw new ActionError("Pick an active media buyer.");
       }
       const next: Record<string, unknown> = { ...researchData(rest), courierChargePct, mediaBuyerId };
-      if (rest.weightKg) {
-        // Shipping = weight × the product's rate per kg (older products: today's rate).
-        const rate = product.shippingRatePerKgBdt ?? (await tx.settings.findUnique({ where: { id: 1 } }))?.shippingRatePerKgBdt ?? null;
-        const shipping = shippingData(rest.weightKg, rate);
-        if (shipping.shippingPerUnitBdt) Object.assign(next, shipping, product.shippingRatePerKgBdt ? {} : { shippingRatePerKgBdt: rate });
-      }
+      Object.assign(next, await adminShippingData(tx, product, rest.weightKg, rest.shippingMethod));
       const changes: Record<string, { old: string | null; new: string | null }> = {};
       for (const [key, value] of Object.entries(next)) {
         const before = normalize((product as Record<string, unknown>)[key]);
