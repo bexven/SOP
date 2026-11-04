@@ -133,7 +133,7 @@ export async function flushAlerts() {
   for (const n of pending) {
     const claimed = await db.notification.updateMany({ where: { id: n.id, pushedAt: null }, data: { pushedAt: new Date() } });
     if (claimed.count !== 1 || !n.user.active || !n.user.alertsInstant) continue;
-    const url = n.productId ? `/products/${n.productId}${n.taskId ? `?task=${n.taskId}` : ""}` : "/dashboard";
+    const url = n.link ?? (n.productId ? `/products/${n.productId}${n.taskId ? `?task=${n.taskId}` : ""}` : "/dashboard");
     await alertPerson(n.user, { title: "Product SOP", body: n.message, url, tag: n.id });
   }
 }

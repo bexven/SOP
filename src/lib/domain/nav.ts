@@ -1,6 +1,6 @@
 import { can, canSeeEarlyStages, type Subject } from "./permissions";
 
-export type NavKey = "dashboard" | "research" | "creative" | "pipeline" | "products" | "orders" | "overview" | "team" | "roles" | "settings";
+export type NavKey = "dashboard" | "tasks" | "research" | "creative" | "pipeline" | "products" | "orders" | "overview" | "team" | "roles" | "settings";
 
 export type NavItem = {
   key: NavKey;
@@ -33,6 +33,7 @@ const ALL: (NavItem & { visible: (s: Subject, ctx: Ctx) => boolean })[] = [
     section: "main",
     visible: () => true,
   },
+  { key: "tasks", label: "Tasks", href: "/tasks", hint: "Team to-dos on a board", section: "main", visible: () => true },
   { key: "pipeline", label: "Pipeline", href: "/pipeline", hint: "Every product by stage", section: "main", visible: () => true },
   { key: "products", label: "Products", href: "/products", hint: "Search all products", section: "main", visible: () => true },
   { key: "orders", label: "Orders", href: "/orders", hint: "Stock orders and scaling", section: "main", visible: () => true },

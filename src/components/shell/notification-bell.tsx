@@ -52,7 +52,8 @@ export function NotificationBell() {
         await markNotificationsReadAction({ ids: [n.id] });
       });
     }
-    if (n.productId) router.push(`/products/${n.productId}`);
+    if (n.link) router.push(n.link);
+    else if (n.productId) router.push(`/products/${n.productId}`);
   }
 
   function markAll() {

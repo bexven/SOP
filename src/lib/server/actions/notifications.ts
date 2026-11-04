@@ -13,6 +13,7 @@ export type NotificationDTO = {
   read: boolean;
   createdAt: string;
   actor: { name: string; avatarColor: string; avatarAssetId: string | null } | null;
+  link: string | null;
 };
 
 /** Polled by the bell (~30 s) — returns the latest notifications and the unread count. */
@@ -34,6 +35,7 @@ export const fetchNotificationsAction = defineAction({
         type: n.type,
         message: n.message,
         productId: n.productId,
+        link: n.link,
         read: n.readAt !== null,
         createdAt: n.createdAt.toISOString(),
         actor: n.actorId ? (actors.get(n.actorId) ?? null) : null,

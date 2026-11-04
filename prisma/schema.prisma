@@ -214,19 +214,22 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  createdProducts Product[]        @relation("ProductCreator")
-  ownedProducts   Product[]        @relation("ProductMediaBuyer")
-  tasks           Task[]           @relation("TaskAssignee")
-  submissions     TaskSubmission[] @relation("Submitter")
-  decisions       TaskSubmission[] @relation("Decider")
+  createdProducts Product[]           @relation("ProductCreator")
+  ownedProducts   Product[]           @relation("ProductMediaBuyer")
+  tasks           Task[]              @relation("TaskAssignee")
+  submissions     TaskSubmission[]    @relation("Submitter")
+  decisions       TaskSubmission[]    @relation("Decider")
   comments        Comment[]
   mentions        CommentMention[]
-  notifications   Notification[]   @relation("NotifRecipient")
+  notifications   Notification[]      @relation("NotifRecipient")
   events          ActivityEvent[]
-  avatarAsset     Asset?           @relation("UserAvatar", fields: [avatarAssetId], references: [id])
+  avatarAsset     Asset?              @relation("UserAvatar", fields: [avatarAssetId], references: [id])
   assetComments   AssetComment[]
-  orders          ProductOrder[]   @relation("OrderCreator")
-  testOrders      TestOrder[]      @relation("TestOrderCreator")
+  orders          ProductOrder[]      @relation("OrderCreator")
+  testOrders      TestOrder[]         @relation("TestOrderCreator")
+  manualAssigned  ManualTask[]        @relation("ManualTaskAssignee")
+  manualCreated   ManualTask[]        @relation("ManualTaskCreator")
+  manualComments  ManualTaskComment[] @relation("ManualTaskCommentAuthor")
   pushDevices     PushDevice[]
 
   @@index([role, active])
@@ -289,6 +292,7 @@ model Product {
   orders        ProductOrder[]
   testOrders    TestOrder[]
   adCampaigns   AdCampaign[]
+  manualTasks   ManualTask[]
   createdBy     User              @relation("ProductCreator", fields: [createdById], references: [id])
   mediaBuyer    User?             @relation("ProductMediaBuyer", fields: [mediaBuyerId], references: [id])
   brand         Brand?            @relation(fields: [brandId], references: [id])
@@ -609,6 +613,8 @@ model Notification {
   taskId    String?
   type      NotificationType
   message   String
+  /// Where clicking it goes when it isn't a product page (e.g. /tasks?task=…).
+  link      String?
   readAt    DateTime?
   /// When this was sent to the person's devices / Telegram (null = not yet, or not wanted).
   pushedAt  DateTime?
@@ -728,6 +734,58 @@ model TestOrder {
   createdBy User    @relation("TestOrderCreator", fields: [createdById], references: [id])
 
   @@index([productId, createdAt])
+}
+
+enum ManualTaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+/// Team tasks added by hand (the /tasks board), separate from the product workflow tasks.
+model ManualTask {
+  id          String           @id @default(cuid())
+  /// Human reference, shown as T-12.
+  number      Int              @unique @default(autoincrement())
+  title       String
+  description String?
+  status      ManualTaskStatus @default(TODO)
+  priority    Priority         @default(MEDIUM)
+  dueAt       DateTime?
+  /// Order inside its column (smaller = higher).
+  position    Float            @default(0)
+  /// File / Drive / reference links.
+  links       String[]         @default([])
+  assigneeId  String?
+  createdById String
+  /// Optional product this task is about (restricted brands stay hidden from people without access).
+  productId   String?
+  completedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  assignee  User?               @relation("ManualTaskAssignee", fields: [assigneeId], references: [id])
+  createdBy User                @relation("ManualTaskCreator", fields: [createdById], references: [id])
+  product   Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  comments  ManualTaskComment[]
+
+  @@index([status, position])
+  @@index([assigneeId, status])
+}
+
+model ManualTaskComment {
+  id        String    @id @default(cuid())
+  taskId    String
+  authorId  String
+  body      String
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+
+  task   ManualTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User       @relation("ManualTaskCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([taskId, createdAt])
 }
 
 /// A browser / phone that turned on push notifications for one person.

@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangleIcon, ClockIcon, EyeIcon, InboxIcon, ListTodoIcon, RotateCcwIcon } from "lucide-react";
+import { AlertTriangleIcon, ClockIcon, EyeIcon, InboxIcon, KanbanSquareIcon, ListTodoIcon, RotateCcwIcon } from "lucide-react";
+import { DuePill, PriorityPill } from "@/components/common/pills";
+import { MANUAL_STATUS_LABELS, manualTaskRef } from "@/lib/domain/manual-tasks";
+import { getMyManualTasks } from "@/lib/server/queries/manual-tasks";
 import { EmptyState } from "@/components/common/empty-state";
 import { Button } from "@/components/ui/button";
 import { QueueGroup } from "@/components/queue/queue-list";
@@ -35,14 +38,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const isAdmin = user.role === "ADMIN";
   const senior = can(user, "task.review");
   const sp = await searchParams;
-  const [q, products, team] = await Promise.all([
+  const [q, products, team, boardTasks] = await Promise.all([
     getQueue(user),
     isAdmin ? listProducts(user) : Promise.resolve([]),
     isAdmin ? getTeamStats(user) : Promise.resolve(null),
+    getMyManualTasks(user),
   ]);
   const running = products.filter((p) => p.stage !== "COMPLETED" && p.stage !== "KILLED");
   const mine = q.today.length + q.upcoming.length + q.overdue.length + q.revision.length;
-  const total = mine + q.review.length + q.unassigned.length;
+  const total = mine + q.review.length + q.unassigned.length + boardTasks.length;
   const h = hour();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const show = (PIP_FILTERS.find((f) => f.key === sp.show)?.key ?? "all") as PipFilter;
@@ -132,6 +136,34 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <QueueGroup group="today" items={q.today} />
           <QueueGroup group="upcoming" items={q.upcoming} />
           <QueueGroup group="unassigned" items={q.unassigned} />
+          {boardTasks.length ? (
+            <section aria-labelledby="q-board" className="grid gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <h2 id="q-board" className="flex items-center gap-2 text-section text-slate-900">
+                  <KanbanSquareIcon className="size-4 text-slate-500" aria-hidden /> From the Tasks board <span className="num text-meta text-slate-500">{boardTasks.length}</span>
+                </h2>
+                <Link href="/tasks" className="text-meta text-primary underline-offset-2 hover:underline">
+                  Open board
+                </Link>
+              </div>
+              <ul className="surface divide-y divide-slate-100 rounded-panel">
+                {boardTasks.map((t) => (
+                  <li key={t.id}>
+                    <Link href={`/tasks?task=${t.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-slate-50">
+                      <span className="num text-meta text-slate-500">{manualTaskRef(t.number)}</span>
+                      <span className="min-w-0 flex-1 text-body font-medium [overflow-wrap:anywhere] text-slate-900">
+                        {t.title}
+                        {t.product ? <span className="ml-2 text-meta font-normal text-slate-500">{t.product.name}</span> : null}
+                      </span>
+                      <span className="text-meta text-slate-600">{MANUAL_STATUS_LABELS[t.status]}</span>
+                      {t.priority === "URGENT" || t.priority === "HIGH" ? <PriorityPill priority={t.priority} /> : null}
+                      <DuePill dueAt={t.dueAt} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
       )}
     </>

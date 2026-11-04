@@ -30,6 +30,8 @@ export type NotificationInput = {
   message: string;
   productId?: string | null;
   taskId?: string | null;
+  /** Where clicking goes when it isn't the product page (e.g. a manual task). */
+  link?: string | null;
 };
 
 /** Creates notifications, skipping the actor themselves, empty recipients and duplicates. */
@@ -38,7 +40,7 @@ export async function notify(tx: Tx, actorId: string, items: NotificationInput[]
   const data = items
     .filter((n): n is NotificationInput & { userId: string } => Boolean(n.userId) && n.userId !== actorId)
     .filter((n) => {
-      const key = `${n.userId}|${n.type}|${n.taskId ?? ""}|${n.productId ?? ""}`;
+      const key = `${n.userId}|${n.type}|${n.taskId ?? ""}|${n.productId ?? ""}|${n.link ?? ""}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -50,6 +52,7 @@ export async function notify(tx: Tx, actorId: string, items: NotificationInput[]
       message: n.message,
       productId: n.productId ?? null,
       taskId: n.taskId ?? null,
+      link: n.link ?? null,
     }));
   if (data.length === 0) return;
   // Restricted brands (e.g. Bexven): never tell people who can't see the product.

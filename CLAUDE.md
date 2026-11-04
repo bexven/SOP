@@ -22,7 +22,7 @@ every page.
 ## Stack (pinned)
 Next.js 16 App Router + TypeScript strict · Tailwind CSS v4 · shadcn-style components on `radix-ui`
 (hand-written in `src/components/ui`, the shadcn registry is not reachable from cloud sessions) ·
-lucide-react · motion · sonner · cmdk · TanStack Table **v8** (v9 is a different API) · @dnd-kit (checklist reordering only) ·
+lucide-react · motion · sonner · cmdk · TanStack Table **v8** (v9 is a different API) · @dnd-kit (checklist reordering + the Tasks board) ·
 Prisma 7 + PostgreSQL via `@prisma/adapter-pg` · zod v4 · Vitest · Geist fonts via the `geist` package.
 
 ## Portability (non-negotiable)
@@ -166,7 +166,7 @@ src/generated/     Prisma client (generated, git-ignored)
 - Floating UI on the product page sits bottom-left because toasts are bottom-right.
 
 ## Round 6 (creative boards v2) — supersedes Round 5 where they differ
-- **No drag and drop on creative work** (dnd-kit is only for checklist reordering). Boards are status columns
+- **No drag and drop on creative work** (dnd-kit is only for checklist reordering and the manual Tasks board). Boards are status columns
   (To do · In review · Needs changes · Approved) of **clickable cards**; a card opens the **task window**
   (`components/creative/task-dialog.tsx`): links, "ready" form, Senior Approve / Needs changes /
   Approve + ask for…, checklist, admin due-date editor, and the **task's own discussion** (`Comment.taskId`).
@@ -181,6 +181,25 @@ src/generated/     Prisma client (generated, git-ignored)
 - **Stepper** is clickable for everyone who has phase tabs; only the clicked step is highlighted (sliding
   pill, `motion` layoutId). Phase tabs use a sliding pill and fade between panels. Respect reduced motion.
 - Due pills read "Due 6 Nov" / "Due tomorrow 6 pm" with a clock icon; full date/time in the tooltip.
+
+## Round 7 (orders, test orders, drop/delete, campaigns, Tasks board)
+- **Orders**: each order has weight (kg) + Air/Sea; the server sets `shippingCostBdt` = weight × the method's rate and keeps
+  that rate on the order (`ProductOrder.shippingRatePerKgBdt`) while the method stays the same. Older orders keep their typed shipping.
+- **Test orders** (`TestOrder`: quality WAITING/PASSED/FAILED + note): Orders tab, **Admins only** (hidden from everyone else,
+  `getProductDetail` returns none), only once the product is in ordering.
+- **Kill is now "Drop"** in the UI (status "Dropped"); enum/columns stay `KILLED` / `kill*`. **Admins can delete a dropped
+  product for good** (type its name to confirm); everything cascades; a `PRODUCT_DELETED` event keeps name + number.
+- **Campaigns**: many per product in `AdCampaign` (number, **name**, **type**: Image / Video / Carousel / Pre-order /
+  Catalogue / Messages). The old one-per-product `Campaign` table is kept unused (rows copied as #1) so older releases still run.
+  Product campaign status = `overallCampaignStatus()` (running while any campaign runs). The first campaign launches with
+  the launch task; Media Buyers/Admins (`campaign.manage`) add more with **New campaign** while live; status and details
+  are changed per campaign. Drop / complete stop every campaign.
+- **Tasks board** (`/tasks`, everyone): `ManualTask` (title, details, To do / In progress / In review / Done, urgency =
+  `Priority`, due time (Dhaka), assignee, optional product, links) + `ManualTaskComment` with @mentions. Drag and drop
+  (pointer, touch, keyboard) or the Status field in the task window. Creator, assignee and Admins can change / move;
+  creator or Admin can delete; anyone can comment. Tasks linked to a restricted-brand product are hidden like the product.
+  Notifications carry `Notification.link` (`/tasks?task=…`). Dashboard lists "From the Tasks board".
+  Actions take `manualTaskId` (never `taskId`, which `brandAllowed` reads as a workflow task).
 
 ## Alerts: phone push + Telegram + 10:00 summary
 - **Web Push** (free, `web-push`): `public/sw.js` shows notifications; `src/app/manifest.ts` + `/public/icons`
