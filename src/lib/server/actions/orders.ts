@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addOrderError, moveToOrderingError, SCALE_VERDICT_LABELS } from "@/lib/domain/orders";
+import { addOrderError, canPlaceTestOrder, moveToOrderingError, SCALE_VERDICT_LABELS } from "@/lib/domain/orders";
+import { can } from "@/lib/domain/permissions";
 import { shippingFromWeight, SHIPPING_METHOD_LABELS } from "@/lib/domain/margin";
-import { confirmTestOrderSchema, orderSchema, productIdSchema, scalingSchema, testOrderIdSchema, testOrderSchema } from "@/lib/validation/orders";
+import { confirmTestOrderSchema, orderSchema, placeTestOrderSchema, productIdSchema, scalingSchema, testOrderIdSchema, testOrderSchema } from "@/lib/validation/orders";
 import { ActionError, defineAction } from "../action";
 import { db, type Tx } from "../db";
 import { logEvents, notify } from "../services/events";
@@ -103,16 +104,20 @@ export const saveScalingAction = defineAction({
   },
 });
 
-/** New orders and test orders tell the product's media buyer and every Admin (the supply side). */
-async function notifySupply(tx: Tx, actorId: string, p: { id: string; mediaBuyerId: string | null }, message: string) {
-  const admins = await tx.user.findMany({
-    where: { active: true, removedAt: null, OR: [{ role: "ADMIN" }, { adminAccess: true }, { isMaster: true }] },
+/** New orders and test orders tell the product's media buyer and every Admin (plus Supply Chain when asked). */
+async function notifySupply(tx: Tx, actorId: string, p: { id: string; mediaBuyerId: string | null }, message: string, withSupplyChain = false) {
+  const people = await tx.user.findMany({
+    where: {
+      active: true,
+      removedAt: null,
+      OR: [{ role: "ADMIN" }, { adminAccess: true }, { isMaster: true }, ...(withSupplyChain ? [{ role: "SUPPLY_CHAIN" as const }] : [])],
+    },
     select: { id: true },
   });
-  await notify(tx, actorId, [p.mediaBuyerId, ...admins.map((a) => a.id)].map((userId) => ({ userId, type: "FEEDBACK" as const, productId: p.id, message })));
+  await notify(tx, actorId, [p.mediaBuyerId, ...people.map((a) => a.id)].map((userId) => ({ userId, type: "FEEDBACK" as const, productId: p.id, message })));
 }
 
-/** A test order (a few units to check quality): name, expected arrival and a note. Shows a warning until confirmed. */
+/** Ask for a test order (a few units to check quality). Admins / Media Buyers / Supply Chain then place it. */
 export const saveTestOrderAction = defineAction({
   capability: "orders.manage",
   schema: testOrderSchema,
@@ -121,39 +126,68 @@ export const saveTestOrderAction = defineAction({
       const p = await tx.product.findUnique({ where: { id: productId } });
       if (!p) throw new ActionError("This product no longer exists.");
       if (!p.orderingSince) throw new ActionError("Move the product to ordering first.");
-      const data = { name, note, quality, expectedOn: new Date(`${expectedOn}T00:00:00Z`) };
       if (testOrderId) {
         const t = await tx.testOrder.findUnique({ where: { id: testOrderId } });
         if (!t || t.productId !== productId) throw new ActionError("That test order no longer exists.");
-        await tx.testOrder.update({ where: { id: testOrderId }, data });
+        // The arrival date belongs to whoever placed it (Admin / Media Buyer / Supply Chain).
+        const dateChange = t.placedAt && expectedOn && canPlaceTestOrder(user) ? { expectedOn: new Date(`${expectedOn}T00:00:00Z`) } : {};
+        await tx.testOrder.update({ where: { id: testOrderId }, data: { name, note, quality, ...dateChange } });
       } else {
-        await tx.testOrder.create({ data: { ...data, productId, createdById: user.id } });
-        await notifySupply(tx, user.id, p, `${user.name} placed test order “${name}” for ${p.name} · expected by ${expectedOn}`);
+        await tx.testOrder.create({ data: { name, note, productId, createdById: user.id } });
+        await notifySupply(tx, user.id, p, `${user.name} asked for test order “${name}” for ${p.name} · please place it and add the arrival date`, true);
       }
       await logEvents(tx, [{ type: "ORDER_UPDATED", actorId: user.id, productId, data: { test: true, name, quality } }]);
     });
     revalidate();
-    return { ok: true, message: testOrderId ? "Test order updated" : "Test order added · Media buyer and Admins notified" };
+    return { ok: true, message: testOrderId ? "Test order updated" : "Test order requested · Admins, Media Buyer and Supply Chain notified" };
   },
 });
 
-/** Tick (or untick) that the test units arrived. Until then the order list shows a warning. */
+/** "It's ordered": an Admin / Media Buyer / Supply Chain confirms the test order was placed and when it should arrive. */
+export const placeTestOrderAction = defineAction({
+  schema: placeTestOrderSchema,
+  run: async ({ productId, testOrderId, expectedOn }, { user }) => {
+    if (!canPlaceTestOrder(user)) throw new ActionError("Only Admins, Media Buyers or Supply Chain can confirm a test order was placed.");
+    await db.$transaction(async (tx) => {
+      const p = await tx.product.findUnique({ where: { id: productId } });
+      const t = await tx.testOrder.findUnique({ where: { id: testOrderId } });
+      if (!p || !t || t.productId !== productId) throw new ActionError("That test order no longer exists.");
+      const placed = await tx.testOrder.updateMany({
+        where: { id: testOrderId, placedAt: null },
+        data: { placedAt: new Date(), placedById: user.id, expectedOn: new Date(`${expectedOn}T00:00:00Z`) },
+      });
+      if (placed.count !== 1) throw new ActionError("Someone already confirmed this. Refresh to see it.");
+      await logEvents(tx, [{ type: "ORDER_UPDATED", actorId: user.id, productId, data: { test: true, name: t.name, placed: true, expectedOn } }]);
+      await notify(tx, user.id, [t.createdById, p.mediaBuyerId].map((userId) => ({
+        userId,
+        type: "FEEDBACK" as const,
+        productId,
+        message: `Test order “${t.name ?? "Test order"}” for ${p.name} is ordered · expected by ${expectedOn}`,
+      })));
+    });
+    revalidate();
+    return { ok: true, message: "Marked as ordered" };
+  },
+});
+
+/** Tick (or untick) that the test units arrived. */
 export const confirmTestOrderAction = defineAction({
-  capability: "orders.manage",
   schema: confirmTestOrderSchema,
   run: async ({ productId, testOrderId, confirmed }, { user }) => {
+    if (!canPlaceTestOrder(user) && !can(user, "orders.manage")) throw new ActionError("You can't change this test order.");
     await db.$transaction(async (tx) => {
       const t = await tx.testOrder.findUnique({ where: { id: testOrderId } });
       if (!t || t.productId !== productId) throw new ActionError("That test order no longer exists.");
+      if (!t.placedAt) throw new ActionError("Confirm it was placed first.");
       const updated = await tx.testOrder.updateMany({
         where: { id: testOrderId, confirmedAt: confirmed ? null : { not: null } },
         data: confirmed ? { confirmedAt: new Date(), confirmedById: user.id } : { confirmedAt: null, confirmedById: null },
       });
       if (updated.count !== 1) throw new ActionError("Someone changed this just now. Refresh and try again.");
-      await logEvents(tx, [{ type: "ORDER_UPDATED", actorId: user.id, productId, data: { test: true, name: t.name, confirmed } }]);
+      await logEvents(tx, [{ type: "ORDER_UPDATED", actorId: user.id, productId, data: { test: true, name: t.name, arrived: confirmed } }]);
     });
     revalidate();
-    return { ok: true, message: confirmed ? "Test order confirmed" : "Marked as not arrived" };
+    return { ok: true, message: confirmed ? "Test units arrived" : "Marked as not arrived" };
   },
 });
 

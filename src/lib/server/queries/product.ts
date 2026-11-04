@@ -251,6 +251,8 @@ export async function getProductDetail(id: string, viewer: BrandViewer & { role?
       quality: t.quality,
       note: t.note,
       expectedOn: t.expectedOn ? t.expectedOn.toISOString().slice(0, 10) : null,
+      placedAt: iso(t.placedAt),
+      placedBy: nameOf(t.placedById),
       confirmedAt: iso(t.confirmedAt),
       confirmedBy: nameOf(t.confirmedById),
       createdBy: t.createdBy,

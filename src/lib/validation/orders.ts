@@ -38,9 +38,16 @@ export const testOrderSchema = z.object({
   productId: idSchema,
   testOrderId: idSchema.optional().nullable().transform((v) => v || null),
   name: z.string().trim().min(2, "Name the test order").max(80, "Keep the name under 80 characters"),
-  expectedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the expected arrival date"),
+  /** Only once it's placed (then it can be corrected). */
+  expectedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the expected arrival date").optional().nullable().or(z.literal("")).transform((v) => v || null),
   quality: z.enum(TestQuality).default("WAITING"),
   note: z.string().trim().max(1000, "Keep the note under 1000 characters").optional().transform((v) => v || null),
 });
 export const testOrderIdSchema = z.object({ productId: idSchema, testOrderId: idSchema });
+/** "It's ordered": the supplier order was placed; when the units should arrive. */
+export const placeTestOrderSchema = z.object({
+  productId: idSchema,
+  testOrderId: idSchema,
+  expectedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the expected arrival date"),
+});
 export const confirmTestOrderSchema = z.object({ productId: idSchema, testOrderId: idSchema, confirmed: z.boolean() });

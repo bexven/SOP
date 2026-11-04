@@ -18,6 +18,7 @@ export const ROLES = [
   "ADMIN",
   "CUSTOMER_SUPPORT",
   "OFFICE_SECRETARY",
+  "SUPPLY_CHAIN",
 ] as const satisfies readonly Role[];
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -29,6 +30,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Admin",
   CUSTOMER_SUPPORT: "Customer Support",
   OFFICE_SECRETARY: "Office Boy",
+  SUPPLY_CHAIN: "Supply Chain",
 };
 
 export const TASK_TYPES = [

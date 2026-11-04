@@ -21,6 +21,7 @@ enum Role {
   ADMIN
   CUSTOMER_SUPPORT
   OFFICE_SECRETARY
+  SUPPLY_CHAIN
 }
 
 enum Priority {
@@ -729,7 +730,10 @@ model TestOrder {
   quality       TestQuality @default(WAITING)
   /// Name shown in the order list (older test orders show as "Test order").
   name          String?
-  /// When the test units are expected; a warning shows until someone confirms they arrived.
+  /// Set when an Admin, a Media Buyer or Supply Chain confirms the test order was placed, with the expected arrival.
+  placedAt      DateTime?
+  placedById    String?
+  /// Expected arrival (entered when it's placed). The "ordered" bar shows until someone confirms the units arrived.
   expectedOn    DateTime?   @db.Date
   confirmedAt   DateTime?
   confirmedById String?

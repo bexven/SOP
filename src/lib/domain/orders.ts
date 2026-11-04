@@ -100,14 +100,23 @@ export function orderTitle(o: { number: number; name: string | null }): string {
   return o.name?.trim() || `Order #${o.number}`;
 }
 
-export type TestOrderState = "confirmed" | "waiting" | "overdue";
+export type TestOrderState = "requested" | "ordered" | "overdue" | "arrived";
 
 /**
- * A test order shows a warning until someone confirms it (owner's rule).
- * Waiting until its expected date (Dhaka day, YYYY-MM-DD), overdue after that.
+ * A test order's step (owner's rule): requested → placed by an Admin / Media Buyer / Supply Chain with an
+ * expected arrival ("ordered", overdue after that Dhaka day, YYYY-MM-DD) → someone confirms the units arrived.
  */
-export function testOrderState(t: { confirmedAt: string | Date | null; expectedOn: string | null }, todayDhaka: string): TestOrderState {
-  if (t.confirmedAt) return "confirmed";
+export function testOrderState(
+  t: { placedAt: string | Date | null; confirmedAt: string | Date | null; expectedOn: string | null },
+  todayDhaka: string,
+): TestOrderState {
+  if (t.confirmedAt) return "arrived";
+  if (!t.placedAt) return "requested";
   if (t.expectedOn && t.expectedOn < todayDhaka) return "overdue";
-  return "waiting";
+  return "ordered";
+}
+
+/** Who confirms a test order was placed (and that it arrived): Admins, Media Buyers and Supply Chain. */
+export function canPlaceTestOrder(user: { role: string; jobRole?: string | null }): boolean {
+  return user.role === "ADMIN" || user.role === "MEDIA_BUYER" || user.role === "SUPPLY_CHAIN" || user.jobRole === "MEDIA_BUYER" || user.jobRole === "SUPPLY_CHAIN";
 }

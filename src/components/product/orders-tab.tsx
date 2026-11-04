@@ -12,10 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ShippingMethodPicker } from "@/components/common/shipping-method-picker";
 import { rateForMethod, SHIPPING_METHOD_LABELS, shippingFromWeight, type ShippingMethodKey } from "@/lib/domain/margin";
-import { addOrderError, orderMath, orderTitle, testOrderState, orderSummary, SCALE_PLAN_LABELS, SCALE_PLANS, SCALE_VERDICT_LABELS, SCALE_VERDICTS } from "@/lib/domain/orders";
+import { addOrderError, canPlaceTestOrder, orderMath, orderTitle, testOrderState, type TestOrderState, orderSummary, SCALE_PLAN_LABELS, SCALE_PLANS, SCALE_VERDICT_LABELS, SCALE_VERDICTS } from "@/lib/domain/orders";
 import { can } from "@/lib/domain/permissions";
 import { formatBdt, formatDate } from "@/lib/format";
-import { confirmTestOrderAction, deleteTestOrderAction, moveToOrderingAction, saveOrderAction, saveScalingAction, saveTestOrderAction } from "@/lib/server/actions/orders";
+import { confirmTestOrderAction, deleteTestOrderAction, moveToOrderingAction, placeTestOrderAction, saveOrderAction, saveScalingAction, saveTestOrderAction } from "@/lib/server/actions/orders";
 import type { OrderDTO, ProductDetail, TestOrderDTO } from "@/lib/server/queries/product";
 import { cn } from "@/lib/utils";
 import { Discussion } from "./discussion";
@@ -34,7 +34,9 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
   const [editing, setEditing] = useState<OrderDTO | "new" | null>(null);
   const [testEditing, setTestEditing] = useState<TestOrderDTO | "new" | null>(null);
   const day = today();
-  const pendingTests = product.testOrders.filter((t) => testOrderState(t, day) !== "confirmed");
+  const canPlace = canPlaceTestOrder(viewer);
+  // The bar shows only once a test order is placed (ordered / overdue), until the units arrive.
+  const pendingTests = product.testOrders.filter((t) => ["ordered", "overdue"].includes(testOrderState(t, day)));
 
   if (!product.orderingSince) {
     return (
@@ -106,14 +108,15 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
                   <p key={t.id} className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-body", overdue ? "text-rose-800" : "text-amber-900")}>
                     <AlertTriangleIcon className="size-4 shrink-0" aria-hidden />
                     <span className="min-w-0 flex-1">
-                      Test order <span className="font-semibold">“{t.name ?? "Test order"}”</span> isn&apos;t confirmed yet
+                      Test unit{"s"} ordered: <span className="font-semibold">“{t.name ?? "Test order"}”</span>
                       {t.expectedOn ? (
                         <>
                           {" "}· {overdue ? "was expected by" : "expected by"} <span className="num font-medium">{formatDate(new Date(`${t.expectedOn}T00:00:00Z`))}</span>
                         </>
                       ) : null}
+                      {overdue ? " — not arrived yet" : ""}
                     </span>
-                    {canManage ? <ConfirmTestButton product={product} test={t} /> : null}
+                    {canPlace || canManage ? <ConfirmTestButton product={product} test={t} /> : null}
                   </p>
                 );
               })}
@@ -128,12 +131,12 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
             />
           ) : null}
           {testEditing ? (
-            <TestOrderForm key={testEditing === "new" ? "new-test" : testEditing.id} product={product} test={testEditing === "new" ? null : testEditing} onDone={() => setTestEditing(null)} />
+            <TestOrderForm key={testEditing === "new" ? "new-test" : testEditing.id} product={product} test={testEditing === "new" ? null : testEditing} canPlace={canPlace} onDone={() => setTestEditing(null)} />
           ) : null}
           {product.testOrders.length ? (
             <ul className="grid gap-2" aria-label="Test orders">
               {product.testOrders.map((t) => (
-                <TestOrderRow key={t.id} product={product} test={t} day={day} canManage={canManage} onEdit={() => setTestEditing(t)} />
+                <TestOrderRow key={t.id} product={product} test={t} day={day} canManage={canManage} canPlace={canPlace} onEdit={() => setTestEditing(t)} />
               ))}
             </ul>
           ) : null}
@@ -522,18 +525,78 @@ function ConfirmTestButton({ product, test }: { product: ProductDetail; test: Te
         })
       }
     >
-      {confirmed ? <RotateCcwIcon /> : <CheckIcon />} {confirmed ? "Undo" : "Confirm arrived"}
+      {confirmed ? <RotateCcwIcon /> : <CheckIcon />} {confirmed ? "Undo arrived" : "Confirm arrived"}
     </Button>
   );
 }
 
-/** A test order in the order list: amber while waiting, rose when overdue, green once confirmed. */
-function TestOrderRow({ product, test: t, day, canManage, onEdit }: { product: ProductDetail; test: TestOrderDTO; day: string; canManage: boolean; onEdit: () => void }) {
-  const state = testOrderState(t, day);
-  const tone =
-    state === "confirmed" ? "bg-emerald-50/70 ring-emerald-200" : state === "overdue" ? "bg-rose-50 ring-rose-200" : "bg-amber-50 ring-amber-200";
+/** "It's ordered": the person placing it adds the expected arrival date. */
+function PlaceTestOrder({ product, test }: { product: ProductDetail; test: TestOrderDTO }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState("");
+  const [pending, startTransition] = useTransition();
+  if (!open) {
+    return (
+      <Button size="sm" onClick={() => setOpen(true)}>
+        <TruckIcon /> Mark as ordered
+      </Button>
+    );
+  }
   return (
-    <li className={cn("grid gap-2 rounded-panel p-3.5 ring-1 ring-inset", tone)}>
+    <div className="flex flex-wrap items-end gap-2">
+      <Field id={`place-${test.id}`} label="Expected arrival *">
+        <Input id={`place-${test.id}`} type="date" value={date} min={today()} onChange={(e) => setDate(e.target.value)} className="num h-9 bg-white" autoFocus />
+      </Field>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+        Cancel
+      </Button>
+      <Button
+        size="sm"
+        disabled={pending || !date}
+        onClick={() =>
+          startTransition(async () => {
+            const r = await placeTestOrderAction({ productId: product.id, testOrderId: test.id, expectedOn: date });
+            if (r.ok) {
+              toast.success(r.message);
+              router.refresh();
+            } else toast.error(r.error);
+          })
+        }
+      >
+        <CheckIcon /> It&apos;s ordered
+      </Button>
+    </div>
+  );
+}
+
+const STATE_TONE: Record<TestOrderState, string> = {
+  requested: "bg-slate-50 ring-slate-200",
+  ordered: "bg-amber-50 ring-amber-200",
+  overdue: "bg-rose-50 ring-rose-200",
+  arrived: "bg-emerald-50/70 ring-emerald-200",
+};
+
+/** A test order in the order list: grey when requested, amber once ordered, rose when overdue, green when it arrived. */
+function TestOrderRow({
+  product,
+  test: t,
+  day,
+  canManage,
+  canPlace,
+  onEdit,
+}: {
+  product: ProductDetail;
+  test: TestOrderDTO;
+  day: string;
+  canManage: boolean;
+  canPlace: boolean;
+  onEdit: () => void;
+}) {
+  const state = testOrderState(t, day);
+  const date = (d: string) => formatDate(new Date(`${d}T00:00:00Z`));
+  return (
+    <li className={cn("grid gap-2 rounded-panel p-3.5 ring-1 ring-inset transition-colors duration-200", STATE_TONE[state])}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2">
@@ -546,38 +609,40 @@ function TestOrderRow({ product, test: t, day, canManage, onEdit }: { product: P
             ) : null}
           </p>
           <p className="mt-1 text-meta font-normal text-slate-700">
-            {state === "confirmed" ? (
+            {state === "requested" ? (
+              "Requested · waiting for an Admin, the Media Buyer or Supply Chain to place it"
+            ) : state === "arrived" ? (
               <>
                 <CheckIcon className="mr-1 inline size-3.5 text-emerald-700" aria-hidden />
-                Confirmed{t.confirmedBy ? ` by ${t.confirmedBy}` : ""} · <span className="num">{formatDate(new Date(t.confirmedAt!))}</span>
-              </>
-            ) : t.expectedOn ? (
-              <>
-                {state === "overdue" ? "Was expected by" : "Expected by"} <span className="num font-medium">{formatDate(new Date(`${t.expectedOn}T00:00:00Z`))}</span> · waiting for confirmation
+                Arrived{t.confirmedBy ? ` · confirmed by ${t.confirmedBy}` : ""} · <span className="num">{formatDate(new Date(t.confirmedAt!))}</span>
               </>
             ) : (
-              "Waiting for confirmation"
+              <>
+                Ordered{t.placedBy ? ` by ${t.placedBy}` : ""} · {state === "overdue" ? "was expected by" : "expected by"}{" "}
+                <span className="num font-medium">{t.expectedOn ? date(t.expectedOn) : "—"}</span>
+              </>
             )}
           </p>
         </div>
-        {canManage ? (
-          <div className="flex items-center gap-1">
-            <ConfirmTestButton product={product} test={t} />
+        <div className="flex flex-wrap items-center gap-1">
+          {state === "requested" && canPlace ? <PlaceTestOrder product={product} test={t} /> : null}
+          {state !== "requested" && (canPlace || canManage) ? <ConfirmTestButton product={product} test={t} /> : null}
+          {canManage || canPlace ? (
             <Button variant="ghost" size="icon-sm" aria-label={`Edit test order ${t.name ?? ""}`} onClick={onEdit}>
               <PencilIcon />
             </Button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
       {t.note ? <p className="text-body whitespace-pre-line [overflow-wrap:anywhere] text-slate-800">{t.note}</p> : null}
       <p className="text-meta font-normal text-slate-500">
-        Placed by {t.createdBy.name} · <span className="num">{formatDate(new Date(t.createdAt))}</span>
+        Requested by {t.createdBy.name} · <span className="num">{formatDate(new Date(t.createdAt))}</span>
       </p>
     </li>
   );
 }
 
-function TestOrderForm({ product, test, onDone }: { product: ProductDetail; test: TestOrderDTO | null; onDone: () => void }) {
+function TestOrderForm({ product, test, canPlace, onDone }: { product: ProductDetail; test: TestOrderDTO | null; canPlace: boolean; onDone: () => void }) {
   const router = useRouter();
   const [name, setName] = useState(test?.name ?? "");
   const [expectedOn, setExpectedOn] = useState(test?.expectedOn ?? "");
@@ -606,19 +671,25 @@ function TestOrderForm({ product, test, onDone }: { product: ProductDetail; test
           <XIcon />
         </Button>
       </div>
-      <p className="text-meta font-normal text-amber-900">A few units to check quality. It shows as a warning until someone confirms the units arrived. The media buyer and Admins are notified.</p>
+      {!test ? (
+        <p className="text-meta font-normal text-amber-900">
+          A few units to check quality. Admins, the Media Buyer and Supply Chain are notified; one of them places it and adds the expected arrival date.
+        </p>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field id={`t-name-${idp}`} label="Name *" error={errors.name?.[0]}>
           <Input {...fieldA11y(`t-name-${idp}`, errors.name?.[0])} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="e.g. 5 samples from new supplier" autoFocus className="bg-white" />
         </Field>
-        <Field id={`t-date-${idp}`} label="Expected arrival *" error={errors.expectedOn?.[0]}>
-          <Input {...fieldA11y(`t-date-${idp}`, errors.expectedOn?.[0])} type="date" value={expectedOn} onChange={(e) => setExpectedOn(e.target.value)} className="num bg-white" />
-        </Field>
+        {test?.placedAt && canPlace ? (
+          <Field id={`t-date-${idp}`} label="Expected arrival" error={errors.expectedOn?.[0]}>
+            <Input {...fieldA11y(`t-date-${idp}`, errors.expectedOn?.[0])} type="date" value={expectedOn} onChange={(e) => setExpectedOn(e.target.value)} className="num bg-white" />
+          </Field>
+        ) : null}
       </div>
       <Field id={`t-note-${idp}`} label="Note" error={errors.note?.[0]}>
         <Textarea {...fieldA11y(`t-note-${idp}`, errors.note?.[0])} value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={1000} placeholder="Units, supplier, what to check…" className="bg-white" />
       </Field>
-      {test ? (
+      {test?.confirmedAt ? (
         <fieldset className="grid gap-1.5">
           <legend className="mb-1 text-meta text-slate-700">Quality after checking</legend>
           <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Quality after checking">
@@ -657,10 +728,10 @@ function TestOrderForm({ product, test, onDone }: { product: ProductDetail; test
         </Button>
         <Button
           size="sm"
-          disabled={pending || name.trim().length < 2 || !expectedOn}
+          disabled={pending || name.trim().length < 2}
           onClick={() => startTransition(async () => done(await saveTestOrderAction({ productId: product.id, testOrderId: test?.id, name, expectedOn, quality, note })))}
         >
-          <SaveIcon /> {test ? "Save" : "Add test order"}
+          <SaveIcon /> {test ? "Save" : "Request test order"}
         </Button>
       </div>
     </div>

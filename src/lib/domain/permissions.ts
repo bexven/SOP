@@ -23,7 +23,7 @@ export const CAPABILITIES = {
   "brief.edit": { label: "Write creative brief", hint: "Write and update the brief designers follow", defaults: ["MEDIA_BUYER"] },
   "campaign.manage": { label: "Meta ads", hint: "Launch campaigns and update their status", defaults: ["MEDIA_BUYER"] },
   "batch.request": { label: "Request new creatives", hint: "Ask for a new creative batch while live", defaults: ["MEDIA_BUYER"] },
-  "orders.manage": { label: "Orders & scaling", hint: "Move products to ordering, add orders, set the scaling plan", defaults: ["MEDIA_BUYER"] },
+  "orders.manage": { label: "Orders & scaling", hint: "Move products to ordering, add orders, set the scaling plan", defaults: ["MEDIA_BUYER", "SUPPLY_CHAIN"] },
   "product.sendBack": { label: "Send back", hint: "Send a product back to an earlier stage", defaults: ["MEDIA_BUYER", "REVIEWER"] },
   "product.kill": { label: "Drop products", hint: "Stop working on a product", defaults: ["MEDIA_BUYER"] },
   "product.override": { label: "Edit any product", hint: "Correct product details at any stage (logged)", defaults: [] },

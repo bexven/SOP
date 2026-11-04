@@ -187,10 +187,11 @@ src/generated/     Prisma client (generated, git-ignored)
 - **Orders**: each order has weight (kg) + Air/Sea; the server sets `shippingCostBdt` = weight × the method's rate and keeps
   that rate on the order (`ProductOrder.shippingRatePerKgBdt`) while the method stays the same. Older orders keep their typed shipping.
 - **Orders have names** (`ProductOrder.name`, required on save; older ones show "Order #n" via `orderTitle()`).
-- **Test orders** (`TestOrder`: name, note, `expectedOn`, `confirmedAt/By`, quality after checking) sit **in the order
-  list** in amber (rose when overdue, green once confirmed) with a warning banner until someone ticks **Confirm arrived**
-  (`testOrderState()`). Everyone who sees the Orders tab sees them; `orders.manage` (and Admins) add / confirm. Not counted
-  in order totals. New orders and test orders notify the product's Media Buyer and every Admin.
+- **Test orders** (`TestOrder`) sit **in the order list**, steps via `testOrderState()`: **requested** (name + note, by
+  `orders.manage`; notifies Media Buyer, Admins and Supply Chain) → **ordered**: an Admin / Media Buyer / Supply Chain
+  (`canPlaceTestOrder()`) clicks **Mark as ordered** and enters the expected arrival (`placedAt/By`, `expectedOn`) — only now
+  the amber "Test units ordered" bar shows (rose when overdue) → **arrived** (Confirm arrived; quality Passed/Failed after).
+  Everyone who sees the Orders tab sees them. Not counted in order totals. New orders notify the Media Buyer and every Admin.
 - **Kill is now "Drop"** in the UI (status "Dropped"); enum/columns stay `KILLED` / `kill*`. **Admins can delete a dropped
   product for good** (type its name to confirm); everything cascades; a `PRODUCT_DELETED` event keeps name + number.
 - **Campaigns**: many per product in `AdCampaign` (number, **name**, **type**: Image / Video / Carousel / Pre-order /
@@ -227,7 +228,8 @@ src/generated/     Prisma client (generated, git-ignored)
 ## Team & restricted brands (Nov 2026)
 - Team: Sk Moni (Master Admin) · Inamul (Reviewer, every permission except Bexven) · Jewel Rana (Admin) ·
   Shohagh (Media Buyer) · Rony (Video Editor) · Shakil (Image Designer, took over Kamrul's open work) ·
-  Antu (Customer Support) · Fahim (Office Boy; enum `OFFICE_SECRETARY`). New job roles: `CUSTOMER_SUPPORT`, `OFFICE_SECRETARY`
+  Antu (Customer Support) · Fahim (Office Boy; enum `OFFICE_SECRETARY`) · Saddam (Supply Chain, `SUPPLY_CHAIN`,
+  default `orders.manage`; added by a data migration without a PIN). New job roles: `CUSTOMER_SUPPORT`, `OFFICE_SECRETARY`
   (no default permissions). No PINs in migrations/seed: the Master Admin uses **Team → PIN for everyone**
   (sets one temporary PIN, forces a new PIN at next sign-in).
 - **Removed people**: `User.removedAt` (Team → inactive → Remove). Hidden everywhere, history kept; sessions die.

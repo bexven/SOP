@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { orderMath, orderSummary } from "./orders";
-import { orderTitle, testOrderState } from "./orders";
+import { canPlaceTestOrder, orderTitle, testOrderState } from "./orders";
 
 const o = { quantity: 100, buyingPriceBdt: "450", shippingCostBdt: "120", sellingPriceBdt: "1490", courierChargePct: "2" };
 
@@ -47,11 +47,17 @@ describe("order names and test orders", () => {
     expect(orderTitle({ number: 3, name: null })).toBe("Order #3");
     expect(orderTitle({ number: 3, name: "  " })).toBe("Order #3");
   });
-  it("warns until a test order is confirmed, overdue after its expected day", () => {
-    expect(testOrderState({ confirmedAt: null, expectedOn: "2026-11-10" }, "2026-11-05")).toBe("waiting");
-    expect(testOrderState({ confirmedAt: null, expectedOn: "2026-11-10" }, "2026-11-10")).toBe("waiting");
-    expect(testOrderState({ confirmedAt: null, expectedOn: "2026-11-10" }, "2026-11-11")).toBe("overdue");
-    expect(testOrderState({ confirmedAt: "2026-11-09T10:00:00Z", expectedOn: "2026-11-10" }, "2026-11-12")).toBe("confirmed");
-    expect(testOrderState({ confirmedAt: null, expectedOn: null }, "2026-11-12")).toBe("waiting");
+  it("goes requested → ordered (overdue after its day) → arrived", () => {
+    const placed = "2026-11-05T10:00:00Z";
+    expect(testOrderState({ placedAt: null, confirmedAt: null, expectedOn: null }, "2026-11-05")).toBe("requested");
+    expect(testOrderState({ placedAt: placed, confirmedAt: null, expectedOn: "2026-11-10" }, "2026-11-10")).toBe("ordered");
+    expect(testOrderState({ placedAt: placed, confirmedAt: null, expectedOn: "2026-11-10" }, "2026-11-11")).toBe("overdue");
+    expect(testOrderState({ placedAt: placed, confirmedAt: "2026-11-09T10:00:00Z", expectedOn: "2026-11-10" }, "2026-11-12")).toBe("arrived");
   });
+  it("lets Admins, Media Buyers and Supply Chain place test orders", () => {
+    expect(canPlaceTestOrder({ role: "ADMIN" })).toBe(true);
+    expect(canPlaceTestOrder({ role: "MEDIA_BUYER", jobRole: "MEDIA_BUYER" })).toBe(true);
+    expect(canPlaceTestOrder({ role: "SUPPLY_CHAIN", jobRole: "SUPPLY_CHAIN" })).toBe(true);
+    expect(canPlaceTestOrder({ role: "VIDEO_EDITOR", jobRole: "VIDEO_EDITOR" })).toBe(false);
+});
 });
