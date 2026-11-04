@@ -122,7 +122,9 @@ src/generated/     Prisma client (generated, git-ignored)
 
 ## Round 4 (research revamp)
 - **All prices are BDT.** `Product.chinaPriceBdt` / `shippingPerUnitBdt` / `sellingPriceBdt`; landed cost =
-  China price + shipping (no exchange rate). `rmbToBdtRate` stays in Settings/Product as reference only.
+  China price + shipping (no exchange rate). Research enters **Weight (kg)** (required to submit); the server sets
+  shipping = weight × `Settings.shippingRatePerKgBdt` (snapshot `Product.shippingRatePerKgBdt`, refreshed while in
+  Research, frozen at submit). Older products keep the shipping they were entered with. `rmbToBdtRate` stays in Settings/Product as reference only.
 - **Brand colours are hex** (`Brand.color`, e.g. Mr.WOW `#15803D`, Timtom `#0369A1`). `src/lib/brand-color.ts`
   derives AA-safe variants. The product page wraps itself in `brandThemeStyle()` so every primary button,
   checkbox, stepper and focus ring uses the product's brand colour. Primary-coloured UI must use `primary`
