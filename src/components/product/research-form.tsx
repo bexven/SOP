@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/domain/labels";
-import { computeMargin, marginBand } from "@/lib/domain/margin";
+import { computeMargin, marginBand, shippingFromWeight } from "@/lib/domain/margin";
+import { formatBdt } from "@/lib/format";
 import { researchBlockers } from "@/lib/domain/workflow";
 import { submitResearchAction, updateResearchAction } from "@/lib/server/actions/product";
 import { MarginCard } from "./margin-card";
@@ -24,7 +25,7 @@ export type ResearchValues = {
   supplierUrl: string;
   imageUrl: string;
   chinaPriceBdt: string;
-  shippingPerUnitBdt: string;
+  weightKg: string;
   sellingPriceBdt: string;
   problemSolved: string;
   referenceLinks: string[];
@@ -43,7 +44,10 @@ export function ResearchForm({
   brands,
   mode = "research",
   onDone,
+  savedShippingBdt = null,
 }: {
+  /** Shipping already saved on the product (older products were entered by hand, without a weight). */
+  savedShippingBdt?: string | null;
   brands: { id: string; name: string; color: string; active: boolean }[];
   /** "admin": an Admin editing a product after research (no checklist / submit; changes are logged). */
   mode?: "research" | "admin";
@@ -51,7 +55,7 @@ export function ResearchForm({
   productId: string;
   initial: ResearchValues;
   checklist: ChecklistItemDTO[];
-  rates: { courierChargePct: string; healthyMarginPct: string; thinMarginPct: string } | null;
+  rates: { courierChargePct: string; healthyMarginPct: string; thinMarginPct: string; shippingRatePerKgBdt: string | null } | null;
   editable: boolean;
 }) {
   const router = useRouter();
@@ -64,20 +68,23 @@ export function ResearchForm({
     setV((prev) => ({ ...prev, [key]: value }));
     setDirty(true);
   };
-  const money = (key: "chinaPriceBdt" | "shippingPerUnitBdt" | "sellingPriceBdt") => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const money = (key: "chinaPriceBdt" | "weightKg" | "sellingPriceBdt") => (e: React.ChangeEvent<HTMLInputElement>) =>
     set(key, e.target.value.replace(/[^\d.]/g, ""));
 
+  const ratePerKg = rates?.shippingRatePerKgBdt ?? null;
+  // Shipping = weight × rate per kg. Without a weight, an Admin edit keeps the shipping already saved.
+  const shipping = v.weightKg ? shippingFromWeight(v.weightKg, ratePerKg) : mode === "admin" ? savedShippingBdt : null;
   const margin = useMemo(
     () =>
       rates
         ? computeMargin({
             chinaPriceBdt: v.chinaPriceBdt || null,
-            shippingPerUnitBdt: v.shippingPerUnitBdt || null,
+            shippingPerUnitBdt: shipping,
             sellingPriceBdt: v.sellingPriceBdt || null,
             courierChargePct: rates.courierChargePct,
           })
         : null,
-    [v.chinaPriceBdt, v.shippingPerUnitBdt, v.sellingPriceBdt, rates],
+    [v.chinaPriceBdt, shipping, v.sellingPriceBdt, rates],
   );
   const band = margin?.marginPct && rates ? marginBand(margin.marginPct, rates) : null;
 
@@ -88,7 +95,7 @@ export function ResearchForm({
       name: v.name,
       supplierUrl: v.supplierUrl,
       chinaPriceBdt: v.chinaPriceBdt,
-      shippingPerUnitBdt: v.shippingPerUnitBdt,
+      weightKg: v.weightKg,
       sellingPriceBdt: v.sellingPriceBdt,
     },
     missingChecklist,
@@ -178,7 +185,23 @@ export function ResearchForm({
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <MoneyField id="r-china" label="China price / unit *" unit="BDT" value={v.chinaPriceBdt} onChange={money("chinaPriceBdt")} error={err("chinaPriceBdt")} disabled={disabled} />
-            <MoneyField id="r-ship" label="Shipping per unit *" unit="BDT" value={v.shippingPerUnitBdt} onChange={money("shippingPerUnitBdt")} error={err("shippingPerUnitBdt")} disabled={disabled} />
+            <MoneyField
+              id="r-weight"
+              label="Weight / unit *"
+              unit="kg"
+              placeholder="0.000"
+              value={v.weightKg}
+              onChange={money("weightKg")}
+              error={err("weightKg")}
+              disabled={disabled}
+              hint={
+                !ratePerKg
+                  ? "Shipping can't be worked out yet: an Admin sets the shipping rate per kg in Settings."
+                  : shipping
+                    ? `Shipping ${formatBdt(shipping)} (${formatBdt(ratePerKg)} per kg)`
+                    : `Shipping = weight × ${formatBdt(ratePerKg)} per kg`
+              }
+            />
             <MoneyField id="r-sell" label="Selling price *" unit="BDT" value={v.sellingPriceBdt} onChange={money("sellingPriceBdt")} error={err("sellingPriceBdt")} disabled={disabled} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -307,6 +330,8 @@ function MoneyField({
   onChange,
   error,
   disabled,
+  hint,
+  placeholder = "0.00",
 }: {
   id: string;
   label: string;
@@ -315,11 +340,13 @@ function MoneyField({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   error?: string;
   disabled?: boolean;
+  hint?: string;
+  placeholder?: string;
 }) {
   return (
-    <Field id={id} label={label} error={error}>
+    <Field id={id} label={label} error={error} hint={hint}>
       <div className="relative">
-        <Input {...fieldA11y(id, error)} value={value} onChange={onChange} inputMode="decimal" className="num pr-12" placeholder="0.00" disabled={disabled} />
+        <Input {...fieldA11y(id, error, Boolean(hint))} value={value} onChange={onChange} inputMode="decimal" className="num pr-12" placeholder={placeholder} disabled={disabled} />
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-meta text-slate-500">{unit}</span>
       </div>
     </Field>

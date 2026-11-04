@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeMargin, marginBand } from "./margin";
+import { shippingFromWeight, computeMargin, marginBand } from "./margin";
 
 const base = { courierChargePct: "2" };
 
@@ -43,5 +43,17 @@ describe("marginBand", () => {
     expect(marginBand("29.9", t)).toBe("ok");
     expect(marginBand("15.0", t)).toBe("ok");
     expect(marginBand("14.9", t)).toBe("thin");
+  });
+});
+
+describe("shippingFromWeight", () => {
+  it("multiplies weight by the rate per kg, rounded to 2 decimals", () => {
+    expect(shippingFromWeight("0.35", "750")).toBe("262.50");
+    expect(shippingFromWeight("1.234", "333.33")).toBe("411.33");
+  });
+  it("is null until both numbers are valid", () => {
+    expect(shippingFromWeight("", "750")).toBeNull();
+    expect(shippingFromWeight("0.5", null)).toBeNull();
+    expect(shippingFromWeight("abc", "750")).toBeNull();
   });
 });

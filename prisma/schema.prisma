@@ -239,7 +239,12 @@ model Product {
   imageUrl               String?
   /// All prices are entered in BDT (owner's rule). Older RMB values were converted with each product's rate.
   chinaPriceBdt          Decimal?      @db.Decimal(12, 2)
+  /// Worked out by the server: weightKg × shippingRatePerKgBdt (owner's rule). Older products were entered by hand.
   shippingPerUnitBdt     Decimal?      @db.Decimal(12, 2)
+  /// Weight of one unit in kg, entered by the researcher.
+  weightKg               Decimal?      @db.Decimal(10, 3)
+  /// Snapshot of Settings.shippingRatePerKgBdt; refreshed while in RESEARCH, frozen at submit.
+  shippingRatePerKgBdt   Decimal?      @db.Decimal(10, 2)
   sellingPriceBdt        Decimal?      @db.Decimal(12, 2)
   /// Snapshot; refreshed while in RESEARCH, frozen at submit.
   rmbToBdtRate           Decimal       @db.Decimal(10, 4)
@@ -590,6 +595,8 @@ model Settings {
   rmbToBdtRate          Decimal  @db.Decimal(10, 4)
   usdToBdtRate          Decimal  @db.Decimal(10, 4)
   courierChargePct      Decimal  @default(2) @db.Decimal(5, 2)
+  /// Shipping cost per kg (BDT). Shipping per unit = weight × this rate.
+  shippingRatePerKgBdt  Decimal? @db.Decimal(10, 2)
   healthyMarginPct      Decimal  @db.Decimal(5, 2)
   thinMarginPct         Decimal  @db.Decimal(5, 2)
   /// Web push keys, created automatically the first time push is used.

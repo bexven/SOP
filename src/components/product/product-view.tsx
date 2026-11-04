@@ -272,16 +272,21 @@ function ReviewPhase({ product, viewer }: { product: ProductDetail; viewer: View
                     courierChargePct: product.thresholds.courierChargePct,
                     healthyMarginPct: product.thresholds.healthyMarginPct,
                     thinMarginPct: product.thresholds.thinMarginPct,
+                    // In research the rate follows Settings; afterwards the product keeps its own snapshot.
+                    shippingRatePerKgBdt: inResearch
+                      ? product.thresholds.shippingRatePerKgBdt
+                      : (product.shippingRatePerKgBdt ?? product.thresholds.shippingRatePerKgBdt),
                   }
                 : null
             }
+            savedShippingBdt={product.shippingPerUnitBdt}
             initial={{
               brandId: product.brandId ?? "",
               name: product.name,
               supplierUrl: product.supplierUrl ?? "",
               imageUrl: product.imageUrl ?? "",
               chinaPriceBdt: product.chinaPriceBdt ?? "",
-              shippingPerUnitBdt: product.shippingPerUnitBdt ?? "",
+              weightKg: product.weightKg ?? "",
               sellingPriceBdt: product.sellingPriceBdt ?? "",
               problemSolved: product.problemSolved ?? "",
               referenceLinks: product.referenceLinks,

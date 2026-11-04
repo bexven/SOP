@@ -3,6 +3,7 @@ import type { z } from "zod";
 import type { researchFieldsSchema } from "@/lib/validation/product";
 import type { Tx } from "../db";
 import { ActionError } from "../action";
+import { shippingFromWeight } from "@/lib/domain/margin";
 
 export type ResearchData = z.output<typeof researchFieldsSchema>;
 
@@ -14,7 +15,7 @@ export function researchData(input: ResearchData) {
     supplierUrl: input.supplierUrl,
     imageUrl: input.imageUrl,
     chinaPriceBdt: input.chinaPriceBdt,
-    shippingPerUnitBdt: input.shippingPerUnitBdt,
+    weightKg: input.weightKg,
     sellingPriceBdt: input.sellingPriceBdt,
     problemSolved: input.problemSolved,
     referenceLinks: input.referenceLinks,
@@ -26,5 +27,14 @@ export function researchData(input: ResearchData) {
 export async function currentRates(tx: Tx) {
   const settings = await tx.settings.findUnique({ where: { id: 1 } });
   if (!settings) throw new ActionError("An Admin needs to set the exchange rates in Settings first.");
-  return { rmbToBdtRate: settings.rmbToBdtRate, courierChargePct: settings.courierChargePct };
+  return {
+    rmbToBdtRate: settings.rmbToBdtRate,
+    courierChargePct: settings.courierChargePct,
+    shippingRatePerKgBdt: settings.shippingRatePerKgBdt,
+  };
+}
+
+/** Shipping per unit for a product = its weight × the shipping rate per kg (owner's rule). */
+export function shippingData(weightKg: string | null, ratePerKgBdt: { toString(): string } | null) {
+  return { shippingPerUnitBdt: shippingFromWeight(weightKg, ratePerKgBdt?.toString() ?? null) };
 }

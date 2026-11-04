@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 
 /**
  * Live margin check (pure). All prices are in BDT (owner's rule).
+ *   Shipping (BDT)     = weight (kg) × shipping rate per kg (Settings)
  *   Landed cost (BDT)  = China unit price + shipping per unit
  *   Courier (BDT)      = selling price × courier %
  *   Gross margin (BDT) = selling price − landed cost − courier
@@ -31,6 +32,14 @@ function parse(value: string | null | undefined): Decimal | null {
   const trimmed = value.trim();
   if (trimmed === "" || !/^-?\d+(\.\d+)?$/.test(trimmed)) return null;
   return new Decimal(trimmed);
+}
+
+/** Shipping per unit = weight × rate per kg, rounded to paisa. Null until both are valid numbers. */
+export function shippingFromWeight(weightKg: string | null | undefined, ratePerKgBdt: string | null | undefined): string | null {
+  const weight = parse(weightKg);
+  const rate = parse(ratePerKgBdt);
+  if (!weight || !rate) return null;
+  return weight.times(rate).toDecimalPlaces(2).toFixed(2);
 }
 
 /** Returns null until all three prices are valid numbers. */

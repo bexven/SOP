@@ -97,7 +97,7 @@ export async function getResearchBoard(user: { id: string; role: Role; jobRole: 
 
   const drafts = inResearch.map((p) => {
     const task = p.tasks[0];
-    const filled = [p.supplierUrl, p.chinaPriceBdt, p.shippingPerUnitBdt, p.sellingPriceBdt].filter((v) => v !== null && v !== "").length + 1;
+    const filled = [p.supplierUrl, p.chinaPriceBdt, p.weightKg, p.sellingPriceBdt].filter((v) => v !== null && v !== "").length + 1;
     return {
       id: p.id,
       ref: productRef(p.number),

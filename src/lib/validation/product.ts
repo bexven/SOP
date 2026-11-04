@@ -42,13 +42,23 @@ const optionalMoney = (label: string, max: number) =>
     .refine((v) => v === null || /^\d+(\.\d{1,2})?$/.test(v), `${label} must be a number with up to 2 decimals`)
     .refine((v) => v === null || Number(v) <= max, `${label} is too large`);
 
+/** Optional weight in kg: "" → null; otherwise a decimal with ≤ 3 places (grams). */
+const optionalWeight = z
+  .string()
+  .trim()
+  .nullable()
+  .optional()
+  .transform((v) => (v ? v : null))
+  .refine((v) => v === null || /^\d+(\.\d{1,3})?$/.test(v), "Weight must be a number in kg with up to 3 decimals (e.g. 0.350)")
+  .refine((v) => v === null || Number(v) <= 10_000, "Weight is too large");
+
 export const researchFieldsSchema = z.object({
   brandId: z.string().trim().max(64).optional().nullable().transform((v) => v || null),
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(120, "Name is too long"),
   supplierUrl: optionalUrl,
   imageUrl: optionalUrl,
   chinaPriceBdt: optionalMoney("China price", 1_000_000),
-  shippingPerUnitBdt: optionalMoney("Shipping", 1_000_000),
+  weightKg: optionalWeight,
   sellingPriceBdt: optionalMoney("Selling price", 100_000_000),
   problemSolved: optionalText(2000),
   referenceLinks: z.array(urlSchema).max(20, "Up to 20 links").default([]),

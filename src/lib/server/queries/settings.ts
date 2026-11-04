@@ -9,6 +9,7 @@ export async function getGeneralSettings() {
     rmbToBdtRate: s.rmbToBdtRate.toString(),
     usdToBdtRate: s.usdToBdtRate.toString(),
     courierChargePct: s.courierChargePct.toString(),
+    shippingRatePerKgBdt: s.shippingRatePerKgBdt?.toString() ?? "",
     healthyMarginPct: s.healthyMarginPct.toString(),
     thinMarginPct: s.thinMarginPct.toString(),
     updatedAt: s.updatedAt.toISOString(),

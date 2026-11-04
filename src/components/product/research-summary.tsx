@@ -15,9 +15,10 @@ function host(url: string): string {
 /** Read-only product details: picture, prices in BDT, links (brand-coloured) and the researcher's notes. */
 export function ResearchSummary({ product }: { product: ProductDetail }) {
   const prices: [string, string | null][] = [
-    ["China price / unit", product.chinaPriceBdt],
-    ["Shipping / unit", product.shippingPerUnitBdt],
-    ["Selling price", product.sellingPriceBdt],
+    ["China price / unit", product.chinaPriceBdt ? formatBdt(product.chinaPriceBdt) : null],
+    ["Weight / unit", product.weightKg ? `${Number(product.weightKg)} kg` : null],
+    ["Shipping / unit", product.shippingPerUnitBdt ? formatBdt(product.shippingPerUnitBdt) : null],
+    ["Selling price", product.sellingPriceBdt ? formatBdt(product.sellingPriceBdt) : null],
   ];
   const texts: [string, string | null][] = [
     ["Problem it solves", product.problemSolved],
@@ -27,11 +28,11 @@ export function ResearchSummary({ product }: { product: ProductDetail }) {
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-[9rem_minmax(0,1fr)]">
         <Thumbnail src={product.imageUrl} alt={product.name} className="aspect-square size-auto w-full max-w-[9rem] rounded-panel" />
         <div className="grid content-start gap-3">
-          <dl className="grid grid-cols-3 gap-2">
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {prices.map(([k, v]) => (
               <div key={k} className="rounded-control bg-slate-50 px-3 py-2.5 ring-1 ring-slate-900/[0.04] ring-inset">
                 <dt className="text-meta text-slate-500">{k}</dt>
-                <dd className="num mt-0.5 text-[15px] font-semibold text-slate-900">{v ? formatBdt(v) : "—"}</dd>
+                <dd className="num mt-0.5 text-[15px] font-semibold text-slate-900">{v ?? "—"}</dd>
               </div>
             ))}
           </dl>

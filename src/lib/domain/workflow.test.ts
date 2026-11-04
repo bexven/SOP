@@ -115,13 +115,13 @@ describe("research", () => {
   it("lists what blocks submission", () => {
     expect(
       researchBlockers(
-        { name: "Lamp", supplierUrl: "", chinaPriceBdt: "10", shippingPerUnitBdt: null, sellingPriceBdt: "900" },
+        { name: "Lamp", supplierUrl: "", chinaPriceBdt: "10", weightKg: null, sellingPriceBdt: "900" },
         2,
       ),
-    ).toEqual(["Supplier link", "Shipping per unit", "2 checklist items"]);
+    ).toEqual(["Supplier link", "Weight (kg)", "2 checklist items"]);
     expect(
       researchBlockers(
-        { name: "Lamp", supplierUrl: "https://x", chinaPriceBdt: "10", shippingPerUnitBdt: "2", sellingPriceBdt: "900" },
+        { name: "Lamp", supplierUrl: "https://x", chinaPriceBdt: "10", weightKg: "0.5", sellingPriceBdt: "900" },
         0,
       ),
     ).toEqual([]);

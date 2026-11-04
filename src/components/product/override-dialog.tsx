@@ -30,7 +30,7 @@ function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: (
     supplierUrl: product.supplierUrl ?? "",
     imageUrl: product.imageUrl ?? "",
     chinaPriceBdt: product.chinaPriceBdt ?? "",
-    shippingPerUnitBdt: product.shippingPerUnitBdt ?? "",
+    weightKg: product.weightKg ?? "",
     sellingPriceBdt: product.sellingPriceBdt ?? "",
     courierChargePct: product.courierChargePct,
     problemSolved: product.problemSolved ?? "",
@@ -104,7 +104,7 @@ function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: (
         {text("supplierUrl", "Supplier link")}
         {text("imageUrl", "Image URL")}
         {text("chinaPriceBdt", "China price / unit (BDT)", { mono: true })}
-        {text("shippingPerUnitBdt", "Shipping per unit (BDT)", { mono: true })}
+        {text("weightKg", "Weight / unit (kg) · shipping = weight × rate per kg", { mono: true })}
         {text("sellingPriceBdt", "Selling price (BDT)", { mono: true })}
         {text("targetLaunchDate", "Target launch (YYYY-MM-DD)", { mono: true })}
         {text("courierChargePct", "Courier % snapshot", { mono: true })}
