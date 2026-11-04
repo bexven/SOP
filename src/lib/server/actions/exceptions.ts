@@ -22,15 +22,12 @@ function revalidate() {
  */
 export const deleteProductAction = defineAction({
   schema: deleteProductSchema,
-  run: async ({ productId, confirmName }, { user }) => {
+  run: async ({ productId }, { user }) => {
     if (user.role !== "ADMIN") throw new ActionError("Only Admins can delete products.");
     const name = await db.$transaction(async (tx) => {
       const product = await tx.product.findUnique({ where: { id: productId } });
       if (!product) throw new ActionError("This product no longer exists.");
       if (product.stage !== "KILLED") throw new ActionError("Only dropped products can be deleted. Drop it first.");
-      if (confirmName.trim().toLowerCase() !== product.name.trim().toLowerCase()) {
-        throw new ActionError("The name doesn't match. Type the product's name exactly to delete it.");
-      }
       const deleted = await tx.product.deleteMany({ where: { id: productId, stage: "KILLED" } });
       if (deleted.count !== 1) throw new ActionError("This product changed just now. Refresh and try again.");
       await logEvents(tx, [{ type: "PRODUCT_DELETED", actorId: user.id, productId: null, data: { name: product.name, number: product.number } }]);
@@ -65,7 +62,7 @@ export const killProductAction = defineAction({
           userId: uid,
           type: "PRODUCT_KILLED" as const,
           productId,
-          message: `${product.name} was dropped (${KILL_REASON_LABELS[reason]}): ${note}`,
+          message: `${product.name} was dropped (${KILL_REASON_LABELS[reason]})${note ? `: ${note}` : ""}`,
         })),
       );
     });

@@ -79,12 +79,13 @@ export const newBatchSchema = z.object({
 export const productActionSchema = z.object({ productId: idSchema });
 
 /** Permanent delete: the person types the product's name to confirm. */
-export const deleteProductSchema = z.object({ productId: idSchema, confirmName: z.string().trim().min(1, "Type the product's name to confirm") });
+export const deleteProductSchema = z.object({ productId: idSchema });
 
 export const killSchema = z.object({
   productId: idSchema,
-  reason: z.enum(KillReason),
-  note: z.string().trim().min(3, "Explain why the product is being dropped").max(2000),
+  /** Optional: one tap. Without one it counts as "Other". */
+  reason: z.enum(KillReason).optional().nullable().or(z.literal("")).transform((v) => v || "OTHER"),
+  note: z.string().trim().max(2000, "Keep the note under 2000 characters").optional().nullable().transform((v) => v || null),
 });
 
 export const sendBackSchema = z.object({

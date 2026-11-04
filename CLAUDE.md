@@ -192,8 +192,9 @@ src/generated/     Prisma client (generated, git-ignored)
   (`canPlaceTestOrder()`) clicks **Mark as ordered** and enters the expected arrival (`placedAt/By`, `expectedOn`) — only now
   the row turns amber (rose when overdue); no separate banner → **arrived** (Confirm arrived; quality Passed/Failed after).
   Everyone who sees the Orders tab sees them. Not counted in order totals. New orders notify the Media Buyer and every Admin.
-- **Kill is now "Drop"** in the UI (status "Dropped"); enum/columns stay `KILLED` / `kill*`. **Admins can delete a dropped
-  product for good** (type its name to confirm); everything cascades; a `PRODUCT_DELETED` event keeps name + number.
+- **Kill is now "Drop"** in the UI (status "Dropped"); enum/columns stay `KILLED` / `kill*`. Dropping is one tap: reason chips and note are
+  optional (no reason = Other). **Admins can delete for good**: "Drop & delete for good" in the Drop window, or "Delete for good"
+  (one confirm) on a dropped product; everything cascades; a `PRODUCT_DELETED` event keeps name + number.
 - **Campaigns**: many per product in `AdCampaign` (number, **name**, **type**: Image / Video / Carousel / Pre-order /
   Catalogue / Messages). The old one-per-product `Campaign` table is kept unused (rows copied as #1) so older releases still run.
   Product campaign status = `overallCampaignStatus()` (running while any campaign runs). The first campaign launches with

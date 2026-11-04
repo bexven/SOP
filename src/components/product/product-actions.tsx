@@ -40,6 +40,7 @@ import { completeProductAction, requestBatchAction } from "@/lib/server/actions/
 import { deleteProductAction, killProductAction, sendBackAction } from "@/lib/server/actions/exceptions";
 import type { ProductDetail } from "@/lib/server/queries/product";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { OverrideDialog } from "./override-dialog";
 import type { Viewer } from "./product-view";
 
@@ -106,7 +107,7 @@ export function ProductActions({ product, viewer }: { product: ProductDetail; vi
 
       <NewBatchDialog open={dialog === "batch"} onClose={() => setDialog(null)} product={product} />
       <CompleteDialog open={dialog === "complete"} onClose={() => setDialog(null)} product={product} />
-      <KillDialog open={dialog === "kill"} onClose={() => setDialog(null)} product={product} />
+      <KillDialog open={dialog === "kill"} onClose={() => setDialog(null)} product={product} canDelete={viewer.role === "ADMIN"} />
       {canDelete ? <DeleteDialog open={dialog === "delete"} onClose={() => setDialog(null)} product={product} /> : null}
       <SendBackDialog open={dialog === "sendBack"} onClose={() => setDialog(null)} product={product} targets={targets} />
       {canOverride ? <OverrideDialog open={dialog === "override"} onClose={() => setDialog(null)} product={product} /> : null}
@@ -234,47 +235,83 @@ function CompleteDialog({ open, onClose, product }: DialogProps) {
   );
 }
 
-function KillDialog({ open, onClose, product }: DialogProps) {
+function KillDialog({ open, onClose, product, canDelete }: DialogProps & { canDelete: boolean }) {
+  const router = useRouter();
   const [reason, setReason] = useState<KillReason | "">("");
   const [note, setNote] = useState("");
-  const { pending, errors, run } = useRun(onClose);
+  const [pending, startTransition] = useTransition();
+
+  function drop(thenDelete: boolean) {
+    startTransition(async () => {
+      const r = await killProductAction({ productId: product.id, reason, note });
+      if (!r.ok) {
+        toast.error(r.error ?? "Something went wrong");
+        return;
+      }
+      if (thenDelete) {
+        const d = await deleteProductAction({ productId: product.id });
+        if (!d.ok) {
+          toast.error(d.error ?? "Dropped, but it couldn't be deleted");
+          onClose();
+          router.refresh();
+          return;
+        }
+        toast.success(d.message ?? "Deleted");
+        onClose();
+        router.replace("/products");
+        router.refresh();
+        return;
+      }
+      toast.success(r.message ?? "Dropped");
+      onClose();
+      router.refresh();
+    });
+  }
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Drop {product.name}?</DialogTitle>
-          <DialogDescription>
-            We stop working on it: open tasks are cancelled and it moves to Dropped (Products list, filter “Dropped”) so the team can learn from it. An Admin can delete it for good from there.
-          </DialogDescription>
+          <DialogDescription>Open tasks are cancelled and it moves to Dropped.</DialogDescription>
         </DialogHeader>
-        <Field id="k-reason" label="Reason *" error={errors.reason?.[0]}>
-          <Select value={reason} onValueChange={(v) => setReason(v as KillReason)}>
-            <SelectTrigger {...fieldA11y("k-reason", errors.reason?.[0])}>
-              <SelectValue placeholder="Choose a reason" />
-            </SelectTrigger>
-            <SelectContent>
-              {KILL_REASONS.map((r) => (
-                <SelectItem key={r} value={r}>
-                  {KILL_REASON_LABELS[r]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field id="k-note" label="Note *" error={errors.note?.[0]}>
-          <Textarea {...fieldA11y("k-note", errors.note?.[0])} value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="What did we learn?" />
-        </Field>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={pending || !reason || note.trim().length < 3}
-            onClick={() => run(() => killProductAction({ productId: product.id, reason, note }))}
-          >
-            <BanIcon /> Drop product
-          </Button>
+        <fieldset className="grid gap-1.5">
+          <legend className="mb-1 text-meta text-slate-700">Why? (optional)</legend>
+          <div role="radiogroup" aria-label="Why it's dropped" className="flex flex-wrap gap-1.5">
+            {KILL_REASONS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                role="radio"
+                aria-checked={reason === r}
+                onClick={() => setReason(reason === r ? "" : r)}
+                className={cn(
+                  "cursor-pointer rounded-full px-3 py-1.5 text-meta ring-1 transition-colors duration-150 ring-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  reason === r ? "bg-rose-700 text-white ring-rose-700" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
+                )}
+              >
+                {KILL_REASON_LABELS[r]}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <Textarea aria-label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Note (optional)" />
+        <DialogFooter className="gap-2 sm:justify-between">
+          {canDelete ? (
+            <Button variant="ghost" className="text-rose-700 hover:bg-rose-50 hover:text-rose-800" disabled={pending} onClick={() => drop(true)}>
+              <Trash2Icon /> Drop &amp; delete for good
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} disabled={pending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={pending} onClick={() => drop(false)}>
+              <BanIcon /> Drop
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -283,31 +320,25 @@ function KillDialog({ open, onClose, product }: DialogProps) {
 
 function DeleteDialog({ open, onClose, product }: DialogProps) {
   const router = useRouter();
-  const [name, setName] = useState("");
   const [pending, startTransition] = useTransition();
-  const matches = name.trim().toLowerCase() === product.name.trim().toLowerCase();
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete {product.name} for good?</DialogTitle>
-          <DialogDescription>
-            This removes the product and everything attached to it — tasks, comments, orders, campaigns and its history. It can&apos;t be undone.
-          </DialogDescription>
+          <DialogDescription>It disappears with its tasks, comments, orders and campaigns. This can&apos;t be undone.</DialogDescription>
         </DialogHeader>
-        <Field id="del-name" label={`Type “${product.name}” to confirm`}>
-          <Input id="del-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
-        </Field>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
           <Button
             variant="destructive"
-            disabled={pending || !matches}
+            disabled={pending}
+            autoFocus
             onClick={() =>
               startTransition(async () => {
-                const r = await deleteProductAction({ productId: product.id, confirmName: name });
+                const r = await deleteProductAction({ productId: product.id });
                 if (r.ok) {
                   toast.success(r.message ?? "Deleted");
                   onClose();
