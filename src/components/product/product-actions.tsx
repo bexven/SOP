@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowUpRightIcon,
   CheckCheckIcon,
   CornerUpLeftIcon,
   MoreHorizontalIcon,
@@ -13,7 +12,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { CampaignStatus, KillReason, ProductStage, TaskType } from "@/generated/prisma/enums";
+import type { KillReason, ProductStage, TaskType } from "@/generated/prisma/enums";
 import { Field, fieldA11y } from "@/components/common/field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,8 +28,6 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  CAMPAIGN_STATUS_LABELS,
-  CAMPAIGN_STATUSES,
   CREATIVE_TYPES,
   KILL_REASON_LABELS,
   KILL_REASONS,
@@ -39,14 +36,14 @@ import {
 } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
 import { isTerminalStage, sendBackTargets } from "@/lib/domain/workflow";
-import { completeProductAction, requestBatchAction, setCampaignStatusAction } from "@/lib/server/actions/campaign";
+import { completeProductAction, requestBatchAction } from "@/lib/server/actions/campaign";
 import { deleteProductAction, killProductAction, sendBackAction } from "@/lib/server/actions/exceptions";
 import type { ProductDetail } from "@/lib/server/queries/product";
 import { Input } from "@/components/ui/input";
 import { OverrideDialog } from "./override-dialog";
 import type { Viewer } from "./product-view";
 
-type DialogKey = "status" | "batch" | "complete" | "kill" | "delete" | "sendBack" | "override" | null;
+type DialogKey = "batch" | "complete" | "kill" | "delete" | "sendBack" | "override" | null;
 
 export function ProductActions({ product, viewer }: { product: ProductDetail; viewer: Viewer }) {
   const [dialog, setDialog] = useState<DialogKey>(null);
@@ -60,7 +57,6 @@ export function ProductActions({ product, viewer }: { product: ProductDetail; vi
   const canDelete = viewer.role === "ADMIN" && product.stage === "KILLED";
 
   const menuItems = [
-    live && canCampaign ? { key: "status" as const, label: "Change campaign status", icon: ArrowUpRightIcon } : null,
     live && canBatch ? { key: "batch" as const, label: "Request new creative batch", icon: SparklesIcon } : null,
     live && canCampaign ? { key: "complete" as const, label: "Mark completed", icon: CheckCheckIcon } : null,
     targets.length ? { key: "sendBack" as const, label: "Send back…", icon: CornerUpLeftIcon } : null,
@@ -108,7 +104,6 @@ export function ProductActions({ product, viewer }: { product: ProductDetail; vi
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <CampaignStatusDialog open={dialog === "status"} onClose={() => setDialog(null)} product={product} />
       <NewBatchDialog open={dialog === "batch"} onClose={() => setDialog(null)} product={product} />
       <CompleteDialog open={dialog === "complete"} onClose={() => setDialog(null)} product={product} />
       <KillDialog open={dialog === "kill"} onClose={() => setDialog(null)} product={product} />
@@ -141,48 +136,6 @@ function useRun(onClose: () => void) {
     });
   }
   return { pending, errors, run };
-}
-
-function CampaignStatusDialog({ open, onClose, product }: DialogProps) {
-  const current = product.campaign?.status ?? "RUNNING";
-  const [status, setStatus] = useState<CampaignStatus>(current === "RUNNING" ? "PAUSED" : "RUNNING");
-  const [note, setNote] = useState("");
-  const { pending, run } = useRun(onClose);
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Change campaign status</DialogTitle>
-          <DialogDescription>Currently {CAMPAIGN_STATUS_LABELS[current].toLowerCase()}. Every change is logged on the timeline.</DialogDescription>
-        </DialogHeader>
-        <Field id="cs-status" label="New status">
-          <Select value={status} onValueChange={(v) => setStatus(v as CampaignStatus)}>
-            <SelectTrigger id="cs-status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CAMPAIGN_STATUSES.filter((s) => s !== current).map((s) => (
-                <SelectItem key={s} value={s}>
-                  {CAMPAIGN_STATUS_LABELS[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field id="cs-note" label="Note (optional)">
-          <Textarea id="cs-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="e.g. Pausing while new creative is made" />
-        </Field>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button disabled={pending} onClick={() => run(() => setCampaignStatusAction({ productId: product.id, status, note }))}>
-            Update status
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 function defaultDueDate(): string {

@@ -2,58 +2,74 @@ import Decimal from "decimal.js";
 import { ExternalLinkIcon } from "lucide-react";
 import { CampaignPill } from "@/components/common/pills";
 import { Button } from "@/components/ui/button";
-import { CampaignEditButton } from "./campaign-edit";
-import { formatBdt, formatDateTime, formatUsd } from "@/lib/format";
-import type { ProductDetail } from "@/lib/server/queries/product";
+import { CAMPAIGN_TYPE_LABELS } from "@/lib/domain/campaigns";
+import { formatBdt, formatDate, formatUsd } from "@/lib/format";
+import type { CampaignDTO, ProductDetail } from "@/lib/server/queries/product";
+import { CampaignDialogButton, CampaignStatusButton } from "./campaign-edit";
 
-export function CampaignCard({ product, canEdit = false }: { product: ProductDetail; canEdit?: boolean }) {
-  const c = product.campaign;
-  if (!c || !c.launchedAt) return null;
+function daysSince(iso: string) {
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+}
+
+/** One named campaign: type, status, budget, link and strategy, with edit / status buttons. */
+export function CampaignCard({ product, campaign: c, canEdit = false }: { product: ProductDetail; campaign: CampaignDTO; canEdit?: boolean }) {
   const usdRate = product.thresholds?.usdToBdtRate;
+  const days = c.launchedAt ? daysSince(c.launchedAt) : null;
   return (
-    <section className="surface rounded-panel p-4" aria-label="Campaign">
-      <div className="flex items-center justify-between">
-        <h2 className="text-section text-slate-900">Campaign</h2>
-        <span className="flex items-center gap-2">
-          {canEdit ? <CampaignEditButton product={product} /> : null}
-          <CampaignPill status={c.status} />
-        </span>
+    <li className="surface grid gap-3 rounded-panel p-4" aria-label={c.name}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-meta text-slate-500">
+            <span className="num">#{c.number}</span>
+            {c.type ? ` · ${CAMPAIGN_TYPE_LABELS[c.type]}` : ""}
+          </p>
+          <h3 className="text-section [overflow-wrap:anywhere] text-slate-900">{c.name}</h3>
+        </div>
+        <CampaignPill status={c.status} />
       </div>
-      <dl className="mt-3 grid gap-3 text-body">
-        {c.dailyBudgetUsd ? (
-          <div>
-            <dt className="text-meta text-slate-500">Daily budget</dt>
-            <dd className="num mt-0.5 font-medium text-slate-900">
-              {formatUsd(c.dailyBudgetUsd)}
-              {usdRate ? (
-                <span className="ml-1.5 font-normal text-slate-500">≈ {formatBdt(new Decimal(c.dailyBudgetUsd).times(usdRate).toDecimalPlaces(0).toString())}</span>
-              ) : null}
-            </dd>
-          </div>
-        ) : null}
-        {c.adsManagerUrl ? (
-          <div>
-            <dt className="text-meta text-slate-500">Ads Manager</dt>
-            <dd className="mt-0.5">
-              <Button asChild size="sm" className="mt-0.5">
-                <a href={c.adsManagerUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLinkIcon /> Open in Ads Manager
-                </a>
-              </Button>
-              {c.metaCampaignId ? <span className="num ml-2 text-meta text-slate-500">ID {c.metaCampaignId}</span> : null}
-            </dd>
-          </div>
-        ) : null}
-        {c.strategyNotes ? (
-          <div>
-            <dt className="text-meta text-slate-500">Strategy</dt>
-            <dd className="mt-0.5 whitespace-pre-line text-slate-800">{c.strategyNotes}</dd>
-          </div>
-        ) : null}
+      <dl className="grid grid-cols-2 gap-3 text-body">
+        <div>
+          <dt className="text-meta text-slate-500">Daily budget</dt>
+          <dd className="num mt-0.5 font-medium text-slate-900">
+            {c.dailyBudgetUsd ? formatUsd(c.dailyBudgetUsd) : "—"}
+            {c.dailyBudgetUsd && usdRate ? (
+              <span className="block text-meta font-normal text-slate-500">≈ {formatBdt(new Decimal(c.dailyBudgetUsd).times(usdRate).toDecimalPlaces(0).toString())}</span>
+            ) : null}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-meta text-slate-500">Started</dt>
+          <dd className="mt-0.5 text-slate-900">
+            {c.launchedAt ? (
+              <>
+                <span className="num">{formatDate(new Date(c.launchedAt))}</span>
+                <span className="block text-meta font-normal text-slate-500">
+                  <span className="num">{days}</span> day{days === 1 ? "" : "s"} ago{c.launchedBy ? ` · ${c.launchedBy}` : ""}
+                </span>
+              </>
+            ) : (
+              "—"
+            )}
+          </dd>
+        </div>
       </dl>
-      <p className="mt-3 text-meta font-normal text-slate-500">
-        Launched{c.launchedBy ? ` by ${c.launchedBy}` : ""} · <span className="num">{formatDateTime(new Date(c.launchedAt))}</span>
-      </p>
-    </section>
+      {c.strategyNotes ? <p className="text-body whitespace-pre-line [overflow-wrap:anywhere] text-slate-700">{c.strategyNotes}</p> : null}
+      <div className="flex flex-wrap items-center gap-2">
+        {c.adsManagerUrl ? (
+          <Button asChild size="sm" variant="brandSoft">
+            <a href={c.adsManagerUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLinkIcon /> Ads Manager
+            </a>
+          </Button>
+        ) : null}
+        {c.metaCampaignId ? <span className="num text-meta text-slate-500">ID {c.metaCampaignId}</span> : null}
+        {canEdit ? (
+          <span className="ml-auto flex gap-1.5">
+            <CampaignDialogButton product={product} campaign={c} />
+            <CampaignStatusButton product={product} campaign={c} />
+          </span>
+        ) : null}
+      </div>
+    </li>
   );
 }

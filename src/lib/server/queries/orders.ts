@@ -1,4 +1,5 @@
 import "server-only";
+import { overallCampaignStatus } from "@/lib/domain/campaigns";
 import { orderSummary } from "@/lib/domain/orders";
 import { productRef } from "@/lib/format";
 import { db } from "../db";
@@ -14,12 +15,12 @@ export async function getOrdersBoard(viewer: BrandViewer) {
     db.product.findMany({
       where: { AND: [scope], orderingSince: { not: null } },
       orderBy: { orderingSince: "desc" },
-      include: { brand, campaign: { select: { status: true } }, orders: { orderBy: { number: "desc" } } },
+      include: { brand, adCampaigns: { select: { status: true } }, orders: { orderBy: { number: "desc" } } },
     }),
     db.product.findMany({
       where: { AND: [scope], stage: "LIVE", orderingSince: null },
       orderBy: { stageEnteredAt: "asc" },
-      include: { brand, campaign: { select: { status: true, launchedAt: true } } },
+      include: { brand, adCampaigns: { select: { status: true, launchedAt: true } } },
     }),
   ]);
   return {
@@ -38,7 +39,7 @@ export async function getOrdersBoard(viewer: BrandViewer) {
         imageUrl: p.imageUrl,
         brand: p.brand,
         stage: p.stage,
-        campaignStatus: p.campaign?.status ?? null,
+        campaignStatus: overallCampaignStatus(p.adCampaigns.map((c) => c.status)),
         orderingSince: p.orderingSince!.toISOString(),
         scalable: p.scalable,
         scalePlans: p.scalePlans,
@@ -52,8 +53,14 @@ export async function getOrdersBoard(viewer: BrandViewer) {
       name: p.name,
       imageUrl: p.imageUrl,
       brand: p.brand,
-      campaignStatus: p.campaign?.status ?? null,
-      launchedAt: p.campaign?.launchedAt?.toISOString() ?? null,
+      campaignStatus: overallCampaignStatus(p.adCampaigns.map((c) => c.status)),
+      launchedAt: firstLaunch(p.adCampaigns),
     })),
   };
+}
+
+/** When the product's first campaign launched. */
+function firstLaunch(cs: { launchedAt: Date | null }[]): string | null {
+  const times = cs.map((c) => c.launchedAt?.getTime()).filter((t): t is number => t !== undefined);
+  return times.length ? new Date(Math.min(...times)).toISOString() : null;
 }

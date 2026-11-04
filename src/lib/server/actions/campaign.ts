@@ -5,14 +5,17 @@ import { isChecklistComplete, missingRequiredCount } from "@/lib/domain/checklis
 import { CAMPAIGN_STATUS_LABELS } from "@/lib/domain/labels";
 import { planCampaignStatus, planComplete, planLaunch, planNewBatch } from "@/lib/domain/workflow";
 import {
+  campaignDetailsSchema,
   campaignStatusSchema,
   launchDetailsSchema,
+  newCampaignSchema,
   launchSchema,
   newBatchSchema,
   productActionSchema,
 } from "@/lib/validation/campaign";
+import { nextCampaignNumber } from "@/lib/domain/campaigns";
 import { ActionError, defineAction } from "../action";
-import { db } from "../db";
+import { db, type Tx } from "../db";
 import { applyPlan, CONFLICT_MESSAGE } from "../services/apply-plan";
 import { logEvents, notify } from "../services/events";
 import { loadSnapshot } from "../services/snapshot";
@@ -26,23 +29,25 @@ function endOfDhakaDay(day: string): Date {
   return new Date(`${day}T23:59:00+06:00`);
 }
 
+/** The draft of campaign #1 (before launch): the row the launch form saves into. */
+async function draftCampaign(tx: Tx, productId: string) {
+  return tx.adCampaign.findFirst({ where: { productId, launchedAt: null }, orderBy: { number: "asc" } });
+}
+
 export const saveLaunchDetailsAction = defineAction({
   capability: "campaign.manage",
   schema: launchDetailsSchema,
-  run: async ({ productId, ...fields }, { user }) => {
+  run: async ({ productId, name, type, ...fields }, { user }) => {
     await db.$transaction(async (tx) => {
-      const product = await tx.product.findUnique({ where: { id: productId }, include: { campaign: true } });
+      const product = await tx.product.findUnique({ where: { id: productId }, include: { adCampaigns: { select: { number: true } } } });
       if (!product) throw new ActionError("This product no longer exists.");
-      if (!(product.stage === "READY_TO_LAUNCH" || product.stage === "LIVE")) {
-        throw new ActionError("Campaign details can be edited once the product is ready to launch.");
-      }
-      await tx.campaign.upsert({
-        where: { productId },
-        create: { productId, ...fields },
-        update: fields,
-      });
-      if (product.stage === "LIVE") {
-        await logEvents(tx, [{ type: "PRODUCT_UPDATED", actorId: user.id, productId, data: { fields: ["campaign details"] } }]);
+      if (product.stage !== "READY_TO_LAUNCH") throw new ActionError("The launch details can be saved while the product is ready to launch.");
+      const draft = await draftCampaign(tx, productId);
+      if (draft) {
+        await tx.adCampaign.update({ where: { id: draft.id }, data: { ...fields, name: name ?? draft.name, type } });
+      } else {
+        const number = nextCampaignNumber(product.adCampaigns.map((c) => c.number));
+        await tx.adCampaign.create({ data: { productId, number, name: name ?? `Campaign ${number}`, type, ...fields, createdById: user.id } });
       }
     });
     revalidate();
@@ -65,19 +70,22 @@ export const launchCampaignAction = defineAction({
         const n = missingRequiredCount(checklist);
         throw new ActionError(`Tick the remaining ${n} launch checklist item${n === 1 ? "" : "s"} first.`);
       }
-      await tx.campaign.upsert({
-        where: { productId },
-        create: { productId, ...fields, launchedAt: now, launchedById: user.id },
-        update: { ...fields, launchedAt: now, launchedById: user.id },
-      });
-      await applyPlan(tx, planned.plan, { actorId: user.id, product, now });
+      // The draft (or a new campaign) is saved as not launched; the plan below switches it to running.
+      const draft = await draftCampaign(tx, productId);
+      const data = { ...fields, status: "NOT_LAUNCHED" as const, launchedAt: now, launchedById: user.id };
+      if (draft) await tx.adCampaign.update({ where: { id: draft.id }, data });
+      else {
+        const numbers = (await tx.adCampaign.findMany({ where: { productId }, select: { number: true } })).map((c) => c.number);
+        await tx.adCampaign.create({ data: { productId, number: nextCampaignNumber(numbers), ...data, createdById: user.id } });
+      }
+      await applyPlan(tx, { ...planned.plan, campaign: { from: "NOT_LAUNCHED", to: "RUNNING" } }, { actorId: user.id, product, now });
       await logEvents(tx, [
         {
           type: "CAMPAIGN_LAUNCHED",
           actorId: user.id,
           productId,
           taskId: launchTask.id,
-          data: { dailyBudgetUsd: fields.dailyBudgetUsd, metaCampaignId: fields.metaCampaignId },
+          data: { name: fields.name, type: fields.type, dailyBudgetUsd: fields.dailyBudgetUsd, metaCampaignId: fields.metaCampaignId },
         },
       ]);
     });
@@ -86,21 +94,61 @@ export const launchCampaignAction = defineAction({
   },
 });
 
+/** Another named campaign while the product is live (it starts running straight away). */
+export const createCampaignAction = defineAction({
+  capability: "campaign.manage",
+  schema: newCampaignSchema,
+  run: async ({ productId, ...fields }, { user }) => {
+    const now = new Date();
+    const number = await db.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({ where: { id: productId }, include: { adCampaigns: { select: { number: true } } } });
+      if (!product) throw new ActionError("This product no longer exists.");
+      if (product.stage !== "LIVE") throw new ActionError("New campaigns can be added while the product is live.");
+      const number = nextCampaignNumber(product.adCampaigns.map((c) => c.number));
+      await tx.adCampaign.create({
+        data: { productId, number, ...fields, status: "RUNNING", launchedAt: now, launchedById: user.id, createdById: user.id },
+      });
+      await logEvents(tx, [{ type: "CAMPAIGN_LAUNCHED", actorId: user.id, productId, data: { number, name: fields.name, type: fields.type, dailyBudgetUsd: fields.dailyBudgetUsd } }]);
+      return number;
+    });
+    revalidate();
+    return { ok: true, message: `Campaign #${number} “${fields.name}” is running` };
+  },
+});
+
+/** Edit one campaign's name, type, link, ID, budget or strategy. */
+export const saveCampaignDetailsAction = defineAction({
+  capability: "campaign.manage",
+  schema: campaignDetailsSchema,
+  run: async ({ productId, campaignId, ...fields }, { user }) => {
+    await db.$transaction(async (tx) => {
+      const c = await tx.adCampaign.findUnique({ where: { id: campaignId } });
+      if (!c || c.productId !== productId) throw new ActionError("That campaign no longer exists.");
+      await tx.adCampaign.update({ where: { id: campaignId }, data: fields });
+      await logEvents(tx, [{ type: "PRODUCT_UPDATED", actorId: user.id, productId, data: { fields: [`campaign #${c.number} details`] } }]);
+    });
+    revalidate();
+    return { ok: true, message: "Campaign saved" };
+  },
+});
+
 export const setCampaignStatusAction = defineAction({
   capability: "campaign.manage",
   schema: campaignStatusSchema,
-  run: async ({ productId, status, note }, { user }) => {
-    await db.$transaction(async (tx) => {
+  run: async ({ productId, campaignId, status, note }, { user }) => {
+    const name = await db.$transaction(async (tx) => {
       const { snap } = await loadSnapshot(tx, productId);
-      const planned = planCampaignStatus(snap, status);
+      const c = await tx.adCampaign.findUnique({ where: { id: campaignId } });
+      if (!c || c.productId !== productId) throw new ActionError("That campaign no longer exists.");
+      const planned = planCampaignStatus({ ...snap, campaignStatus: c.status }, status);
       if (!planned.ok) throw new ActionError(planned.error);
-      const from = planned.plan.campaign!.from;
-      const updated = await tx.campaign.updateMany({ where: { productId, status: from ?? undefined }, data: { status } });
+      const updated = await tx.adCampaign.updateMany({ where: { id: campaignId, status: c.status }, data: { status } });
       if (updated.count !== 1) throw new ActionError(CONFLICT_MESSAGE);
-      await logEvents(tx, [{ type: "CAMPAIGN_STATUS_CHANGED", actorId: user.id, productId, data: { from, to: status, note } }]);
+      await logEvents(tx, [{ type: "CAMPAIGN_STATUS_CHANGED", actorId: user.id, productId, data: { from: c.status, to: status, note, campaign: c.name } }]);
+      return c.name;
     });
     revalidate();
-    return { ok: true, message: `Campaign ${CAMPAIGN_STATUS_LABELS[status].toLowerCase()}` };
+    return { ok: true, message: `${name}: ${CAMPAIGN_STATUS_LABELS[status].toLowerCase()}` };
   },
 });
 

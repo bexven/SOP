@@ -1,4 +1,5 @@
 import "server-only";
+import { overallCampaignStatus } from "@/lib/domain/campaigns";
 import { canSeeBrand, type BrandViewer } from "@/lib/domain/permissions";
 import type { ProductStage, TaskType } from "@/generated/prisma/enums";
 import { laneOf } from "@/lib/domain/labels";
@@ -52,7 +53,7 @@ export async function getProductDetail(id: string, viewer: BrandViewer & { role?
         createdBy: person,
         mediaBuyer: person,
         brand: { select: { id: true, name: true, color: true, restricted: true } },
-        campaign: true,
+        adCampaigns: { orderBy: { number: "asc" } },
         batches: { orderBy: { number: "asc" } },
         transitions: { orderBy: { at: "asc" } },
         orders: { orderBy: { number: "desc" }, include: { createdBy: person } },
@@ -103,7 +104,7 @@ export async function getProductDetail(id: string, viewer: BrandViewer & { role?
   const stepper: Stepper = deriveStepper({
     stage: p.stage,
     stageBeforeKill: p.stageBeforeKill,
-    campaignStatus: p.campaign?.status ?? null,
+    campaignStatus: overallCampaignStatus(p.adCampaigns.map((c) => c.status)),
     lanes: laneProgress(p.tasks, p.batches),
     ordering: Boolean(p.orderingSince),
   });
@@ -143,17 +144,20 @@ export async function getProductDetail(id: string, viewer: BrandViewer & { role?
     createdAt: p.createdAt.toISOString(),
     createdBy: p.createdBy,
     mediaBuyer: p.mediaBuyer,
-    campaign: p.campaign
-      ? {
-          status: p.campaign.status,
-          adsManagerUrl: p.campaign.adsManagerUrl,
-          metaCampaignId: p.campaign.metaCampaignId,
-          dailyBudgetUsd: str(p.campaign.dailyBudgetUsd),
-          strategyNotes: p.campaign.strategyNotes,
-          launchedAt: iso(p.campaign.launchedAt),
-          launchedBy: nameOf(p.campaign.launchedById),
-        }
-      : null,
+    campaignStatus: overallCampaignStatus(p.adCampaigns.map((c) => c.status)),
+    campaigns: p.adCampaigns.map((c) => ({
+      id: c.id,
+      number: c.number,
+      name: c.name,
+      type: c.type,
+      status: c.status,
+      adsManagerUrl: c.adsManagerUrl,
+      metaCampaignId: c.metaCampaignId,
+      dailyBudgetUsd: str(c.dailyBudgetUsd),
+      strategyNotes: c.strategyNotes,
+      launchedAt: iso(c.launchedAt),
+      launchedBy: nameOf(c.launchedById),
+    })),
     batches: p.batches.map((b) => ({
       id: b.id,
       number: b.number,
@@ -257,6 +261,7 @@ export async function getProductDetail(id: string, viewer: BrandViewer & { role?
 export type ProductDetail = NonNullable<Awaited<ReturnType<typeof getProductDetail>>>;
 export type TaskDTO = ProductDetail["tasks"][number];
 export type OrderDTO = ProductDetail["orders"][number];
+export type CampaignDTO = ProductDetail["campaigns"][number];
 export type TestOrderDTO = ProductDetail["testOrders"][number];
 export type StageKey = ProductStage;
 

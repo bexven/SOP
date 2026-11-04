@@ -29,7 +29,7 @@ export function ProductHeader({
             <StagePill stage={product.stage} />
             <PriorityPill priority={product.priority} />
             <MarginBadge pct={product.margin?.marginPct} band={product.marginBand} />
-            {product.campaign && product.campaign.status !== "NOT_LAUNCHED" ? <CampaignPill status={product.campaign.status} /> : null}
+            {product.campaignStatus && product.campaignStatus !== "NOT_LAUNCHED" ? <CampaignPill status={product.campaignStatus} /> : null}
             {product.mediaBuyer ? (
               <span className="inline-flex items-center gap-1.5 pl-1 text-meta text-slate-600">
                 <UserAvatar name={product.mediaBuyer.name} color={product.mediaBuyer.avatarColor} imageId={product.mediaBuyer.avatarAssetId} size="xs" />

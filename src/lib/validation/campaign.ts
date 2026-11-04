@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CampaignStatus, KillReason, ProductStage, TaskType } from "@/generated/prisma/enums";
+import { CampaignStatus, CampaignType, KillReason, ProductStage, TaskType } from "@/generated/prisma/enums";
 import { idSchema } from "./common";
 import { researchFieldsSchema, urlSchema } from "./product";
 
@@ -19,8 +19,14 @@ const usd = z
   .refine((v) => Number(v) > 0, "Budget must be more than $0")
   .refine((v) => Number(v) <= 100000, "That budget looks too large");
 
+const campaignName = z.string().trim().min(2, "Name the campaign, e.g. “Video – women 25-40”").max(80, "Keep the name under 80 characters");
+const campaignType = z.enum(CampaignType, { error: "Choose the campaign type" });
+
+/** Draft of the first campaign before launch (everything optional). */
 export const launchDetailsSchema = z.object({
   productId: idSchema,
+  name: z.string().trim().max(80).optional().nullable().transform((v) => v || null),
+  type: z.enum(CampaignType).optional().nullable().or(z.literal("")).transform((v) => v || null),
   adsManagerUrl: z.union([urlSchema, z.literal("")]).optional().nullable().transform((v) => v || null),
   metaCampaignId: optionalText(100),
   dailyBudgetUsd: z.union([usd, z.literal("")]).optional().nullable().transform((v) => v || null),
@@ -29,14 +35,32 @@ export const launchDetailsSchema = z.object({
 
 export const launchSchema = z.object({
   productId: idSchema,
+  name: campaignName,
+  type: campaignType,
   adsManagerUrl: urlSchema,
   metaCampaignId: optionalText(100),
   dailyBudgetUsd: usd,
   strategyNotes: optionalText(5000),
 });
 
+/** Another campaign while the product is live. */
+export const newCampaignSchema = launchSchema;
+
+/** Edit one campaign's details. */
+export const campaignDetailsSchema = z.object({
+  productId: idSchema,
+  campaignId: idSchema,
+  name: campaignName,
+  type: campaignType,
+  adsManagerUrl: z.union([urlSchema, z.literal("")]).optional().nullable().transform((v) => v || null),
+  metaCampaignId: optionalText(100),
+  dailyBudgetUsd: z.union([usd, z.literal("")]).optional().nullable().transform((v) => v || null),
+  strategyNotes: optionalText(5000),
+});
+
 export const campaignStatusSchema = z.object({
   productId: idSchema,
+  campaignId: idSchema,
   status: z.enum(CampaignStatus),
   note: optionalText(1000),
 });

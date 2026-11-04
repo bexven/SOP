@@ -13,6 +13,7 @@ import { formatDate } from "@/lib/format";
 import { moveToOrderingAction } from "@/lib/server/actions/orders";
 import type { ProductDetail, TaskDTO } from "@/lib/server/queries/product";
 import { CampaignCard } from "./campaign-card";
+import { CampaignDialogButton } from "./campaign-edit";
 import { Discussion } from "./discussion";
 import { LaunchPanel } from "./launch-panel";
 import type { Viewer } from "./product-view";
@@ -34,8 +35,10 @@ export function MetaAdsTab({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const launch = [...product.tasks].reverse().find((t) => t.type === "CAMPAIGN_LAUNCH" && t.status !== "CANCELLED");
-  const c = product.campaign;
-  const launched = Boolean(c?.launchedAt);
+  const launchedCampaigns = product.campaigns.filter((c) => c.launchedAt);
+  const launched = launchedCampaigns.length > 0;
+  const firstLaunch = launched ? launchedCampaigns.map((c) => c.launchedAt!).sort()[0]! : null;
+  const running = product.campaigns.filter((c) => c.status === "RUNNING").length;
   const canCampaign = can(viewer, "campaign.manage");
   const canOrder = can(viewer, "orders.manage");
   const lane = (l: "images" | "videos") => {
@@ -50,11 +53,12 @@ export function MetaAdsTab({
           <div>
             <p className="text-meta text-slate-500">Campaign status</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <CampaignPill status={c?.status ?? "NOT_LAUNCHED"} />
-              {launched ? (
+              <CampaignPill status={product.campaignStatus ?? "NOT_LAUNCHED"} />
+              {firstLaunch ? (
                 <span className="text-body text-slate-700">
-                  Running for <span className="num font-semibold text-slate-900">{daysSince(c!.launchedAt!)}</span> day{daysSince(c!.launchedAt!) === 1 ? "" : "s"} · since{" "}
-                  <span className="num">{formatDate(new Date(c!.launchedAt!))}</span>
+                  <span className="num font-semibold text-slate-900">{running}</span> of <span className="num">{launchedCampaigns.length}</span> campaign
+                  {launchedCampaigns.length === 1 ? "" : "s"} running · live for <span className="num font-semibold text-slate-900">{daysSince(firstLaunch)}</span> day
+                  {daysSince(firstLaunch) === 1 ? "" : "s"} since <span className="num">{formatDate(new Date(firstLaunch))}</span>
                 </span>
               ) : (
                 <span className="text-body text-slate-600">
@@ -88,7 +92,19 @@ export function MetaAdsTab({
       </section>
 
       {launched ? (
-        <CampaignCard product={product} canEdit={canCampaign && product.stage === "LIVE"} />
+        <section className="grid gap-3" aria-labelledby="campaigns-h">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="campaigns-h" className="text-section text-slate-900">
+              Campaigns <span className="num text-meta text-slate-500">{launchedCampaigns.length}</span>
+            </h2>
+            {canCampaign && product.stage === "LIVE" ? <CampaignDialogButton product={product} /> : null}
+          </div>
+          <ul className="grid gap-3 lg:grid-cols-2">
+            {[...launchedCampaigns].reverse().map((c) => (
+              <CampaignCard key={c.id} product={product} campaign={c} canEdit={canCampaign && product.stage === "LIVE"} />
+            ))}
+          </ul>
+        </section>
       ) : launch ? (
         <section className="grid gap-3" aria-labelledby="launch-h">
           <h2 id="launch-h" className="flex items-center gap-2 text-section text-slate-900">

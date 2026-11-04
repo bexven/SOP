@@ -241,11 +241,12 @@ export async function applyPlan(tx: Tx, plan: Plan, ctx: ApplyContext): Promise<
 
   // ── Campaign ──
   if (plan.campaign) {
-    await tx.campaign.upsert({
-      where: { productId: product.id },
-      create: { productId: product.id, status: plan.campaign.to },
-      update: { status: plan.campaign.to },
-    });
+    // Stopping (drop / complete) stops every campaign still on; launching starts the draft campaign.
+    if (plan.campaign.to === "STOPPED") {
+      await tx.adCampaign.updateMany({ where: { productId: product.id, status: { in: ["RUNNING", "PAUSED", "SCALING"] } }, data: { status: "STOPPED" } });
+    } else {
+      await tx.adCampaign.updateMany({ where: { productId: product.id, status: plan.campaign.from ?? "NOT_LAUNCHED" }, data: { status: plan.campaign.to } });
+    }
     events.push({
       type: "CAMPAIGN_STATUS_CHANGED",
       actorId,

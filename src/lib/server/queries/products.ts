@@ -1,4 +1,5 @@
 import "server-only";
+import { overallCampaignStatus } from "@/lib/domain/campaigns";
 import { isOpenStatus } from "@/lib/domain/assignment";
 import { computeMargin, marginBand } from "@/lib/domain/margin";
 import { canSeeProduct, type BrandViewer, type Subject } from "@/lib/domain/permissions";
@@ -16,7 +17,7 @@ export async function listProducts(viewer: Subject & BrandViewer) {
       where: productScope(viewer),
       orderBy: [{ updatedAt: "desc" }],
       include: {
-        campaign: { select: { status: true } },
+        adCampaigns: { select: { status: true } },
         brand: { select: { id: true, name: true, color: true } },
         batches: { select: { id: true, number: true } },
         createdBy: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } },
@@ -69,7 +70,7 @@ export async function listProducts(viewer: Subject & BrandViewer) {
       stepper: deriveStepper({
         stage: p.stage,
         stageBeforeKill: p.stageBeforeKill,
-        campaignStatus: p.campaign?.status ?? null,
+        campaignStatus: overallCampaignStatus(p.adCampaigns.map((c) => c.status)),
         lanes: laneProgress(p.tasks, p.batches),
         ordering: Boolean(p.orderingSince),
       }),

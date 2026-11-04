@@ -288,6 +288,7 @@ model Product {
 
   orders        ProductOrder[]
   testOrders    TestOrder[]
+  adCampaigns   AdCampaign[]
   createdBy     User              @relation("ProductCreator", fields: [createdById], references: [id])
   mediaBuyer    User?             @relation("ProductMediaBuyer", fields: [mediaBuyerId], references: [id])
   brand         Brand?            @relation(fields: [brandId], references: [id])
@@ -483,6 +484,41 @@ model ChecklistItem {
   @@index([taskId, order])
 }
 
+/// Meta campaign format.
+enum CampaignType {
+  IMAGE
+  VIDEO
+  CAROUSEL
+  PREORDER
+  CATALOGUE
+  MESSAGES
+}
+
+/// A product's Meta campaigns (many per product, numbered 1, 2, 3…). Replaces the one-per-product Campaign.
+model AdCampaign {
+  id             String         @id @default(cuid())
+  productId      String
+  number         Int
+  /// Named so the team can compare which campaign performs better.
+  name           String
+  type           CampaignType?
+  status         CampaignStatus @default(NOT_LAUNCHED)
+  adsManagerUrl  String?
+  metaCampaignId String?
+  dailyBudgetUsd Decimal?       @db.Decimal(10, 2)
+  strategyNotes  String?
+  launchedAt     DateTime?
+  launchedById   String?
+  createdById    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, number])
+}
+
+/// Deprecated: one campaign per product. Kept (unused) so older releases still run; rows were copied to AdCampaign.
 model Campaign {
   id             String         @id @default(cuid())
   productId      String         @unique

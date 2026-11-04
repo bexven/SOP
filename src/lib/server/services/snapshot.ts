@@ -1,4 +1,5 @@
 import "server-only";
+import { overallCampaignStatus } from "@/lib/domain/campaigns";
 import type { ProductSnap } from "@/lib/domain/workflow";
 import type { Tx } from "../db";
 import { ActionError } from "../action";
@@ -10,7 +11,7 @@ export async function loadSnapshot(tx: Tx, productId: string) {
     include: {
       tasks: { orderBy: { createdAt: "asc" } },
       batches: { select: { id: true, number: true } },
-      campaign: { select: { status: true } },
+      adCampaigns: { select: { id: true, status: true } },
     },
   });
   if (!product) throw new ActionError("This product no longer exists.");
@@ -18,7 +19,7 @@ export async function loadSnapshot(tx: Tx, productId: string) {
     id: product.id,
     stage: product.stage,
     mediaBuyerId: product.mediaBuyerId,
-    campaignStatus: product.campaign?.status ?? null,
+    campaignStatus: overallCampaignStatus(product.adCampaigns.map((c) => c.status)),
     batches: product.batches,
     tasks: product.tasks.map((t) => ({
       id: t.id,
