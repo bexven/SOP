@@ -29,7 +29,8 @@ export type MarginBand = "healthy" | "ok" | "thin";
 
 function parse(value: string | null | undefined): Decimal | null {
   if (value === null || value === undefined) return null;
-  const trimmed = value.trim();
+  // Accept ".150" as 0.150 (people type weights under 1 kg that way).
+  const trimmed = value.trim().replace(/^(-?)\./, "$10.");
   if (trimmed === "" || !/^-?\d+(\.\d+)?$/.test(trimmed)) return null;
   return new Decimal(trimmed);
 }

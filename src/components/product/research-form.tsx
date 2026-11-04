@@ -207,7 +207,7 @@ export function ResearchForm({
               id="r-weight"
               label="Weight / unit *"
               unit="kg"
-              placeholder="0.000"
+              placeholder="e.g. 0.150"
               value={v.weightKg}
               onChange={money("weightKg")}
               error={err("weightKg")}

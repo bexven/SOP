@@ -38,7 +38,7 @@ const optionalMoney = (label: string, max: number) =>
     .trim()
     .nullable()
     .optional()
-    .transform((v) => (v ? v : null))
+    .transform((v) => (v ? v.replace(/^\./, "0.") : null))
     .refine((v) => v === null || /^\d+(\.\d{1,2})?$/.test(v), `${label} must be a number with up to 2 decimals`)
     .refine((v) => v === null || Number(v) <= max, `${label} is too large`);
 
@@ -48,7 +48,7 @@ const optionalWeight = z
   .trim()
   .nullable()
   .optional()
-  .transform((v) => (v ? v : null))
+  .transform((v) => (v ? v.replace(/^\./, "0.") : null))
   .refine((v) => v === null || /^\d+(\.\d{1,3})?$/.test(v), "Weight must be a number in kg with up to 3 decimals (e.g. 0.350)")
   .refine((v) => v === null || Number(v) <= 10_000, "Weight is too large");
 

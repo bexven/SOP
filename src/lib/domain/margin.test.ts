@@ -51,6 +51,10 @@ describe("shippingFromWeight", () => {
     expect(shippingFromWeight("0.35", "750")).toBe("262.50");
     expect(shippingFromWeight("1.234", "333.33")).toBe("411.33");
   });
+  it("works for weights under 1 kg typed without the leading 0", () => {
+    expect(shippingFromWeight(".150", "750")).toBe("112.50");
+    expect(shippingFromWeight("0.150", "750")).toBe("112.50");
+  });
   it("is null until both numbers are valid", () => {
     expect(shippingFromWeight("", "750")).toBeNull();
     expect(shippingFromWeight("0.5", null)).toBeNull();
