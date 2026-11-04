@@ -101,7 +101,9 @@ export async function sendPush(userId: string, alert: Alert): Promise<number> {
         await db.pushDevice.update({ where: { id: d.id }, data: { lastUsedAt: new Date() } });
       } catch (e) {
         const code = (e as { statusCode?: number }).statusCode;
-        if (code === 404 || code === 410) await db.pushDevice.delete({ where: { id: d.id } }).catch(() => {});
+        // 404/410: the subscription is gone. 401/403: it was made with another key (e.g. a previous server),
+        // so it can never work; the browser renews it on its next visit (PushSync).
+        if (code === 404 || code === 410 || code === 401 || code === 403) await db.pushDevice.delete({ where: { id: d.id } }).catch(() => {});
         else console.error("[alerts] push", code ?? e);
       }
     }),

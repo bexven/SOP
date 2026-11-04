@@ -16,12 +16,13 @@ function done(message: string) {
 /** This browser / phone turned on push notifications. */
 export const savePushDeviceAction = defineAction({
   schema: pushDeviceSchema,
-  run: async ({ endpoint, keys, label }, { user }) => {
+  run: async ({ endpoint, keys, label, silent }, { user }) => {
     await db.pushDevice.upsert({
       where: { endpoint },
       create: { endpoint, p256dh: keys.p256dh, auth: keys.auth, label, userId: user.id },
       update: { p256dh: keys.p256dh, auth: keys.auth, label, userId: user.id },
     });
+    if (silent) return { ok: true as const };
     return done("Notifications are on for this device");
   },
 });

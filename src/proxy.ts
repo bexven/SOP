@@ -13,7 +13,8 @@ const PUBLIC_PATHS = ["/login", "/api/assets", "/api/telegram", "/api/cron", "/a
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  // "/" is the public front page (it only shows a Log in button).
+  const isPublic = pathname === "/" || PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const secret = process.env.SESSION_SECRET;
   const session = secret ? await verifySession(request.cookies.get(SESSION_COOKIE)?.value, secret) : null;
 

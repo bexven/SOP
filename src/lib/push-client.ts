@@ -37,11 +37,42 @@ export async function pushState(): Promise<PushState> {
 export async function subscribe(vapidPublicKey: string): Promise<PushSubscriptionJSON> {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error(permission === "denied" ? "denied" : "dismissed");
-  const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
   await navigator.serviceWorker.ready;
+  return (await currentSubscription(reg, vapidPublicKey)).toJSON();
+}
+
+function sameKey(a: ArrayBuffer | null | undefined, b: Uint8Array): boolean {
+  if (!a) return false;
+  const x = new Uint8Array(a);
+  return x.length === b.length && x.every((v, i) => v === b[i]);
+}
+
+/**
+ * This browser's subscription for the server's current key. A subscription made with an older key
+ * (e.g. before the app moved servers) can never receive anything, so it is replaced.
+ */
+async function currentSubscription(reg: ServiceWorkerRegistration, vapidPublicKey: string): Promise<PushSubscription> {
+  const key = keyToBytes(vapidPublicKey);
   const existing = await reg.pushManager.getSubscription();
-  const sub = existing ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(vapidPublicKey) }));
-  return sub.toJSON();
+  if (existing && sameKey(existing.options.applicationServerKey, key)) return existing;
+  if (existing) await existing.unsubscribe().catch(() => {});
+  return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+}
+
+/**
+ * Keeps an already-allowed browser in step with the server on every visit (renews a stale
+ * subscription, re-registers the service worker). Never asks for permission. Returns the
+ * subscription to save, or null when this browser hasn't turned notifications on.
+ */
+export async function syncSubscription(vapidPublicKey: string): Promise<PushSubscriptionJSON | null> {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return null;
+  if (Notification.permission !== "granted") return null;
+  const had = await registration();
+  if (!had || !(await had.pushManager.getSubscription())) return null;
+  const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
+  await navigator.serviceWorker.ready;
+  return (await currentSubscription(reg, vapidPublicKey)).toJSON();
 }
 
 export async function unsubscribe(): Promise<string | null> {

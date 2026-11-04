@@ -1,15 +1,21 @@
 import { CommandPalette } from "@/components/shell/command-palette";
+import { PushSync } from "@/components/shell/push-sync";
 import { TopNav } from "@/components/shell/top-nav";
 import { navItemsFor } from "@/lib/domain/nav";
 import { can } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
 import { getQueueCount } from "@/lib/server/queries/queue";
+import { vapidKeys } from "@/lib/server/services/alerts";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const items = navItemsFor(user, { isMaster: user.isMaster });
   const shellUser = { name: user.name, role: user.jobRole, avatarColor: user.avatarColor, avatarAssetId: user.avatarAssetId };
-  const badges = { dashboard: await getQueueCount(user) };
+  const [queueCount, vapidPublicKey] = await Promise.all([
+    getQueueCount(user),
+    vapidKeys().then((k) => k.publicKey).catch(() => null),
+  ]);
+  const badges = { dashboard: queueCount };
 
   return (
     <div className="flex min-h-dvh flex-col pb-8">
@@ -21,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
       <CommandPalette items={items} canCreate={can(user, "product.create")} />
+      <PushSync vapidPublicKey={vapidPublicKey} />
     </div>
   );
 }

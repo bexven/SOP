@@ -37,7 +37,7 @@ export const saveOrderAction = defineAction({
   capability: "orders.manage",
   schema: orderSchema,
   run: async ({ productId, orderId, ...fields }, { user }) => {
-    const number = await db.$transaction(async (tx) => {
+    await db.$transaction(async (tx) => {
       const p = await tx.product.findUnique({ where: { id: productId } });
       if (!p) throw new ActionError("This product no longer exists.");
       const err = addOrderError(p);

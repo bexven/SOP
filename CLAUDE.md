@@ -109,6 +109,7 @@ src/generated/     Prisma client (generated, git-ignored)
 ## Owner's redesign (after first test) — supersedes the brief where they differ
 - **Top menu bar**, no sidebar. Items: Dashboard · Research (researcher/admin) · Creative (designers,
   editor, media buyer, admin) · Pipeline · Products · Admin ▾ (Overview, Team, Settings). Labels + hints.
+  (Nov 2026: Products ▾ groups Products · Pipeline · Orders; Products ▾ / Admin ▾ / profile menus open on hover.)
 - **No slide-over panel.** Products open as a full page `/products/[id]` (back link + breadcrumb);
   `?task=<id>` opens and scrolls to a task.
 - **No global "New product".** Only the **Research** page has "Add product" (shortcut `C` → `/research?add=1`).
@@ -185,8 +186,11 @@ src/generated/     Prisma client (generated, git-ignored)
 ## Round 7 (orders, test orders, drop/delete, campaigns, Tasks board)
 - **Orders**: each order has weight (kg) + Air/Sea; the server sets `shippingCostBdt` = weight × the method's rate and keeps
   that rate on the order (`ProductOrder.shippingRatePerKgBdt`) while the method stays the same. Older orders keep their typed shipping.
-- **Test orders** (`TestOrder`: quality WAITING/PASSED/FAILED + note): Orders tab, **Admins only** (hidden from everyone else,
-  `getProductDetail` returns none), only once the product is in ordering.
+- **Orders have names** (`ProductOrder.name`, required on save; older ones show "Order #n" via `orderTitle()`).
+- **Test orders** (`TestOrder`: name, note, `expectedOn`, `confirmedAt/By`, quality after checking) sit **in the order
+  list** in amber (rose when overdue, green once confirmed) with a warning banner until someone ticks **Confirm arrived**
+  (`testOrderState()`). Everyone who sees the Orders tab sees them; `orders.manage` (and Admins) add / confirm. Not counted
+  in order totals. New orders and test orders notify the product's Media Buyer and every Admin.
 - **Kill is now "Drop"** in the UI (status "Dropped"); enum/columns stay `KILLED` / `kill*`. **Admins can delete a dropped
   product for good** (type its name to confirm); everything cascades; a `PRODUCT_DELETED` event keeps name + number.
 - **Campaigns**: many per product in `AdCampaign` (number, **name**, **type**: Image / Video / Carousel / Pre-order /
@@ -216,11 +220,14 @@ src/generated/     Prisma client (generated, git-ignored)
   (`0 4 * * *` UTC = 10:00 Dhaka; on Vercel Hobby it may arrive any time within that hour). On a VPS use system
   cron. Idempotent: never before 10:00 Dhaka and once per day (`Settings.lastDigestOn`). Optional `CRON_SECRET`.
 - `/api/telegram`, `/api/cron`, `/sw.js`, `/manifest.webmanifest` are public in `proxy.ts` (they check their callers).
+- **`/` is a public front page** ("eCom SOP system" + Log in / Open dashboard).
+- **Push self-heals**: `PushSync` (app shell) re-saves this browser's subscription once per tab and replaces one made with
+  an older VAPID key; the server deletes devices that answer 401/403/404/410.
 
 ## Team & restricted brands (Nov 2026)
 - Team: Sk Moni (Master Admin) · Inamul (Reviewer, every permission except Bexven) · Jewel Rana (Admin) ·
   Shohagh (Media Buyer) · Rony (Video Editor) · Shakil (Image Designer, took over Kamrul's open work) ·
-  Antu (Customer Support) · Fahim (Office Secretary). New job roles: `CUSTOMER_SUPPORT`, `OFFICE_SECRETARY`
+  Antu (Customer Support) · Fahim (Office Boy; enum `OFFICE_SECRETARY`). New job roles: `CUSTOMER_SUPPORT`, `OFFICE_SECRETARY`
   (no default permissions). No PINs in migrations/seed: the Master Admin uses **Team → PIN for everyone**
   (sets one temporary PIN, forces a new PIN at next sign-in).
 - **Removed people**: `User.removedAt` (Team → inactive → Remove). Hidden everywhere, history kept; sessions die.
