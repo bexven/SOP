@@ -18,7 +18,7 @@ function DropdownMenuContent({
         sideOffset={sideOffset}
         className={cn(
           "glass-strong z-50 min-w-[11rem] overflow-hidden rounded-control p-1",
-          "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+          "origin-(--radix-dropdown-menu-content-transform-origin) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1 data-[state=open]:duration-150 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:duration-100 motion-reduce:animate-none",
           className,
         )}
         {...props}
@@ -35,7 +35,7 @@ function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-body text-slate-800 outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-slate-900/[0.06] [&_svg]:size-4 [&_svg]:text-slate-500",
+        "relative flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-body text-slate-800 outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-slate-900/[0.06] [&_svg]:size-4 [&_svg]:text-slate-500",
         variant === "destructive" && "text-rose-700 data-[highlighted]:bg-rose-50 [&_svg]:text-rose-600",
         className,
       )}

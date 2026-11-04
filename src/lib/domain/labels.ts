@@ -28,7 +28,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   REVIEWER: "Reviewer",
   ADMIN: "Admin",
   CUSTOMER_SUPPORT: "Customer Support",
-  OFFICE_SECRETARY: "Office Secretary",
+  OFFICE_SECRETARY: "Office Boy",
 };
 
 export const TASK_TYPES = [

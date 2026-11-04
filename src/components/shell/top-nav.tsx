@@ -3,18 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDownIcon, MenuIcon, ShieldCheckIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, type LucideIcon, MenuIcon, PackageIcon, ShieldCheckIcon, XIcon } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { Role } from "@/generated/prisma/enums";
 import { Logo } from "@/components/common/logo";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { NavItem } from "@/lib/domain/nav";
 import { cn } from "@/lib/utils";
+import { HoverDropdown, useHoverMenu } from "./hover-menu";
 import { NAV_ICONS } from "./nav-icons";
 import { NotificationBell } from "./notification-bell";
 import { SearchButton } from "./search-button";
@@ -32,6 +28,7 @@ export function TopNav({ items, user, badges }: { items: NavItem[]; user: ShellU
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(false);
   const main = items.filter((i) => i.section === "main");
+  const productsGroup = items.filter((i) => i.section === "products");
   const admin = items.filter((i) => i.section === "admin");
   const adminActive = admin.some((i) => isActive(pathname, i.href));
 
@@ -46,35 +43,10 @@ export function TopNav({ items, user, badges }: { items: NavItem[]; user: ShellU
           {main.map((item) => (
             <TopLink key={item.key} item={item} active={isActive(pathname, item.href)} badge={badges[item.key]} />
           ))}
-          {admin.length ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "inline-flex h-9 items-center gap-1.5 rounded-control px-3 text-body font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40",
-                  adminActive ? "bg-white text-slate-900 shadow-[0_1px_2px_rgb(15_23_42/0.08)]" : "text-slate-700 hover:bg-white/70 hover:text-slate-900",
-                )}
-              >
-                <ShieldCheckIcon className={cn("size-4", adminActive ? "text-indigo-600" : "text-slate-500")} /> Admin
-                <ChevronDownIcon className="size-3.5 text-slate-500" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                {admin.map((item) => {
-                  const Icon = NAV_ICONS[item.key];
-                  return (
-                    <DropdownMenuItem key={item.key} asChild>
-                      <Link href={item.href} className="items-start py-2">
-                        <Icon className="mt-0.5" />
-                        <span>
-                          <span className="block font-medium text-slate-900">{item.label}</span>
-                          <span className="block text-meta font-normal text-slate-500">{item.hint}</span>
-                        </span>
-                      </Link>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {productsGroup.length ? (
+            <NavMenu label="Products" icon={PackageIcon} items={productsGroup} active={productsGroup.some((i) => isActive(pathname, i.href))} pathname={pathname} />
           ) : null}
+          {admin.length ? <NavMenu label="Admin" icon={ShieldCheckIcon} items={admin} active={adminActive} pathname={pathname} /> : null}
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -159,5 +131,42 @@ function Badge({ n }: { n: number }) {
     <span className="num rounded-full bg-indigo-600 px-1.5 py-px text-[11px] font-semibold text-white" aria-label={`${n} waiting`}>
       {n > 99 ? "99+" : n}
     </span>
+  );
+}
+
+/** A menu bar group (Products ▾, Admin ▾): opens on hover, click or keyboard. */
+function NavMenu({ label, icon: GroupIcon, items, active, pathname }: { label: string; icon: LucideIcon; items: NavItem[]; active: boolean; pathname: string }) {
+  const { open, setOpen, hover } = useHoverMenu();
+  return (
+    <HoverDropdown open={open} setOpen={setOpen}>
+      <DropdownMenuTrigger
+        {...hover}
+        className={cn(
+          "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-control px-2.5 text-body font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 xl:px-3",
+          active ? "bg-white text-slate-900 shadow-[0_1px_2px_rgb(15_23_42/0.08)]" : "text-slate-700 hover:bg-white/70 hover:text-slate-900",
+          open && !active && "bg-white/70 text-slate-900",
+        )}
+      >
+        <GroupIcon className={cn("size-4 lg:hidden xl:block", active ? "text-indigo-600" : "text-slate-500")} /> {label}
+        <ChevronDownIcon className={cn("size-3.5 text-slate-500 transition-transform duration-200 ease-out motion-reduce:transition-none", open && "rotate-180")} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent {...hover} align="start" className="w-64" onCloseAutoFocus={(e) => e.preventDefault()}>
+        {items.map((item) => {
+          const Icon = NAV_ICONS[item.key];
+          const current = isActive(pathname, item.href);
+          return (
+            <DropdownMenuItem key={item.key} asChild>
+              <Link href={item.href} aria-current={current ? "page" : undefined} className={cn("items-start py-2", current && "bg-slate-900/[0.04]")}>
+                <Icon className={cn("mt-0.5", current && "text-indigo-600")} />
+                <span>
+                  <span className="block font-medium text-slate-900">{item.label}</span>
+                  <span className="block text-meta font-normal text-slate-500">{item.hint}</span>
+                </span>
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </HoverDropdown>
   );
 }

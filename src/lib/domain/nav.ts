@@ -8,7 +8,8 @@ export type NavItem = {
   href: string;
   /** Short help shown under the label in the menu. */
   hint: string;
-  section: "main" | "admin";
+  /** "products" items sit under the Products ▾ menu, "admin" under Admin ▾. */
+  section: "main" | "products" | "admin";
 };
 
 
@@ -34,9 +35,9 @@ const ALL: (NavItem & { visible: (s: Subject, ctx: Ctx) => boolean })[] = [
     visible: () => true,
   },
   { key: "tasks", label: "Tasks", href: "/tasks", hint: "Team to-dos on a board", section: "main", visible: () => true },
-  { key: "pipeline", label: "Pipeline", href: "/pipeline", hint: "Every product by stage", section: "main", visible: () => true },
-  { key: "products", label: "Products", href: "/products", hint: "Search all products", section: "main", visible: () => true },
-  { key: "orders", label: "Orders", href: "/orders", hint: "Stock orders and scaling", section: "main", visible: () => true },
+  { key: "products", label: "Products", href: "/products", hint: "Search all products", section: "products", visible: () => true },
+  { key: "pipeline", label: "Pipeline", href: "/pipeline", hint: "Every product by stage", section: "products", visible: () => true },
+  { key: "orders", label: "Orders", href: "/orders", hint: "Stock orders and scaling", section: "products", visible: () => true },
   { key: "overview", label: "Overview", href: "/overview", hint: "Workload and bottlenecks", section: "admin", visible: (r) => can(r, "overview.view") },
   // Only the Master Admin manages people, names, roles and PINs.
   { key: "team", label: "Team", href: "/team", hint: "People, names and PINs", section: "admin", visible: (_r, ctx) => ctx.isMaster },
