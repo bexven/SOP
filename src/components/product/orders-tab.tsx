@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangleIcon, CheckIcon, FlaskConicalIcon, PencilIcon, PlusIcon, RotateCcwIcon, SaveIcon, Trash2Icon, TruckIcon, XIcon } from "lucide-react";
+import { CheckIcon, FlaskConicalIcon, PencilIcon, PlusIcon, RotateCcwIcon, SaveIcon, Trash2Icon, TruckIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { ScalePlan, ScaleVerdict, TestQuality } from "@/generated/prisma/enums";
 import { Field, fieldA11y } from "@/components/common/field";
@@ -35,8 +35,6 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
   const [testEditing, setTestEditing] = useState<TestOrderDTO | "new" | null>(null);
   const day = today();
   const canPlace = canPlaceTestOrder(viewer);
-  // The bar shows only once a test order is placed (ordered / overdue), until the units arrive.
-  const pendingTests = product.testOrders.filter((t) => ["ordered", "overdue"].includes(testOrderState(t, day)));
 
   if (!product.orderingSince) {
     return (
@@ -100,28 +98,6 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
               </div>
             ) : null}
           </div>
-          {pendingTests.length ? (
-            <div role="status" className="grid gap-1.5 rounded-panel bg-amber-50 p-3 ring-1 ring-amber-200 ring-inset">
-              {pendingTests.map((t) => {
-                const overdue = testOrderState(t, day) === "overdue";
-                return (
-                  <p key={t.id} className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-body", overdue ? "text-rose-800" : "text-amber-900")}>
-                    <AlertTriangleIcon className="size-4 shrink-0" aria-hidden />
-                    <span className="min-w-0 flex-1">
-                      Test unit{"s"} ordered: <span className="font-semibold">“{t.name ?? "Test order"}”</span>
-                      {t.expectedOn ? (
-                        <>
-                          {" "}· {overdue ? "was expected by" : "expected by"} <span className="num font-medium">{formatDate(new Date(`${t.expectedOn}T00:00:00Z`))}</span>
-                        </>
-                      ) : null}
-                      {overdue ? " — not arrived yet" : ""}
-                    </span>
-                    {canPlace || canManage ? <ConfirmTestButton product={product} test={t} /> : null}
-                  </p>
-                );
-              })}
-            </div>
-          ) : null}
           {editing ? (
             <OrderForm
               key={editing === "new" ? "new" : editing.id}

@@ -190,7 +190,7 @@ src/generated/     Prisma client (generated, git-ignored)
 - **Test orders** (`TestOrder`) sit **in the order list**, steps via `testOrderState()`: **requested** (name + note, by
   `orders.manage`; notifies Media Buyer, Admins and Supply Chain) → **ordered**: an Admin / Media Buyer / Supply Chain
   (`canPlaceTestOrder()`) clicks **Mark as ordered** and enters the expected arrival (`placedAt/By`, `expectedOn`) — only now
-  the amber "Test units ordered" bar shows (rose when overdue) → **arrived** (Confirm arrived; quality Passed/Failed after).
+  the row turns amber (rose when overdue); no separate banner → **arrived** (Confirm arrived; quality Passed/Failed after).
   Everyone who sees the Orders tab sees them. Not counted in order totals. New orders notify the Media Buyer and every Admin.
 - **Kill is now "Drop"** in the UI (status "Dropped"); enum/columns stay `KILLED` / `kill*`. **Admins can delete a dropped
   product for good** (type its name to confirm); everything cascades; a `PRODUCT_DELETED` event keeps name + number.
