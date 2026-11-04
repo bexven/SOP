@@ -10,6 +10,7 @@ export const orderSchema = z.object({
   productId: idSchema,
   /** Present when correcting an existing order. */
   orderId: idSchema.optional().nullable().transform((v) => v || null),
+  name: z.string().trim().min(2, "Name the order, e.g. “Eid stock”").max(80, "Keep the name under 80 characters"),
   quantity: z.coerce.number({ error: "Enter how many units" }).int("Units must be a whole number").min(1, "At least 1 unit").max(1_000_000, "That's too many units"),
   buyingPriceBdt: money("Buying price"),
   weightKg: z
@@ -36,7 +37,10 @@ export const scalingSchema = z.object({
 export const testOrderSchema = z.object({
   productId: idSchema,
   testOrderId: idSchema.optional().nullable().transform((v) => v || null),
+  name: z.string().trim().min(2, "Name the test order").max(80, "Keep the name under 80 characters"),
+  expectedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the expected arrival date"),
   quality: z.enum(TestQuality).default("WAITING"),
   note: z.string().trim().max(1000, "Keep the note under 1000 characters").optional().transform((v) => v || null),
 });
-export const testOrderIdSchema = z.object({ testOrderId: idSchema });
+export const testOrderIdSchema = z.object({ productId: idSchema, testOrderId: idSchema });
+export const confirmTestOrderSchema = z.object({ productId: idSchema, testOrderId: idSchema, confirmed: z.boolean() });

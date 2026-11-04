@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FlaskConicalIcon, PencilIcon, PlusIcon, SaveIcon, Trash2Icon, TruckIcon, XIcon } from "lucide-react";
+import { AlertTriangleIcon, CheckIcon, FlaskConicalIcon, PencilIcon, PlusIcon, RotateCcwIcon, SaveIcon, Trash2Icon, TruckIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { ScalePlan, ScaleVerdict, TestQuality } from "@/generated/prisma/enums";
 import { Field, fieldA11y } from "@/components/common/field";
@@ -12,10 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ShippingMethodPicker } from "@/components/common/shipping-method-picker";
 import { rateForMethod, SHIPPING_METHOD_LABELS, shippingFromWeight, type ShippingMethodKey } from "@/lib/domain/margin";
-import { addOrderError, orderMath, orderSummary, SCALE_PLAN_LABELS, SCALE_PLANS, SCALE_VERDICT_LABELS, SCALE_VERDICTS } from "@/lib/domain/orders";
+import { addOrderError, orderMath, orderTitle, testOrderState, orderSummary, SCALE_PLAN_LABELS, SCALE_PLANS, SCALE_VERDICT_LABELS, SCALE_VERDICTS } from "@/lib/domain/orders";
 import { can } from "@/lib/domain/permissions";
 import { formatBdt, formatDate } from "@/lib/format";
-import { deleteTestOrderAction, moveToOrderingAction, saveOrderAction, saveScalingAction, saveTestOrderAction } from "@/lib/server/actions/orders";
+import { confirmTestOrderAction, deleteTestOrderAction, moveToOrderingAction, saveOrderAction, saveScalingAction, saveTestOrderAction } from "@/lib/server/actions/orders";
 import type { OrderDTO, ProductDetail, TestOrderDTO } from "@/lib/server/queries/product";
 import { cn } from "@/lib/utils";
 import { Discussion } from "./discussion";
@@ -32,6 +32,9 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
   const blocked = addOrderError(product);
   const summary = orderSummary(product.orders);
   const [editing, setEditing] = useState<OrderDTO | "new" | null>(null);
+  const [testEditing, setTestEditing] = useState<TestOrderDTO | "new" | null>(null);
+  const day = today();
+  const pendingTests = product.testOrders.filter((t) => testOrderState(t, day) !== "confirmed");
 
   if (!product.orderingSince) {
     return (
@@ -80,12 +83,42 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
             <h2 id="orders-h" className="text-section text-slate-900">
               Order history
             </h2>
-            {canManage && !blocked && editing !== "new" ? (
-              <Button size="sm" onClick={() => setEditing("new")}>
-                <PlusIcon /> {product.orders.length ? "New order" : "First order"}
-              </Button>
+            {canManage && !blocked ? (
+              <div className="flex flex-wrap gap-2">
+                {testEditing !== "new" ? (
+                  <Button size="sm" variant="outline" className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100" onClick={() => setTestEditing("new")}>
+                    <FlaskConicalIcon /> Test order
+                  </Button>
+                ) : null}
+                {editing !== "new" ? (
+                  <Button size="sm" onClick={() => setEditing("new")}>
+                    <PlusIcon /> {product.orders.length ? "New order" : "First order"}
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
           </div>
+          {pendingTests.length ? (
+            <div role="status" className="grid gap-1.5 rounded-panel bg-amber-50 p-3 ring-1 ring-amber-200 ring-inset">
+              {pendingTests.map((t) => {
+                const overdue = testOrderState(t, day) === "overdue";
+                return (
+                  <p key={t.id} className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-body", overdue ? "text-rose-800" : "text-amber-900")}>
+                    <AlertTriangleIcon className="size-4 shrink-0" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      Test order <span className="font-semibold">“{t.name ?? "Test order"}”</span> isn&apos;t confirmed yet
+                      {t.expectedOn ? (
+                        <>
+                          {" "}· {overdue ? "was expected by" : "expected by"} <span className="num font-medium">{formatDate(new Date(`${t.expectedOn}T00:00:00Z`))}</span>
+                        </>
+                      ) : null}
+                    </span>
+                    {canManage ? <ConfirmTestButton product={product} test={t} /> : null}
+                  </p>
+                );
+              })}
+            </div>
+          ) : null}
           {editing ? (
             <OrderForm
               key={editing === "new" ? "new" : editing.id}
@@ -94,8 +127,18 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
               onDone={() => setEditing(null)}
             />
           ) : null}
+          {testEditing ? (
+            <TestOrderForm key={testEditing === "new" ? "new-test" : testEditing.id} product={product} test={testEditing === "new" ? null : testEditing} onDone={() => setTestEditing(null)} />
+          ) : null}
+          {product.testOrders.length ? (
+            <ul className="grid gap-2" aria-label="Test orders">
+              {product.testOrders.map((t) => (
+                <TestOrderRow key={t.id} product={product} test={t} day={day} canManage={canManage} onEdit={() => setTestEditing(t)} />
+              ))}
+            </ul>
+          ) : null}
           {product.orders.length === 0 ? (
-            !editing ? (
+            !editing && product.testOrders.length === 0 ? (
               <p className="surface rounded-panel px-4 py-6 text-center text-body text-slate-600">
                 No orders yet. {canManage ? "Add the first order with how many units to buy and today's prices." : "The media buyer adds orders here."}
               </p>
@@ -110,12 +153,12 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-body font-semibold text-slate-900">
-                          <span className="num">#{o.number}</span> · <span className="num">{o.quantity.toLocaleString("en-IN")}</span> units
+                          {orderTitle(o)} · <span className="num">{o.quantity.toLocaleString("en-IN")}</span> units
                         </p>
                         <p className="num text-meta font-normal text-slate-500">{formatDate(new Date(`${o.orderedOn}T00:00:00Z`))}</p>
                       </div>
                       {canManage ? (
-                        <Button variant="ghost" size="icon-sm" aria-label={`Edit order ${o.number}`} onClick={() => setEditing(o)} disabled={Boolean(blocked)}>
+                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${orderTitle(o)}`} onClick={() => setEditing(o)} disabled={Boolean(blocked)}>
                           <PencilIcon />
                         </Button>
                       ) : null}
@@ -170,7 +213,7 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
                     return (
                       <tr key={o.id} className="transition-colors hover:bg-slate-50/70">
                         <td className="px-3 py-2.5">
-                          <span className="num font-semibold text-slate-900">#{o.number}</span>
+                          <span className="font-semibold text-slate-900">{orderTitle(o)}</span>
                           <span className="num ml-2 text-meta text-slate-500">{formatDate(new Date(`${o.orderedOn}T00:00:00Z`))}</span>
                           {o.note ? <span className="block max-w-[14rem] truncate text-meta font-normal text-slate-600">{o.note}</span> : null}
                         </td>
@@ -196,7 +239,7 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
                         </td>
                         {canManage ? (
                           <td className="px-2 py-2.5">
-                            <Button variant="ghost" size="icon-sm" aria-label={`Edit order ${o.number}`} onClick={() => setEditing(o)} disabled={Boolean(blocked)}>
+                            <Button variant="ghost" size="icon-sm" aria-label={`Edit ${orderTitle(o)}`} onClick={() => setEditing(o)} disabled={Boolean(blocked)}>
                               <PencilIcon />
                             </Button>
                           </td>
@@ -216,7 +259,6 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
 
         <div className="grid content-start gap-6">
           <ScalingPanel product={product} canManage={canManage} />
-          {viewer.role === "ADMIN" ? <TestOrdersPanel product={product} /> : null}
         </div>
       </div>
 
@@ -238,6 +280,7 @@ function OrderForm({ product, order, onDone }: { product: ProductDetail; order: 
   const router = useRouter();
   const last = product.orders[0];
   const [v, setV] = useState({
+    name: order?.name ?? "",
     quantity: order ? String(order.quantity) : "",
     buyingPriceBdt: order?.buyingPriceBdt ?? last?.buyingPriceBdt ?? product.chinaPriceBdt ?? "",
     weightKg: order?.weightKg ?? last?.weightKg ?? product.weightKg ?? "",
@@ -283,14 +326,17 @@ function OrderForm({ product, order, onDone }: { product: ProductDetail; order: 
       }}
     >
       <div className="flex items-center justify-between">
-        <h3 className="text-section text-slate-900">{order ? `Edit order #${order.number}` : `New order #${(last?.number ?? 0) + 1}`}</h3>
+        <h3 className="text-section text-slate-900">{order ? `Edit ${orderTitle(order)}` : "New order"}</h3>
         <Button type="button" variant="ghost" size="icon-sm" aria-label="Close" onClick={onDone}>
           <XIcon />
         </Button>
       </div>
+      <Field id="o-name" label="Order name *" hint="Something everyone recognises, e.g. “Eid stock” or “2nd restock”" error={err("name")}>
+        <Input {...fieldA11y("o-name", err("name"), true)} value={v.name} onChange={set("name")} maxLength={80} autoFocus placeholder={order ? orderTitle(order) : "e.g. Eid stock"} />
+      </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field id="o-qty" label="Units to order *" error={err("quantity")}>
-          <Input {...fieldA11y("o-qty", err("quantity"))} value={v.quantity} onChange={(e) => setV({ ...v, quantity: e.target.value.replace(/\D/g, "") })} inputMode="numeric" className="num" placeholder="500" autoFocus />
+          <Input {...fieldA11y("o-qty", err("quantity"))} value={v.quantity} onChange={(e) => setV({ ...v, quantity: e.target.value.replace(/\D/g, "") })} inputMode="numeric" className="num" placeholder="500" />
         </Field>
         <Field id="o-date" label="Order date *" error={err("orderedOn")}>
           <Input {...fieldA11y("o-date", err("orderedOn"))} type="date" value={v.orderedOn} onChange={set("orderedOn")} className="num" />
@@ -361,7 +407,7 @@ function OrderForm({ product, order, onDone }: { product: ProductDetail; order: 
         <Button type="button" variant="outline" onClick={onDone} disabled={pending}>
           Cancel
         </Button>
-        <Button type="submit" disabled={pending || !preview}>
+        <Button type="submit" disabled={pending || !preview || v.name.trim().length < 2}>
           <SaveIcon /> {order ? "Save changes" : "Add order"}
         </Button>
       </div>
@@ -457,90 +503,143 @@ const QUALITY_PILL: Record<TestQuality, string> = {
   FAILED: "bg-rose-50 text-rose-700 ring-rose-100",
 };
 
-/** Admins only: small test orders to check the product's quality before ordering stock. */
-function TestOrdersPanel({ product }: { product: ProductDetail }) {
-  const [editing, setEditing] = useState<TestOrderDTO | "new" | null>(null);
+function ConfirmTestButton({ product, test }: { product: ProductDetail; test: TestOrderDTO }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const confirmed = Boolean(test.confirmedAt);
   return (
-    <section className="surface grid content-start gap-3 rounded-panel p-4" aria-labelledby="test-h">
-      <div className="flex items-center justify-between gap-2">
-        <h2 id="test-h" className="flex items-center gap-2 text-section text-slate-900">
-          <FlaskConicalIcon className="size-4 text-slate-500" aria-hidden /> Test orders
-        </h2>
-        {editing !== "new" ? (
-          <Button size="sm" variant="outline" onClick={() => setEditing("new")}>
-            <PlusIcon /> Test order
-          </Button>
+    <Button
+      size="sm"
+      variant={confirmed ? "ghost" : "default"}
+      disabled={pending}
+      onClick={() =>
+        startTransition(async () => {
+          const r = await confirmTestOrderAction({ productId: product.id, testOrderId: test.id, confirmed: !confirmed });
+          if (r.ok) {
+            toast.success(r.message);
+            router.refresh();
+          } else toast.error(r.error);
+        })
+      }
+    >
+      {confirmed ? <RotateCcwIcon /> : <CheckIcon />} {confirmed ? "Undo" : "Confirm arrived"}
+    </Button>
+  );
+}
+
+/** A test order in the order list: amber while waiting, rose when overdue, green once confirmed. */
+function TestOrderRow({ product, test: t, day, canManage, onEdit }: { product: ProductDetail; test: TestOrderDTO; day: string; canManage: boolean; onEdit: () => void }) {
+  const state = testOrderState(t, day);
+  const tone =
+    state === "confirmed" ? "bg-emerald-50/70 ring-emerald-200" : state === "overdue" ? "bg-rose-50 ring-rose-200" : "bg-amber-50 ring-amber-200";
+  return (
+    <li className={cn("grid gap-2 rounded-panel p-3.5 ring-1 ring-inset", tone)}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-meta text-amber-900 ring-1 ring-amber-200 ring-inset">
+              <FlaskConicalIcon className="size-3.5" aria-hidden /> Test order
+            </span>
+            <span className="text-body font-semibold [overflow-wrap:anywhere] text-slate-900">{t.name ?? "Test order"}</span>
+            {t.quality !== "WAITING" ? (
+              <span className={cn("rounded-full px-2 py-0.5 text-meta ring-1 ring-inset", QUALITY_PILL[t.quality])}>{QUALITY.find((q) => q.key === t.quality)!.label}</span>
+            ) : null}
+          </p>
+          <p className="mt-1 text-meta font-normal text-slate-700">
+            {state === "confirmed" ? (
+              <>
+                <CheckIcon className="mr-1 inline size-3.5 text-emerald-700" aria-hidden />
+                Confirmed{t.confirmedBy ? ` by ${t.confirmedBy}` : ""} · <span className="num">{formatDate(new Date(t.confirmedAt!))}</span>
+              </>
+            ) : t.expectedOn ? (
+              <>
+                {state === "overdue" ? "Was expected by" : "Expected by"} <span className="num font-medium">{formatDate(new Date(`${t.expectedOn}T00:00:00Z`))}</span> · waiting for confirmation
+              </>
+            ) : (
+              "Waiting for confirmation"
+            )}
+          </p>
+        </div>
+        {canManage ? (
+          <div className="flex items-center gap-1">
+            <ConfirmTestButton product={product} test={t} />
+            <Button variant="ghost" size="icon-sm" aria-label={`Edit test order ${t.name ?? ""}`} onClick={onEdit}>
+              <PencilIcon />
+            </Button>
+          </div>
         ) : null}
       </div>
-      <p className="text-meta font-normal text-slate-500">Order a few units to check quality. Only Admins see this.</p>
-      {editing === "new" ? <TestOrderForm product={product} test={null} onDone={() => setEditing(null)} /> : null}
-      {product.testOrders.length === 0 && editing !== "new" ? (
-        <p className="rounded-control bg-slate-50 px-3 py-3 text-meta font-normal text-slate-600">No test orders yet. Add one when you order units to check quality.</p>
-      ) : (
-        <ul className="grid gap-2">
-          {product.testOrders.map((t) =>
-            editing !== "new" && editing?.id === t.id ? (
-              <li key={t.id}>
-                <TestOrderForm product={product} test={t} onDone={() => setEditing(null)} />
-              </li>
-            ) : (
-              <li key={t.id} className="rounded-control bg-slate-50 px-3 py-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={cn("rounded-full px-2 py-0.5 text-meta ring-1 ring-inset", QUALITY_PILL[t.quality])}>{QUALITY.find((q) => q.key === t.quality)!.label}</span>
-                  <Button variant="ghost" size="icon-sm" aria-label="Edit test order" onClick={() => setEditing(t)}>
-                    <PencilIcon />
-                  </Button>
-                </div>
-                {t.note ? <p className="mt-1.5 text-body whitespace-pre-line [overflow-wrap:anywhere] text-slate-800">{t.note}</p> : null}
-                <p className="mt-1 text-meta font-normal text-slate-500">
-                  {t.createdBy.name} · <span className="num">{formatDate(new Date(t.createdAt))}</span>
-                </p>
-              </li>
-            ),
-          )}
-        </ul>
-      )}
-    </section>
+      {t.note ? <p className="text-body whitespace-pre-line [overflow-wrap:anywhere] text-slate-800">{t.note}</p> : null}
+      <p className="text-meta font-normal text-slate-500">
+        Placed by {t.createdBy.name} · <span className="num">{formatDate(new Date(t.createdAt))}</span>
+      </p>
+    </li>
   );
 }
 
 function TestOrderForm({ product, test, onDone }: { product: ProductDetail; test: TestOrderDTO | null; onDone: () => void }) {
   const router = useRouter();
+  const [name, setName] = useState(test?.name ?? "");
+  const [expectedOn, setExpectedOn] = useState(test?.expectedOn ?? "");
   const [quality, setQuality] = useState<TestQuality>(test?.quality ?? "WAITING");
   const [note, setNote] = useState(test?.note ?? "");
+  const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   const [pending, startTransition] = useTransition();
-  const done = (r: { ok: boolean; message?: string; error?: string }) => {
+  const idp = test?.id ?? "new";
+  const done = (r: { ok: boolean; message?: string; error?: string; fieldErrors?: Record<string, string[] | undefined> }) => {
     if (r.ok) {
       toast.success(r.message ?? "Saved");
       onDone();
       router.refresh();
-    } else toast.error(r.error ?? "Something went wrong");
+    } else {
+      setErrors(r.fieldErrors ?? {});
+      toast.error(r.error ?? "Something went wrong");
+    }
   };
   return (
-    <div className="grid gap-3 rounded-control bg-white p-3 ring-2 ring-primary/25">
-      <fieldset className="grid gap-1.5">
-        <legend className="mb-1 text-meta text-slate-700">Quality</legend>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Quality">
-          {QUALITY.map((q) => (
-            <button
-              key={q.key}
-              type="button"
-              role="radio"
-              aria-checked={quality === q.key}
-              onClick={() => setQuality(q.key)}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-meta ring-1 transition-colors duration-150 ring-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                quality === q.key ? q.on : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
-              )}
-            >
-              {q.label}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <Field id={`t-note-${test?.id ?? "new"}`} label="Note">
-        <Textarea id={`t-note-${test?.id ?? "new"}`} value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={1000} placeholder="Units, supplier, what to check…" />
+    <div className="grid gap-3 rounded-panel bg-amber-50 p-4 ring-2 ring-amber-300/70">
+      <div className="flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-section text-slate-900">
+          <FlaskConicalIcon className="size-4 text-amber-700" aria-hidden /> {test ? "Edit test order" : "New test order"}
+        </h3>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="Close" onClick={onDone}>
+          <XIcon />
+        </Button>
+      </div>
+      <p className="text-meta font-normal text-amber-900">A few units to check quality. It shows as a warning until someone confirms the units arrived. The media buyer and Admins are notified.</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field id={`t-name-${idp}`} label="Name *" error={errors.name?.[0]}>
+          <Input {...fieldA11y(`t-name-${idp}`, errors.name?.[0])} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="e.g. 5 samples from new supplier" autoFocus className="bg-white" />
+        </Field>
+        <Field id={`t-date-${idp}`} label="Expected arrival *" error={errors.expectedOn?.[0]}>
+          <Input {...fieldA11y(`t-date-${idp}`, errors.expectedOn?.[0])} type="date" value={expectedOn} onChange={(e) => setExpectedOn(e.target.value)} className="num bg-white" />
+        </Field>
+      </div>
+      <Field id={`t-note-${idp}`} label="Note" error={errors.note?.[0]}>
+        <Textarea {...fieldA11y(`t-note-${idp}`, errors.note?.[0])} value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={1000} placeholder="Units, supplier, what to check…" className="bg-white" />
       </Field>
+      {test ? (
+        <fieldset className="grid gap-1.5">
+          <legend className="mb-1 text-meta text-slate-700">Quality after checking</legend>
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Quality after checking">
+            {QUALITY.map((q) => (
+              <button
+                key={q.key}
+                type="button"
+                role="radio"
+                aria-checked={quality === q.key}
+                onClick={() => setQuality(q.key)}
+                className={cn(
+                  "cursor-pointer rounded-full px-3 py-1.5 text-meta ring-1 transition-colors duration-150 ring-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  quality === q.key ? q.on : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
+                )}
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
       <div className="flex flex-wrap justify-end gap-2">
         {test ? (
           <Button
@@ -548,7 +647,7 @@ function TestOrderForm({ product, test, onDone }: { product: ProductDetail; test
             size="sm"
             className="mr-auto text-rose-700 hover:bg-rose-50 hover:text-rose-800"
             disabled={pending}
-            onClick={() => startTransition(async () => done(await deleteTestOrderAction({ testOrderId: test.id })))}
+            onClick={() => startTransition(async () => done(await deleteTestOrderAction({ productId: product.id, testOrderId: test.id })))}
           >
             <Trash2Icon /> Remove
           </Button>
@@ -558,10 +657,10 @@ function TestOrderForm({ product, test, onDone }: { product: ProductDetail; test
         </Button>
         <Button
           size="sm"
-          disabled={pending}
-          onClick={() => startTransition(async () => done(await saveTestOrderAction({ productId: product.id, testOrderId: test?.id, quality, note })))}
+          disabled={pending || name.trim().length < 2 || !expectedOn}
+          onClick={() => startTransition(async () => done(await saveTestOrderAction({ productId: product.id, testOrderId: test?.id, name, expectedOn, quality, note })))}
         >
-          <SaveIcon /> Save
+          <SaveIcon /> {test ? "Save" : "Add test order"}
         </Button>
       </div>
     </div>

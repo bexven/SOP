@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { orderMath, orderSummary } from "./orders";
+import { orderTitle, testOrderState } from "./orders";
 
 const o = { quantity: 100, buyingPriceBdt: "450", shippingCostBdt: "120", sellingPriceBdt: "1490", courierChargePct: "2" };
 
@@ -37,5 +38,20 @@ describe("ordering gates", () => {
     expect(addOrderError({ stage: "LIVE", orderingSince: new Date() })).toBeNull();
     expect(addOrderError({ stage: "COMPLETED", orderingSince: new Date() })).toBeNull();
     expect(addOrderError({ stage: "KILLED", orderingSince: new Date() })).not.toBeNull();
+  });
+});
+
+describe("order names and test orders", () => {
+  it("uses the team's name, or Order #n for older orders", () => {
+    expect(orderTitle({ number: 3, name: "Eid stock" })).toBe("Eid stock");
+    expect(orderTitle({ number: 3, name: null })).toBe("Order #3");
+    expect(orderTitle({ number: 3, name: "  " })).toBe("Order #3");
+  });
+  it("warns until a test order is confirmed, overdue after its expected day", () => {
+    expect(testOrderState({ confirmedAt: null, expectedOn: "2026-11-10" }, "2026-11-05")).toBe("waiting");
+    expect(testOrderState({ confirmedAt: null, expectedOn: "2026-11-10" }, "2026-11-10")).toBe("waiting");
+    expect(testOrderState({ confirmedAt: null, expectedOn: "2026-11-10" }, "2026-11-11")).toBe("overdue");
+    expect(testOrderState({ confirmedAt: "2026-11-09T10:00:00Z", expectedOn: "2026-11-10" }, "2026-11-12")).toBe("confirmed");
+    expect(testOrderState({ confirmedAt: null, expectedOn: null }, "2026-11-12")).toBe("waiting");
   });
 });

@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { addOrderError, moveToOrderingError, SCALE_VERDICT_LABELS } from "@/lib/domain/orders";
 import { shippingFromWeight, SHIPPING_METHOD_LABELS } from "@/lib/domain/margin";
-import { orderSchema, productIdSchema, scalingSchema, testOrderIdSchema, testOrderSchema } from "@/lib/validation/orders";
+import { confirmTestOrderSchema, orderSchema, productIdSchema, scalingSchema, testOrderIdSchema, testOrderSchema } from "@/lib/validation/orders";
 import { ActionError, defineAction } from "../action";
-import { db } from "../db";
-import { logEvents } from "../services/events";
+import { db, type Tx } from "../db";
+import { logEvents, notify } from "../services/events";
 import { settingsRateFor } from "../services/product-helpers";
 
 function revalidate() {
@@ -55,6 +55,7 @@ export const saveOrderAction = defineAction({
         throw new ActionError(`An Admin needs to set the ${SHIPPING_METHOD_LABELS[fields.shippingMethod].toLowerCase()} shipping rate per kg in Settings first.`);
       }
       const data = {
+        name: fields.name,
         quantity: fields.quantity,
         buyingPriceBdt: fields.buyingPriceBdt,
         weightKg: fields.weightKg,
@@ -75,11 +76,12 @@ export const saveOrderAction = defineAction({
       await tx.productOrder.create({
         data: { ...data, productId, number: next, createdById: user.id, courierChargePct: settings?.courierChargePct ?? p.courierChargePct },
       });
-      await logEvents(tx, [{ type: "ORDER_CREATED", actorId: user.id, productId, data: { number: next, quantity: fields.quantity } }]);
+      await logEvents(tx, [{ type: "ORDER_CREATED", actorId: user.id, productId, data: { number: next, name: fields.name, quantity: fields.quantity } }]);
+      await notifySupply(tx, user.id, p, `${user.name} added order “${fields.name}” (${fields.quantity.toLocaleString("en-IN")} units) for ${p.name}`);
       return next;
     });
     revalidate();
-    return { ok: true, message: orderId ? `Order #${number} updated` : `Order #${number} added` };
+    return { ok: true, message: orderId ? `“${fields.name}” updated` : `“${fields.name}” added` };
   },
 });
 
@@ -101,35 +103,66 @@ export const saveScalingAction = defineAction({
   },
 });
 
-/** Admins only: a small test order to check the product's quality, with a result and a note. */
+/** New orders and test orders tell the product's media buyer and every Admin (the supply side). */
+async function notifySupply(tx: Tx, actorId: string, p: { id: string; mediaBuyerId: string | null }, message: string) {
+  const admins = await tx.user.findMany({
+    where: { active: true, removedAt: null, OR: [{ role: "ADMIN" }, { adminAccess: true }, { isMaster: true }] },
+    select: { id: true },
+  });
+  await notify(tx, actorId, [p.mediaBuyerId, ...admins.map((a) => a.id)].map((userId) => ({ userId, type: "FEEDBACK" as const, productId: p.id, message })));
+}
+
+/** A test order (a few units to check quality): name, expected arrival and a note. Shows a warning until confirmed. */
 export const saveTestOrderAction = defineAction({
+  capability: "orders.manage",
   schema: testOrderSchema,
-  run: async ({ productId, testOrderId, quality, note }, { user }) => {
-    if (user.role !== "ADMIN") throw new ActionError("Only Admins can place test orders.");
+  run: async ({ productId, testOrderId, name, expectedOn, quality, note }, { user }) => {
     await db.$transaction(async (tx) => {
       const p = await tx.product.findUnique({ where: { id: productId } });
       if (!p) throw new ActionError("This product no longer exists.");
       if (!p.orderingSince) throw new ActionError("Move the product to ordering first.");
+      const data = { name, note, quality, expectedOn: new Date(`${expectedOn}T00:00:00Z`) };
       if (testOrderId) {
         const t = await tx.testOrder.findUnique({ where: { id: testOrderId } });
         if (!t || t.productId !== productId) throw new ActionError("That test order no longer exists.");
-        await tx.testOrder.update({ where: { id: testOrderId }, data: { quality, note } });
+        await tx.testOrder.update({ where: { id: testOrderId }, data });
       } else {
-        await tx.testOrder.create({ data: { productId, quality, note, createdById: user.id } });
+        await tx.testOrder.create({ data: { ...data, productId, createdById: user.id } });
+        await notifySupply(tx, user.id, p, `${user.name} placed test order “${name}” for ${p.name} · expected by ${expectedOn}`);
       }
-      await logEvents(tx, [{ type: "ORDER_UPDATED", actorId: user.id, productId, data: { test: true, quality } }]);
+      await logEvents(tx, [{ type: "ORDER_UPDATED", actorId: user.id, productId, data: { test: true, name, quality } }]);
     });
     revalidate();
-    return { ok: true, message: testOrderId ? "Test order updated" : "Test order added" };
+    return { ok: true, message: testOrderId ? "Test order updated" : "Test order added · Media buyer and Admins notified" };
+  },
+});
+
+/** Tick (or untick) that the test units arrived. Until then the order list shows a warning. */
+export const confirmTestOrderAction = defineAction({
+  capability: "orders.manage",
+  schema: confirmTestOrderSchema,
+  run: async ({ productId, testOrderId, confirmed }, { user }) => {
+    await db.$transaction(async (tx) => {
+      const t = await tx.testOrder.findUnique({ where: { id: testOrderId } });
+      if (!t || t.productId !== productId) throw new ActionError("That test order no longer exists.");
+      const updated = await tx.testOrder.updateMany({
+        where: { id: testOrderId, confirmedAt: confirmed ? null : { not: null } },
+        data: confirmed ? { confirmedAt: new Date(), confirmedById: user.id } : { confirmedAt: null, confirmedById: null },
+      });
+      if (updated.count !== 1) throw new ActionError("Someone changed this just now. Refresh and try again.");
+      await logEvents(tx, [{ type: "ORDER_UPDATED", actorId: user.id, productId, data: { test: true, name: t.name, confirmed } }]);
+    });
+    revalidate();
+    return { ok: true, message: confirmed ? "Test order confirmed" : "Marked as not arrived" };
   },
 });
 
 export const deleteTestOrderAction = defineAction({
+  capability: "orders.manage",
   schema: testOrderIdSchema,
-  run: async ({ testOrderId }, { user }) => {
-    if (user.role !== "ADMIN") throw new ActionError("Only Admins can remove test orders.");
+  run: async ({ productId, testOrderId }) => {
     const t = await db.testOrder.findUnique({ where: { id: testOrderId } });
-    if (!t) throw new ActionError("That test order no longer exists.");
+    if (!t || t.productId !== productId) throw new ActionError("That test order no longer exists.");
     await db.testOrder.delete({ where: { id: testOrderId } });
     revalidate();
     return { ok: true, message: "Test order removed" };

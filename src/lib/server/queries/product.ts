@@ -233,6 +233,7 @@ export async function getProductDetail(id: string, viewer: BrandViewer & { role?
       number: o.number,
       quantity: o.quantity,
       buyingPriceBdt: o.buyingPriceBdt.toString(),
+      name: o.name,
       shippingCostBdt: o.shippingCostBdt.toString(),
       weightKg: str(o.weightKg),
       shippingMethod: o.shippingMethod,
@@ -244,10 +245,18 @@ export async function getProductDetail(id: string, viewer: BrandViewer & { role?
       createdBy: o.createdBy,
       createdAt: o.createdAt.toISOString(),
     })),
-    // Test orders are only for Admins.
-    testOrders: viewer.role === "ADMIN"
-      ? p.testOrders.map((t) => ({ id: t.id, quality: t.quality, note: t.note, createdBy: t.createdBy, createdAt: t.createdAt.toISOString(), updatedAt: t.updatedAt.toISOString() }))
-      : [],
+    testOrders: p.testOrders.map((t) => ({
+      id: t.id,
+      name: t.name,
+      quality: t.quality,
+      note: t.note,
+      expectedOn: t.expectedOn ? t.expectedOn.toISOString().slice(0, 10) : null,
+      confirmedAt: iso(t.confirmedAt),
+      confirmedBy: nameOf(t.confirmedById),
+      createdBy: t.createdBy,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+    })),
     brands,
     margin,
     marginBand: band,

@@ -94,3 +94,20 @@ export function addOrderError(p: { stage: string; orderingSince: Date | string |
   if (p.stage !== "LIVE" && p.stage !== "COMPLETED") return "Orders can't be added to a closed product.";
   return null;
 }
+
+/** An order's display name: the team's own name, or "Order #n" for older orders. */
+export function orderTitle(o: { number: number; name: string | null }): string {
+  return o.name?.trim() || `Order #${o.number}`;
+}
+
+export type TestOrderState = "confirmed" | "waiting" | "overdue";
+
+/**
+ * A test order shows a warning until someone confirms it (owner's rule).
+ * Waiting until its expected date (Dhaka day, YYYY-MM-DD), overdue after that.
+ */
+export function testOrderState(t: { confirmedAt: string | Date | null; expectedOn: string | null }, todayDhaka: string): TestOrderState {
+  if (t.confirmedAt) return "confirmed";
+  if (t.expectedOn && t.expectedOn < todayDhaka) return "overdue";
+  return "waiting";
+}

@@ -690,6 +690,8 @@ model ProductOrder {
   productId            String
   /// 1, 2, 3… per product.
   number               Int
+  /// The team\'s own name for the order (e.g. "Eid stock"). Older orders show as "Order #n".
+  name                 String?
   quantity             Int
   buyingPriceBdt       Decimal         @db.Decimal(12, 2)
   /// Shipping per unit. New orders: weightKg × the method's rate (worked out by the server).
@@ -722,13 +724,19 @@ enum TestQuality {
 
 /// A small test order an Admin places to check the product's quality (Orders tab, Admins only).
 model TestOrder {
-  id          String      @id @default(cuid())
-  productId   String
-  quality     TestQuality @default(WAITING)
-  note        String?
-  createdById String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id            String      @id @default(cuid())
+  productId     String
+  quality       TestQuality @default(WAITING)
+  /// Name shown in the order list (older test orders show as "Test order").
+  name          String?
+  /// When the test units are expected; a warning shows until someone confirms they arrived.
+  expectedOn    DateTime?   @db.Date
+  confirmedAt   DateTime?
+  confirmedById String?
+  note          String?
+  createdById   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdBy User    @relation("TestOrderCreator", fields: [createdById], references: [id])
