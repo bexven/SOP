@@ -2,19 +2,21 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { PencilIcon, PlusIcon, SaveIcon, TruckIcon, XIcon } from "lucide-react";
+import { FlaskConicalIcon, PencilIcon, PlusIcon, SaveIcon, Trash2Icon, TruckIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
-import type { ScalePlan, ScaleVerdict } from "@/generated/prisma/enums";
+import type { ScalePlan, ScaleVerdict, TestQuality } from "@/generated/prisma/enums";
 import { Field, fieldA11y } from "@/components/common/field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ShippingMethodPicker } from "@/components/common/shipping-method-picker";
+import { rateForMethod, SHIPPING_METHOD_LABELS, shippingFromWeight, type ShippingMethodKey } from "@/lib/domain/margin";
 import { addOrderError, orderMath, orderSummary, SCALE_PLAN_LABELS, SCALE_PLANS, SCALE_VERDICT_LABELS, SCALE_VERDICTS } from "@/lib/domain/orders";
 import { can } from "@/lib/domain/permissions";
 import { formatBdt, formatDate } from "@/lib/format";
-import { moveToOrderingAction, saveOrderAction, saveScalingAction } from "@/lib/server/actions/orders";
-import type { OrderDTO, ProductDetail } from "@/lib/server/queries/product";
+import { deleteTestOrderAction, moveToOrderingAction, saveOrderAction, saveScalingAction, saveTestOrderAction } from "@/lib/server/actions/orders";
+import type { OrderDTO, ProductDetail, TestOrderDTO } from "@/lib/server/queries/product";
 import { cn } from "@/lib/utils";
 import { Discussion } from "./discussion";
 import type { Viewer } from "./product-view";
@@ -122,11 +124,11 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
                     <dl className="mt-3 grid grid-cols-3 gap-2 text-meta">
                       {[
                         ["Buying", o.buyingPriceBdt],
-                        ["Shipping", o.shippingCostBdt],
+                        [o.shippingMethod ? `Shipping (${SHIPPING_METHOD_LABELS[o.shippingMethod]})` : "Shipping", o.shippingCostBdt],
                         ["Selling", o.sellingPriceBdt],
                       ].map(([k, v]) => (
                         <div key={k} className="rounded-control bg-slate-50 px-2 py-1.5">
-                          <dt className="text-slate-500">{k} / unit</dt>
+                          <dt className="truncate text-slate-500">{k} / unit</dt>
                           <dd className="num text-body font-medium text-slate-900">{formatBdt(v)}</dd>
                         </div>
                       ))}
@@ -174,7 +176,15 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
                         </td>
                         <td className="num px-3 py-2.5 text-right">{o.quantity.toLocaleString("en-IN")}</td>
                         <td className="num px-3 py-2.5 text-right">{formatBdt(o.buyingPriceBdt)}</td>
-                        <td className="num px-3 py-2.5 text-right">{formatBdt(o.shippingCostBdt)}</td>
+                        <td className="num px-3 py-2.5 text-right">
+                          {formatBdt(o.shippingCostBdt)}
+                          {o.shippingMethod ? (
+                            <span className="block text-meta text-slate-500">
+                              {SHIPPING_METHOD_LABELS[o.shippingMethod]}
+                              {o.weightKg ? ` · ${Number(o.weightKg)} kg` : ""}
+                            </span>
+                          ) : null}
+                        </td>
                         <td className="num px-3 py-2.5 text-right">{formatBdt(o.sellingPriceBdt)}</td>
                         <td className={cn("num px-3 py-2.5 text-right", m && Number(m.profitPerUnit) < 0 && "text-rose-700")}>
                           {m ? formatBdt(m.profitPerUnit) : "—"}
@@ -200,11 +210,14 @@ export function OrdersTab({ product, viewer }: { product: ProductDetail; viewer:
             </>
           )}
           <p className="text-meta font-normal text-slate-500">
-            Each order keeps its own prices, separate from the research prices. Profit = selling − buying − shipping − courier ({product.thresholds?.courierChargePct ?? product.courierChargePct}% of selling).
+            Each order keeps its own prices, separate from the research prices. Shipping = weight × the Air or Sea rate per kg. Profit = selling − buying − shipping − courier ({product.thresholds?.courierChargePct ?? product.courierChargePct}% of selling).
           </p>
         </section>
 
-        <ScalingPanel product={product} canManage={canManage} />
+        <div className="grid content-start gap-6">
+          <ScalingPanel product={product} canManage={canManage} />
+          {viewer.role === "ADMIN" ? <TestOrdersPanel product={product} /> : null}
+        </div>
       </div>
 
       <Discussion product={product} viewer={viewer} phase="ORDERS" />
@@ -227,7 +240,8 @@ function OrderForm({ product, order, onDone }: { product: ProductDetail; order: 
   const [v, setV] = useState({
     quantity: order ? String(order.quantity) : "",
     buyingPriceBdt: order?.buyingPriceBdt ?? last?.buyingPriceBdt ?? product.chinaPriceBdt ?? "",
-    shippingCostBdt: order?.shippingCostBdt ?? last?.shippingCostBdt ?? product.shippingPerUnitBdt ?? "",
+    weightKg: order?.weightKg ?? last?.weightKg ?? product.weightKg ?? "",
+    shippingMethod: (order?.shippingMethod ?? last?.shippingMethod ?? product.shippingMethod ?? "") as "" | ShippingMethodKey,
     sellingPriceBdt: order?.sellingPriceBdt ?? last?.sellingPriceBdt ?? product.sellingPriceBdt ?? "",
     orderedOn: order?.orderedOn ?? today(),
     note: order?.note ?? "",
@@ -235,7 +249,17 @@ function OrderForm({ product, order, onDone }: { product: ProductDetail; order: 
   const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   const [pending, startTransition] = useTransition();
   const courier = order?.courierChargePct ?? product.thresholds?.courierChargePct ?? product.courierChargePct;
-  const preview = useMemo(() => orderMath({ ...v, quantity: Number(v.quantity), courierChargePct: courier }), [v, courier]);
+  const method = v.shippingMethod || null;
+  // Shipping = weight × the method's rate. An order keeps its own rate while the method stays the same.
+  const rate =
+    order?.shippingRatePerKgBdt && order.shippingMethod === method
+      ? order.shippingRatePerKgBdt
+      : rateForMethod(method, { air: product.thresholds?.shippingRatePerKgBdt ?? null, sea: product.thresholds?.seaShippingRatePerKgBdt ?? null });
+  const shipping = method ? shippingFromWeight(v.weightKg, rate) : null;
+  const preview = useMemo(
+    () => (shipping ? orderMath({ ...v, shippingCostBdt: shipping, quantity: Number(v.quantity), courierChargePct: courier }) : null),
+    [v, shipping, courier],
+  );
   const set = (k: keyof typeof v, numeric = false) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setV({ ...v, [k]: numeric ? e.target.value.replace(/[^\d.]/g, "") : e.target.value });
   const err = (k: string) => errors[k]?.[0];
@@ -272,19 +296,50 @@ function OrderForm({ product, order, onDone }: { product: ProductDetail; order: 
           <Input {...fieldA11y("o-date", err("orderedOn"))} type="date" value={v.orderedOn} onChange={set("orderedOn")} className="num" />
         </Field>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {([
-          ["buyingPriceBdt", "Buying price / unit *"],
-          ["shippingCostBdt", "Shipping cost / unit *"],
-          ["sellingPriceBdt", "Selling price / unit *"],
-        ] as const).map(([k, label]) => (
-          <Field key={k} id={`o-${k}`} label={label} error={err(k)}>
-            <div className="relative">
-              <Input {...fieldA11y(`o-${k}`, err(k))} value={v[k]} onChange={set(k, true)} inputMode="decimal" className="num pr-12" />
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-meta text-slate-500">BDT</span>
-            </div>
-          </Field>
-        ))}
+      <ShippingMethodPicker
+        id="o-method"
+        value={v.shippingMethod}
+        onChange={(m) => setV({ ...v, shippingMethod: m })}
+        rates={{ AIR: product.thresholds?.shippingRatePerKgBdt ?? null, SEA: product.thresholds?.seaShippingRatePerKgBdt ?? null }}
+        error={err("shippingMethod")}
+      />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {(
+          [
+            ["buyingPriceBdt", "Buying price / unit *", "BDT"],
+            ["weightKg", "Weight / unit *", "kg"],
+            ["shipping", "Shipping / unit", "BDT"],
+            ["sellingPriceBdt", "Selling price / unit *", "BDT"],
+          ] as const
+        ).map(([k, label, unit]) =>
+          k === "shipping" ? (
+            <Field
+              key={k}
+              id="o-shipping"
+              label={label}
+              hint={!method ? "Choose Air or Sea" : rate ? `${SHIPPING_METHOD_LABELS[method]}: weight × ${formatBdt(rate)} per kg` : `An Admin sets the ${SHIPPING_METHOD_LABELS[method].toLowerCase()} rate in Settings`}
+            >
+              <div className="relative">
+                <Input {...fieldA11y("o-shipping", undefined, true)} value={shipping ?? ""} readOnly placeholder="—" className="num cursor-default bg-slate-50 pr-12 text-slate-700" />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-meta text-slate-500">{unit}</span>
+              </div>
+            </Field>
+          ) : (
+            <Field key={k} id={`o-${k}`} label={label} error={err(k)}>
+              <div className="relative">
+                <Input
+                  {...fieldA11y(`o-${k}`, err(k))}
+                  value={v[k]}
+                  onChange={set(k, true)}
+                  inputMode="decimal"
+                  placeholder={k === "weightKg" ? "e.g. 0.150" : undefined}
+                  className="num pr-12"
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-meta text-slate-500">{unit}</span>
+              </div>
+            </Field>
+          ),
+        )}
       </div>
       <Field id="o-note" label="Note" error={err("note")}>
         <Textarea {...fieldA11y("o-note", err("note"))} value={v.note} onChange={set("note")} rows={2} placeholder="Supplier, payment, expected arrival…" />
@@ -388,5 +443,127 @@ function ScalingPanel({ product, canManage }: { product: ProductDetail; canManag
         </Button>
       ) : null}
     </section>
+  );
+}
+
+const QUALITY: { key: TestQuality; label: string; on: string }[] = [
+  { key: "WAITING", label: "Waiting", on: "bg-amber-700 text-white ring-amber-700" },
+  { key: "PASSED", label: "Passed", on: "bg-emerald-700 text-white ring-emerald-700" },
+  { key: "FAILED", label: "Failed", on: "bg-rose-700 text-white ring-rose-700" },
+];
+const QUALITY_PILL: Record<TestQuality, string> = {
+  WAITING: "bg-amber-50 text-amber-800 ring-amber-100",
+  PASSED: "bg-emerald-50 text-emerald-800 ring-emerald-100",
+  FAILED: "bg-rose-50 text-rose-700 ring-rose-100",
+};
+
+/** Admins only: small test orders to check the product's quality before ordering stock. */
+function TestOrdersPanel({ product }: { product: ProductDetail }) {
+  const [editing, setEditing] = useState<TestOrderDTO | "new" | null>(null);
+  return (
+    <section className="surface grid content-start gap-3 rounded-panel p-4" aria-labelledby="test-h">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="test-h" className="flex items-center gap-2 text-section text-slate-900">
+          <FlaskConicalIcon className="size-4 text-slate-500" aria-hidden /> Test orders
+        </h2>
+        {editing !== "new" ? (
+          <Button size="sm" variant="outline" onClick={() => setEditing("new")}>
+            <PlusIcon /> Test order
+          </Button>
+        ) : null}
+      </div>
+      <p className="text-meta font-normal text-slate-500">Order a few units to check quality. Only Admins see this.</p>
+      {editing === "new" ? <TestOrderForm product={product} test={null} onDone={() => setEditing(null)} /> : null}
+      {product.testOrders.length === 0 && editing !== "new" ? (
+        <p className="rounded-control bg-slate-50 px-3 py-3 text-meta font-normal text-slate-600">No test orders yet. Add one when you order units to check quality.</p>
+      ) : (
+        <ul className="grid gap-2">
+          {product.testOrders.map((t) =>
+            editing !== "new" && editing?.id === t.id ? (
+              <li key={t.id}>
+                <TestOrderForm product={product} test={t} onDone={() => setEditing(null)} />
+              </li>
+            ) : (
+              <li key={t.id} className="rounded-control bg-slate-50 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cn("rounded-full px-2 py-0.5 text-meta ring-1 ring-inset", QUALITY_PILL[t.quality])}>{QUALITY.find((q) => q.key === t.quality)!.label}</span>
+                  <Button variant="ghost" size="icon-sm" aria-label="Edit test order" onClick={() => setEditing(t)}>
+                    <PencilIcon />
+                  </Button>
+                </div>
+                {t.note ? <p className="mt-1.5 text-body whitespace-pre-line [overflow-wrap:anywhere] text-slate-800">{t.note}</p> : null}
+                <p className="mt-1 text-meta font-normal text-slate-500">
+                  {t.createdBy.name} · <span className="num">{formatDate(new Date(t.createdAt))}</span>
+                </p>
+              </li>
+            ),
+          )}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function TestOrderForm({ product, test, onDone }: { product: ProductDetail; test: TestOrderDTO | null; onDone: () => void }) {
+  const router = useRouter();
+  const [quality, setQuality] = useState<TestQuality>(test?.quality ?? "WAITING");
+  const [note, setNote] = useState(test?.note ?? "");
+  const [pending, startTransition] = useTransition();
+  const done = (r: { ok: boolean; message?: string; error?: string }) => {
+    if (r.ok) {
+      toast.success(r.message ?? "Saved");
+      onDone();
+      router.refresh();
+    } else toast.error(r.error ?? "Something went wrong");
+  };
+  return (
+    <div className="grid gap-3 rounded-control bg-white p-3 ring-2 ring-primary/25">
+      <fieldset className="grid gap-1.5">
+        <legend className="mb-1 text-meta text-slate-700">Quality</legend>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Quality">
+          {QUALITY.map((q) => (
+            <button
+              key={q.key}
+              type="button"
+              role="radio"
+              aria-checked={quality === q.key}
+              onClick={() => setQuality(q.key)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-meta ring-1 transition-colors duration-150 ring-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                quality === q.key ? q.on : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
+              )}
+            >
+              {q.label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <Field id={`t-note-${test?.id ?? "new"}`} label="Note">
+        <Textarea id={`t-note-${test?.id ?? "new"}`} value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={1000} placeholder="Units, supplier, what to check…" />
+      </Field>
+      <div className="flex flex-wrap justify-end gap-2">
+        {test ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mr-auto text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+            disabled={pending}
+            onClick={() => startTransition(async () => done(await deleteTestOrderAction({ testOrderId: test.id })))}
+          >
+            <Trash2Icon /> Remove
+          </Button>
+        ) : null}
+        <Button variant="outline" size="sm" onClick={onDone} disabled={pending}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          disabled={pending}
+          onClick={() => startTransition(async () => done(await saveTestOrderAction({ productId: product.id, testOrderId: test?.id, quality, note })))}
+        >
+          <SaveIcon /> Save
+        </Button>
+      </div>
+    </div>
   );
 }

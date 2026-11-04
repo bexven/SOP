@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightIcon, ExternalLinkIcon, PlaneIcon, PlusIcon, SaveIcon, ShipIcon, XIcon } from "lucide-react";
+import { ArrowRightIcon, ExternalLinkIcon, PlusIcon, SaveIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { Priority } from "@/generated/prisma/enums";
 import { BrandPicker } from "@/components/common/brand-picker";
@@ -15,10 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/domain/labels";
 import { computeMargin, marginBand, rateForMethod, SHIPPING_METHOD_LABELS, shippingFromWeight, type ShippingMethodKey } from "@/lib/domain/margin";
 import { formatBdt } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { researchBlockers } from "@/lib/domain/workflow";
 import { submitResearchAction, updateResearchAction } from "@/lib/server/actions/product";
 import { MarginCard } from "./margin-card";
+import { ShippingMethodPicker } from "@/components/common/shipping-method-picker";
 
 export type ResearchValues = {
   brandId: string;
@@ -383,62 +383,5 @@ function MoneyField({
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-meta text-slate-500">{unit}</span>
       </div>
     </Field>
-  );
-}
-
-/** Air or Sea: a two-option radio group showing each method's rate per kg. */
-function ShippingMethodPicker({
-  value,
-  onChange,
-  rates,
-  error,
-  disabled,
-}: {
-  value: "" | ShippingMethodKey;
-  onChange: (m: ShippingMethodKey) => void;
-  rates: Record<ShippingMethodKey, string | null>;
-  error?: string;
-  disabled?: boolean;
-}) {
-  const options: { key: ShippingMethodKey; icon: React.ReactNode }[] = [
-    { key: "AIR", icon: <PlaneIcon className="size-4" aria-hidden /> },
-    { key: "SEA", icon: <ShipIcon className="size-4" aria-hidden /> },
-  ];
-  return (
-    <div className="grid gap-1.5">
-      <span id="r-method-label" className="text-meta text-slate-700 select-none">
-        Shipping by *
-      </span>
-      <div role="radiogroup" aria-labelledby="r-method-label" aria-describedby={error ? "r-method-error" : undefined} className="flex flex-wrap gap-2">
-        {options.map(({ key, icon }) => {
-          const selected = value === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              disabled={disabled}
-              onClick={() => onChange(key)}
-              className={cn(
-                "inline-flex h-10 items-center gap-2 rounded-control px-3.5 text-body font-medium ring-1 transition-colors duration-150 ease-out ring-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed",
-                selected ? "bg-primary text-primary-foreground ring-primary" : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50",
-              )}
-            >
-              {icon}
-              {SHIPPING_METHOD_LABELS[key]}
-              <span className={cn("num text-meta", selected ? "text-primary-foreground" : "text-slate-500")}>
-                {rates[key] ? `${formatBdt(rates[key]!)}/kg` : "rate not set"}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {error ? (
-        <p id="r-method-error" className="text-meta text-rose-700">
-          {error}
-        </p>
-      ) : null}
-    </div>
   );
 }

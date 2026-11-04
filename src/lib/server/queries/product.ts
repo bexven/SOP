@@ -44,7 +44,7 @@ export function laneProgress(
 }
 
 /** A product for this viewer, or null if it doesn't exist or is a restricted brand they can't see. */
-export async function getProductDetail(id: string, viewer: BrandViewer) {
+export async function getProductDetail(id: string, viewer: BrandViewer & { role?: string }) {
   const [p, thresholds] = await Promise.all([
     db.product.findUnique({
       where: { id },
@@ -56,6 +56,7 @@ export async function getProductDetail(id: string, viewer: BrandViewer) {
         batches: { orderBy: { number: "asc" } },
         transitions: { orderBy: { at: "asc" } },
         orders: { orderBy: { number: "desc" }, include: { createdBy: person } },
+        testOrders: { orderBy: { createdAt: "desc" }, include: { createdBy: person } },
         tasks: {
           orderBy: [{ createdAt: "asc" }],
           include: {
@@ -229,6 +230,9 @@ export async function getProductDetail(id: string, viewer: BrandViewer) {
       quantity: o.quantity,
       buyingPriceBdt: o.buyingPriceBdt.toString(),
       shippingCostBdt: o.shippingCostBdt.toString(),
+      weightKg: str(o.weightKg),
+      shippingMethod: o.shippingMethod,
+      shippingRatePerKgBdt: str(o.shippingRatePerKgBdt),
       sellingPriceBdt: o.sellingPriceBdt.toString(),
       courierChargePct: o.courierChargePct.toString(),
       orderedOn: o.orderedOn.toISOString().slice(0, 10),
@@ -236,6 +240,10 @@ export async function getProductDetail(id: string, viewer: BrandViewer) {
       createdBy: o.createdBy,
       createdAt: o.createdAt.toISOString(),
     })),
+    // Test orders are only for Admins.
+    testOrders: viewer.role === "ADMIN"
+      ? p.testOrders.map((t) => ({ id: t.id, quality: t.quality, note: t.note, createdBy: t.createdBy, createdAt: t.createdAt.toISOString(), updatedAt: t.updatedAt.toISOString() }))
+      : [],
     brands,
     margin,
     marginBand: band,
@@ -249,6 +257,7 @@ export async function getProductDetail(id: string, viewer: BrandViewer) {
 export type ProductDetail = NonNullable<Awaited<ReturnType<typeof getProductDetail>>>;
 export type TaskDTO = ProductDetail["tasks"][number];
 export type OrderDTO = ProductDetail["orders"][number];
+export type TestOrderDTO = ProductDetail["testOrders"][number];
 export type StageKey = ProductStage;
 
 /** Brands, optionally only those a viewer may use (restricted brands need access). */
