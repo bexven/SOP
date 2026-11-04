@@ -85,7 +85,7 @@ function OverrideForm({ product, onClose }: { product: ProductDetail; onClose: (
     >
       <DialogHeader>
         <DialogTitle>Admin override</DialogTitle>
-        <DialogDescription>Edit any field. Every change is recorded on the timeline with its old and new value. Stage changes still go through Send back / Kill.</DialogDescription>
+        <DialogDescription>Edit any field. Every change is recorded on the timeline with its old and new value. Stage changes still go through Send back / Drop.</DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 sm:grid-cols-2">
         {text("name", "Name")}

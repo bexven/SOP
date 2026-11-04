@@ -74,7 +74,7 @@ export function PipelineStepper({
                   {stepper.progress.approved}/{stepper.progress.total} approved
                 </span>
               ) : null}
-              {killed ? <span className="block font-normal">Killed here</span> : null}
+              {killed ? <span className="block font-normal">Dropped here</span> : null}
             </span>
             <span className="sr-only">{step.state}</span>
           </>
@@ -180,7 +180,7 @@ function CompactStepper({
               : step.state === "done"
                 ? "Done"
                 : step.state === "killed"
-                  ? "Killed here"
+                  ? "Dropped here"
                   : step.state === "current"
                     ? "Now"
                     : "Later"}
@@ -196,7 +196,7 @@ export function MiniStepper({ stepper, className }: { stepper: Stepper; classNam
   const label = stepper.completed
     ? "Completed"
     : stepper.killed
-      ? `Killed at ${stepper.steps[stepper.index]?.label}`
+      ? `Dropped at ${stepper.steps[stepper.index]?.label}`
       : stepper.steps[stepper.index]?.label;
   return (
     <div className={cn("flex items-center gap-[3px]", className)} role="img" aria-label={`Progress: ${label}`} title={label}>

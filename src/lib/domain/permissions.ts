@@ -14,7 +14,7 @@ export const CAPABILITIES = {
     defaults: ["RESEARCHER", "MEDIA_BUYER", "REVIEWER"],
   },
   "product.create": { label: "Add products", hint: "Add and research new products", defaults: ["RESEARCHER"] },
-  "product.approve": { label: "Product review", hint: "Approve a product for testing or kill it", defaults: ["REVIEWER"] },
+  "product.approve": { label: "Product review", hint: "Approve a product for testing or drop it", defaults: ["REVIEWER"] },
   "task.review": {
     label: "Senior: approve creative",
     hint: "Approve website images, Meta ad images and videos, or ask for changes",
@@ -25,10 +25,10 @@ export const CAPABILITIES = {
   "batch.request": { label: "Request new creatives", hint: "Ask for a new creative batch while live", defaults: ["MEDIA_BUYER"] },
   "orders.manage": { label: "Orders & scaling", hint: "Move products to ordering, add orders, set the scaling plan", defaults: ["MEDIA_BUYER"] },
   "product.sendBack": { label: "Send back", hint: "Send a product back to an earlier stage", defaults: ["MEDIA_BUYER", "REVIEWER"] },
-  "product.kill": { label: "Kill products", hint: "Stop a product for good", defaults: ["MEDIA_BUYER"] },
+  "product.kill": { label: "Drop products", hint: "Stop working on a product", defaults: ["MEDIA_BUYER"] },
   "product.override": { label: "Edit any product", hint: "Correct product details at any stage (logged)", defaults: [] },
   "task.reassignAny": { label: "Reassign tasks", hint: "Hand anyone's task to someone else", defaults: [] },
-  "overview.view": { label: "Overview", hint: "Workload, bottlenecks and kill reasons", defaults: [] },
+  "overview.view": { label: "Overview", hint: "Workload, bottlenecks and drop reasons", defaults: [] },
   "settings.manage": { label: "Settings", hint: "Rates, SLAs, checklists and brands", defaults: [] },
 } as const satisfies Record<string, { label: string; hint: string; defaults: readonly Role[] }>;
 

@@ -157,7 +157,7 @@ export function ProductsTable({
             <Checkbox checked={overdue} onCheckedChange={(v) => setOverdue(v === true)} /> Overdue
           </label>
           <label className={cn("flex h-9 items-center gap-2 rounded-control border border-slate-200 bg-white px-3 text-body text-slate-700", stage !== "ALL" && "opacity-50")}>
-            <Checkbox checked={showKilled || stage === "KILLED"} disabled={stage !== "ALL"} onCheckedChange={(v) => setShowKilled(v === true)} /> Killed
+            <Checkbox checked={showKilled || stage === "KILLED"} disabled={stage !== "ALL"} onCheckedChange={(v) => setShowKilled(v === true)} /> Dropped
           </label>
         </div>
       </div>
@@ -166,7 +166,7 @@ export function ProductsTable({
         <EmptyState
           icon={SearchXIcon}
           title="No products match"
-          description={filtersActive ? "Try clearing a filter or searching for something else." : "Killed products are hidden — tick “Killed” to include them."}
+          description={filtersActive ? "Try clearing a filter or searching for something else." : "Dropped products are hidden — tick “Dropped” to include them."}
         />
       ) : (
         <>

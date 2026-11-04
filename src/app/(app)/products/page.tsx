@@ -27,7 +27,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
     <>
       <PageHeader
         title="Products"
-        description="Search and filter every product, including killed ones. Click a row to open it."
+        description="Search and filter every product, including dropped ones. Click a row to open it."
       />
       {products.length === 0 ? (
         <EmptyState

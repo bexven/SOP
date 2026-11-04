@@ -102,6 +102,8 @@ enum KillReason {
 
 enum EventType {
   PRODUCT_CREATED
+  /// A dropped product an Admin deleted for good (productId is gone; data keeps its name and number).
+  PRODUCT_DELETED
   PRODUCT_UPDATED
   RESEARCH_SUBMITTED
   STAGE_CHANGED

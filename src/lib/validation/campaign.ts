@@ -54,10 +54,13 @@ export const newBatchSchema = z.object({
 
 export const productActionSchema = z.object({ productId: idSchema });
 
+/** Permanent delete: the person types the product's name to confirm. */
+export const deleteProductSchema = z.object({ productId: idSchema, confirmName: z.string().trim().min(1, "Type the product's name to confirm") });
+
 export const killSchema = z.object({
   productId: idSchema,
   reason: z.enum(KillReason),
-  note: z.string().trim().min(3, "Explain why the product is being killed").max(2000),
+  note: z.string().trim().min(3, "Explain why the product is being dropped").max(2000),
 });
 
 export const sendBackSchema = z.object({

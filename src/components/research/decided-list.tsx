@@ -59,7 +59,7 @@ export function PendingList({ items, canApprove }: { items: Pending[]; canApprov
               <span suppressHydrationWarning>
                 Submitted by {p.submittedBy.name} · {formatRelative(new Date(p.since))}
               </span>
-              <span className="font-medium text-indigo-800">{canApprove ? "Open to approve or kill" : `Waiting for ${p.reviewer?.name ?? "the reviewer"}`}</span>
+              <span className="font-medium text-indigo-800">{canApprove ? "Open to approve or drop" : `Waiting for ${p.reviewer?.name ?? "the reviewer"}`}</span>
             </>
           }
           right={
@@ -103,7 +103,7 @@ export function NotApprovedList({ items }: { items: NotApproved[] }) {
           item={p}
           meta={
             <span suppressHydrationWarning className="text-rose-700">
-              {p.decidedBy ? `Killed by ${p.decidedBy}` : "Killed"} · {formatRelative(new Date(p.at))}
+              {p.decidedBy ? `Dropped by ${p.decidedBy}` : "Dropped"} · {formatRelative(new Date(p.at))}
             </span>
           }
           note={p.decisionNote ?? p.killNote}

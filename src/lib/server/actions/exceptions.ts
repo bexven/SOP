@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import Decimal from "decimal.js";
 import { KILL_REASON_LABELS, STAGE_LABELS } from "@/lib/domain/labels";
 import { planKill, planSendBack } from "@/lib/domain/workflow";
-import { killSchema, overrideSchema, sendBackSchema, taskDueSchema } from "@/lib/validation/campaign";
+import { deleteProductSchema, killSchema, overrideSchema, sendBackSchema, taskDueSchema } from "@/lib/validation/campaign";
 import { ActionError, defineAction } from "../action";
 import { db } from "../db";
 import { applyPlan } from "../services/apply-plan";
@@ -15,6 +15,31 @@ import { loadSnapshot } from "../services/snapshot";
 function revalidate() {
   revalidatePath("/", "layout");
 }
+
+/**
+ * Admins only: delete a dropped product for good, with everything attached to it
+ * (tasks, comments, orders, campaigns, events). Only dropped products can be deleted.
+ */
+export const deleteProductAction = defineAction({
+  schema: deleteProductSchema,
+  run: async ({ productId, confirmName }, { user }) => {
+    if (user.role !== "ADMIN") throw new ActionError("Only Admins can delete products.");
+    const name = await db.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({ where: { id: productId } });
+      if (!product) throw new ActionError("This product no longer exists.");
+      if (product.stage !== "KILLED") throw new ActionError("Only dropped products can be deleted. Drop it first.");
+      if (confirmName.trim().toLowerCase() !== product.name.trim().toLowerCase()) {
+        throw new ActionError("The name doesn't match. Type the product's name exactly to delete it.");
+      }
+      const deleted = await tx.product.deleteMany({ where: { id: productId, stage: "KILLED" } });
+      if (deleted.count !== 1) throw new ActionError("This product changed just now. Refresh and try again.");
+      await logEvents(tx, [{ type: "PRODUCT_DELETED", actorId: user.id, productId: null, data: { name: product.name, number: product.number } }]);
+      return product.name;
+    });
+    revalidate();
+    return { ok: true, message: `${name} deleted for good` };
+  },
+});
 
 export const killProductAction = defineAction({
   capability: "product.kill",
@@ -40,12 +65,12 @@ export const killProductAction = defineAction({
           userId: uid,
           type: "PRODUCT_KILLED" as const,
           productId,
-          message: `${product.name} was killed (${KILL_REASON_LABELS[reason]}): ${note}`,
+          message: `${product.name} was dropped (${KILL_REASON_LABELS[reason]}): ${note}`,
         })),
       );
     });
     revalidate();
-    return { ok: true, message: "Product killed · open tasks cancelled" };
+    return { ok: true, message: "Product dropped · open tasks cancelled" };
   },
 });
 

@@ -47,7 +47,7 @@ export default async function ResearchPage({ searchParams }: PageProps<"/researc
         title="Research"
         description={
           canApprove
-            ? "New products waiting for your decision, and everything already approved or killed. Approved products move to Creative."
+            ? "New products waiting for your decision, and everything already approved or dropped. Approved products move to Creative."
             : "Add products you've found and submit them for approval. Approved products move to Creative."
         }
         actions={
@@ -94,8 +94,8 @@ export default async function ResearchPage({ searchParams }: PageProps<"/researc
             title="Nothing waiting for approval"
             description={
               canApprove
-                ? "When a researcher submits a product it appears here for you to approve or kill."
-                : "Products you submit appear here until the reviewer approves or kills them."
+                ? "When a researcher submits a product it appears here for you to approve or drop."
+                : "Products you submit appear here until the reviewer approves or drops them."
             }
           />
         )
@@ -113,7 +113,7 @@ export default async function ResearchPage({ searchParams }: PageProps<"/researc
         board.notApproved.length ? (
           <NotApprovedList items={board.notApproved} />
         ) : (
-          <EmptyState icon={XCircleIcon} title="No killed products" description="Products the reviewer kills (or that are killed during research) are kept here with the reason." />
+          <EmptyState icon={XCircleIcon} title="No dropped products" description="Products the reviewer drops (or that are dropped during research) are kept here with the reason." />
         )
       ) : null}
 

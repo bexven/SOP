@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangleIcon, CheckCircle2Icon, SkullIcon } from "lucide-react";
+import { AlertTriangleIcon, CheckCircle2Icon, BanIcon } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { DuePill, STAGE_DOT, StagePill } from "@/components/common/pills";
 import { UserAvatar } from "@/components/common/user-avatar";
@@ -113,10 +113,10 @@ export default async function OverviewPage() {
 
         <section className="surface rounded-panel p-4 sm:p-5" aria-labelledby="killed">
           <h2 id="killed" className="flex items-center gap-2 text-section text-slate-900">
-            <SkullIcon className="size-4 text-rose-600" /> Killed products <span className="num text-meta text-slate-500">{o.killedTotal}</span>
+            <BanIcon className="size-4 text-rose-600" /> Dropped products <span className="num text-meta text-slate-500">{o.killedTotal}</span>
           </h2>
           {o.killedTotal === 0 ? (
-            <p className="mt-3 text-body text-slate-600">No killed products yet. Reasons are tallied here so the team can learn from them.</p>
+            <p className="mt-3 text-body text-slate-600">No dropped products yet. Reasons are tallied here so the team can learn from them.</p>
           ) : (
             <>
               <BarList

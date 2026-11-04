@@ -119,7 +119,7 @@ export const STAGE_LABELS: Record<ProductStage, string> = {
   READY_TO_LAUNCH: "Ready to Launch",
   LIVE: "Live",
   COMPLETED: "Completed",
-  KILLED: "Killed",
+  KILLED: "Dropped",
 };
 
 export const PRIORITIES = ["URGENT", "HIGH", "MEDIUM", "LOW"] as const satisfies readonly Priority[];

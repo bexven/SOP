@@ -8,8 +8,9 @@ import {
   CornerUpLeftIcon,
   MoreHorizontalIcon,
   PencilLineIcon,
-  SkullIcon,
+  BanIcon,
   SparklesIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { CampaignStatus, KillReason, ProductStage, TaskType } from "@/generated/prisma/enums";
@@ -39,13 +40,13 @@ import {
 import { can } from "@/lib/domain/permissions";
 import { isTerminalStage, sendBackTargets } from "@/lib/domain/workflow";
 import { completeProductAction, requestBatchAction, setCampaignStatusAction } from "@/lib/server/actions/campaign";
-import { killProductAction, sendBackAction } from "@/lib/server/actions/exceptions";
+import { deleteProductAction, killProductAction, sendBackAction } from "@/lib/server/actions/exceptions";
 import type { ProductDetail } from "@/lib/server/queries/product";
 import { Input } from "@/components/ui/input";
 import { OverrideDialog } from "./override-dialog";
 import type { Viewer } from "./product-view";
 
-type DialogKey = "status" | "batch" | "complete" | "kill" | "sendBack" | "override" | null;
+type DialogKey = "status" | "batch" | "complete" | "kill" | "delete" | "sendBack" | "override" | null;
 
 export function ProductActions({ product, viewer }: { product: ProductDetail; viewer: Viewer }) {
   const [dialog, setDialog] = useState<DialogKey>(null);
@@ -56,6 +57,7 @@ export function ProductActions({ product, viewer }: { product: ProductDetail; vi
   const canKill = can(viewer, "product.kill") && !terminal;
   const targets = can(viewer, "product.sendBack") ? sendBackTargets(product.stage, viewer.role) : [];
   const canOverride = can(viewer, "product.override");
+  const canDelete = viewer.role === "ADMIN" && product.stage === "KILLED";
 
   const menuItems = [
     live && canCampaign ? { key: "status" as const, label: "Change campaign status", icon: ArrowUpRightIcon } : null,
@@ -65,7 +67,7 @@ export function ProductActions({ product, viewer }: { product: ProductDetail; vi
     canOverride ? { key: "override" as const, label: "Admin override…", icon: PencilLineIcon } : null,
   ].filter(Boolean) as { key: DialogKey; label: string; icon: React.ComponentType }[];
 
-  if (menuItems.length === 0 && !canKill) return null;
+  if (menuItems.length === 0 && !canKill && !canDelete) return null;
 
   return (
     <>
@@ -91,7 +93,15 @@ export function ProductActions({ product, viewer }: { product: ProductDetail; vi
             <>
               {menuItems.length ? <DropdownMenuSeparator /> : null}
               <DropdownMenuItem variant="destructive" onSelect={() => setDialog("kill")}>
-                <SkullIcon /> Kill product…
+                <BanIcon /> Drop product…
+              </DropdownMenuItem>
+            </>
+          ) : null}
+          {canDelete ? (
+            <>
+              {menuItems.length ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuItem variant="destructive" onSelect={() => setDialog("delete")}>
+                <Trash2Icon /> Delete for good…
               </DropdownMenuItem>
             </>
           ) : null}
@@ -102,6 +112,7 @@ export function ProductActions({ product, viewer }: { product: ProductDetail; vi
       <NewBatchDialog open={dialog === "batch"} onClose={() => setDialog(null)} product={product} />
       <CompleteDialog open={dialog === "complete"} onClose={() => setDialog(null)} product={product} />
       <KillDialog open={dialog === "kill"} onClose={() => setDialog(null)} product={product} />
+      {canDelete ? <DeleteDialog open={dialog === "delete"} onClose={() => setDialog(null)} product={product} /> : null}
       <SendBackDialog open={dialog === "sendBack"} onClose={() => setDialog(null)} product={product} targets={targets} />
       {canOverride ? <OverrideDialog open={dialog === "override"} onClose={() => setDialog(null)} product={product} /> : null}
     </>
@@ -278,9 +289,9 @@ function KillDialog({ open, onClose, product }: DialogProps) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Kill {product.name}?</DialogTitle>
+          <DialogTitle>Drop {product.name}?</DialogTitle>
           <DialogDescription>
-            Open tasks are cancelled and the product is closed for good. It stays in the Products list (filter “Killed”) so the team can learn from it.
+            We stop working on it: open tasks are cancelled and it moves to Dropped (Products list, filter “Dropped”) so the team can learn from it. An Admin can delete it for good from there.
           </DialogDescription>
         </DialogHeader>
         <Field id="k-reason" label="Reason *" error={errors.reason?.[0]}>
@@ -309,7 +320,51 @@ function KillDialog({ open, onClose, product }: DialogProps) {
             disabled={pending || !reason || note.trim().length < 3}
             onClick={() => run(() => killProductAction({ productId: product.id, reason, note }))}
           >
-            <SkullIcon /> Kill product
+            <BanIcon /> Drop product
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteDialog({ open, onClose, product }: DialogProps) {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [pending, startTransition] = useTransition();
+  const matches = name.trim().toLowerCase() === product.name.trim().toLowerCase();
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete {product.name} for good?</DialogTitle>
+          <DialogDescription>
+            This removes the product and everything attached to it — tasks, comments, orders, campaigns and its history. It can&apos;t be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <Field id="del-name" label={`Type “${product.name}” to confirm`}>
+          <Input id="del-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+        </Field>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={pending}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={pending || !matches}
+            onClick={() =>
+              startTransition(async () => {
+                const r = await deleteProductAction({ productId: product.id, confirmName: name });
+                if (r.ok) {
+                  toast.success(r.message ?? "Deleted");
+                  onClose();
+                  router.replace("/products");
+                  router.refresh();
+                } else toast.error(r.error ?? "Something went wrong");
+              })
+            }
+          >
+            <Trash2Icon /> Delete for good
           </Button>
         </DialogFooter>
       </DialogContent>
