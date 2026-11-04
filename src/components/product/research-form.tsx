@@ -183,7 +183,7 @@ export function ResearchForm({
               />
             </Field>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <MoneyField id="r-china" label="China price / unit *" unit="BDT" value={v.chinaPriceBdt} onChange={money("chinaPriceBdt")} error={err("chinaPriceBdt")} disabled={disabled} />
             <MoneyField
               id="r-weight"
@@ -194,14 +194,23 @@ export function ResearchForm({
               onChange={money("weightKg")}
               error={err("weightKg")}
               disabled={disabled}
-              hint={
-                !ratePerKg
-                  ? "Shipping can't be worked out yet: an Admin sets the shipping rate per kg in Settings."
-                  : shipping
-                    ? `Shipping ${formatBdt(shipping)} (${formatBdt(ratePerKg)} per kg)`
-                    : `Shipping = weight × ${formatBdt(ratePerKg)} per kg`
-              }
             />
+            <Field
+              id="r-ship"
+              label="Shipping / unit"
+              hint={ratePerKg ? `Weight × ${formatBdt(ratePerKg)} per kg` : "An Admin sets the rate per kg in Settings"}
+            >
+              <div className="relative">
+                <Input
+                  {...fieldA11y("r-ship", undefined, true)}
+                  value={shipping ?? ""}
+                  readOnly
+                  placeholder="—"
+                  className="num cursor-default bg-slate-50 pr-12 text-slate-700"
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-meta text-slate-500">BDT</span>
+              </div>
+            </Field>
             <MoneyField id="r-sell" label="Selling price *" unit="BDT" value={v.sellingPriceBdt} onChange={money("sellingPriceBdt")} error={err("sellingPriceBdt")} disabled={disabled} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
