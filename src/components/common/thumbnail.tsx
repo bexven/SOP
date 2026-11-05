@@ -23,6 +23,10 @@ export function Thumbnail({ src, alt, className }: { src: string | null | undefi
           loading="lazy"
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
+          // The image can fail before React hydrates (onError then never fires): check once mounted.
+          ref={(img) => {
+            if (img && img.complete && img.naturalWidth === 0) setFailed(true);
+          }}
           className="size-full object-cover"
         />
       ) : (

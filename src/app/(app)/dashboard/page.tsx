@@ -109,7 +109,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         </div>
       </section>
 
-      {isAdmin ? <ProductsInProgress rows={running} filter={show} counts={pipCounts} /> : null}
+      {isAdmin ? <ProductsInProgress rows={running} filter={show} counts={pipCounts} view={sp.view === "grid" ? "grid" : "list"} /> : null}
       {isAdmin && total ? <h2 className="mb-3 text-section text-slate-900">Needs you</h2> : null}
       {total === 0 && !(isAdmin && running.length) ? (
         <EmptyState
