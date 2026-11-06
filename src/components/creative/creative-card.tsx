@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DuePill, PriorityPill } from "@/components/common/pills";
+import { BrandPill, DuePill, PriorityPill } from "@/components/common/pills";
 import { Thumbnail } from "@/components/common/thumbnail";
 import { UserAvatar } from "@/components/common/user-avatar";
 import { FOLLOW_UP_LABELS, TASK_TYPE_LABELS } from "@/lib/domain/labels";
@@ -9,14 +9,16 @@ export function CreativeCard({ t }: { t: CreativeRow }) {
   return (
     <Link href={`/products/${t.product.id}?task=${t.id}`} className="surface raised-hover block rounded-panel p-3">
       <div className="flex items-start gap-2.5">
-        <Thumbnail src={t.product.imageUrl} alt="" className="size-9" />
+        <Thumbnail src={t.product.imageUrl} alt="" className="size-12" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-body font-medium text-slate-900">
+          <p className="truncate text-body font-semibold text-slate-900">{t.product.name}</p>
+          <p className="mt-0.5 truncate text-meta text-slate-700">
             {TASK_TYPE_LABELS[t.type]}
             {t.requestKind ? <span className="text-indigo-700"> · {FOLLOW_UP_LABELS[t.requestKind]}</span> : null}
           </p>
-          <p className="truncate text-meta font-normal text-slate-500">
-            <span className="num">{t.product.ref}</span> · {t.product.name}
+          <p className="mt-0.5 flex items-center gap-1.5 text-meta font-normal text-slate-500">
+            <BrandPill brand={t.product.brand} />
+            <span className="num">{t.product.ref}</span>
           </p>
         </div>
         {t.assignee ? <UserAvatar name={t.assignee.name} color={t.assignee.avatarColor} imageId={t.assignee.avatarAssetId} size="sm" /> : null}

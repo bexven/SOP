@@ -6,6 +6,9 @@ import { buildDigest, dhakaDate, digestDue, type Digest, type DigestCounts } fro
 import { normalizePermissions } from "@/lib/domain/permissions";
 import { db } from "../db";
 import { reviewWhere } from "../queries/queue";
+import { notify } from "./events";
+import { DUE_SOON_HOURS, reminderKind } from "@/lib/domain/reminders";
+import { TASK_TYPE_LABELS } from "@/lib/domain/labels";
 
 /**
  * Alerts outside the app: browser / phone push (Web Push, free) and Telegram
@@ -224,4 +227,62 @@ export async function rememberAppUrl(host: string | null, proto: string | null) 
   if (!host || host.startsWith("localhost") || host.startsWith("127.")) return;
   const url = `${proto === "http" ? "http" : "https"}://${host}`;
   await db.settings.updateMany({ where: { id: 1, OR: [{ appUrl: null }, { appUrl: { not: url } }] }, data: { appUrl: url } });
+}
+
+// ── Due reminders ────────────────────────────────────────────────────────────
+
+/**
+ * "Due in about 3 hours" and "now overdue" reminders for open product tasks and Tasks-board tasks.
+ * Runs with every scheduler call (every 10 minutes on the VPS). Each reminder is claimed with a guarded
+ * update, so it goes out once; the notification then reaches phones / Telegram like any other.
+ */
+export async function runDueReminders(now = new Date()) {
+  const horizon = new Date(now.getTime() + DUE_SOON_HOURS * 3_600_000);
+  let sent = 0;
+  const tasks = await db.task.findMany({
+    where: { assigneeId: { not: null }, status: { in: ["TODO", "REVISION"] }, dueAt: { not: null, lte: horizon }, product: { stage: { notIn: ["COMPLETED", "KILLED"] } } },
+    select: { id: true, type: true, dueAt: true, dueSoonNotifiedAt: true, overdueNotifiedAt: true, assigneeId: true, productId: true, product: { select: { name: true } } },
+    take: 500,
+  });
+  for (const t of tasks) {
+    const kind = reminderKind(t, now);
+    if (!kind) continue;
+    const field = kind === "soon" ? "dueSoonNotifiedAt" : "overdueNotifiedAt";
+    const claimed = await db.task.updateMany({ where: { id: t.id, [field]: t[field] }, data: { [field]: now } });
+    if (claimed.count !== 1) continue;
+    await notify(db as never, "system", [
+      {
+        userId: t.assigneeId,
+        type: "DUE_REMINDER",
+        productId: t.productId,
+        taskId: t.id,
+        message: `${kind === "soon" ? "⏰ Due soon" : "⚠️ Overdue"}: ${TASK_TYPE_LABELS[t.type]} · ${t.product.name}`,
+      },
+    ]);
+    sent++;
+  }
+  const manual = await db.manualTask.findMany({
+    where: { assigneeId: { not: null }, status: { not: "DONE" }, dueAt: { not: null, lte: horizon } },
+    select: { id: true, number: true, title: true, dueAt: true, dueSoonNotifiedAt: true, overdueNotifiedAt: true, assigneeId: true, productId: true },
+    take: 500,
+  });
+  for (const t of manual) {
+    const kind = reminderKind(t, now);
+    if (!kind) continue;
+    const field = kind === "soon" ? "dueSoonNotifiedAt" : "overdueNotifiedAt";
+    const claimed = await db.manualTask.updateMany({ where: { id: t.id, [field]: t[field] }, data: { [field]: now } });
+    if (claimed.count !== 1) continue;
+    await notify(db as never, "system", [
+      {
+        userId: t.assigneeId,
+        type: "DUE_REMINDER",
+        productId: t.productId,
+        link: `/tasks?task=${t.id}`,
+        message: `${kind === "soon" ? "⏰ Due soon" : "⚠️ Overdue"}: T-${t.number} ${t.title}`,
+      },
+    ]);
+    sent++;
+  }
+  if (sent) await flushAlerts();
+  return { reminders: sent };
 }

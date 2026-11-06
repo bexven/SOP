@@ -174,6 +174,8 @@ enum NotificationType {
   TASK_UNASSIGNED
   FEEDBACK
   APPROVAL_REQUESTED
+  /// "Due in about 3 hours" / "Now overdue" reminders.
+  DUE_REMINDER
 }
 
 model User {
@@ -338,31 +340,34 @@ model CreativeBatch {
 }
 
 model Task {
-  id           String        @id @default(cuid())
-  productId    String
-  batchId      String?
-  type         TaskType
-  role         Role
-  phase        Int           @default(1)
-  status       TaskStatus    @default(TODO)
+  id                String        @id @default(cuid())
+  productId         String
+  batchId           String?
+  type              TaskType
+  role              Role
+  phase             Int           @default(1)
+  status            TaskStatus    @default(TODO)
   /// Explicit unlock dependency (a Phase 2 task points at its Phase 1 task).
-  dependsOnId  String?
-  assigneeId   String?
-  assignedAt   DateTime?
-  unlockedAt   DateTime?
+  dependsOnId       String?
+  assigneeId        String?
+  assignedAt        DateTime?
+  unlockedAt        DateTime?
   /// Calculated from the SLA when the task unlocks.
-  dueAt        DateTime?
+  /// Reminders already sent for the current due time (cleared when the due time changes).
+  dueSoonNotifiedAt DateTime?
+  overdueNotifiedAt DateTime?
+  dueAt             DateTime?
   /// Latest revision / send-back note (shown as a banner).
-  revisionNote String?
-  submittedAt  DateTime?
-  approvedAt   DateTime?
-  approvedById String?
+  revisionNote      String?
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  approvedById      String?
   /// Follow-up asked for when the original was approved (different angle / size).
-  followUpOfId String?
-  requestKind  FollowUpKind?
-  requestNote  String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  followUpOfId      String?
+  requestKind       FollowUpKind?
+  requestNote       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   product       Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
   followUpOf    Task?            @relation("TaskFollowUps", fields: [followUpOfId], references: [id])
@@ -762,25 +767,27 @@ enum ManualTaskStatus {
 
 /// Team tasks added by hand (the /tasks board), separate from the product workflow tasks.
 model ManualTask {
-  id          String           @id @default(cuid())
+  id                String           @id @default(cuid())
   /// Human reference, shown as T-12.
-  number      Int              @unique @default(autoincrement())
-  title       String
-  description String?
-  status      ManualTaskStatus @default(TODO)
-  priority    Priority         @default(MEDIUM)
-  dueAt       DateTime?
+  number            Int              @unique @default(autoincrement())
+  title             String
+  description       String?
+  status            ManualTaskStatus @default(TODO)
+  priority          Priority         @default(MEDIUM)
+  dueAt             DateTime?
+  dueSoonNotifiedAt DateTime?
+  overdueNotifiedAt DateTime?
   /// Order inside its column (smaller = higher).
-  position    Float            @default(0)
+  position          Float            @default(0)
   /// File / Drive / reference links.
-  links       String[]         @default([])
-  assigneeId  String?
-  createdById String
+  links             String[]         @default([])
+  assigneeId        String?
+  createdById       String
   /// Optional product this task is about (restricted brands stay hidden from people without access).
-  productId   String?
-  completedAt DateTime?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  productId         String?
+  completedAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   assignee  User?               @relation("ManualTaskAssignee", fields: [assigneeId], references: [id])
   createdBy User                @relation("ManualTaskCreator", fields: [createdById], references: [id])

@@ -4,8 +4,12 @@ import { AddProductButton } from "@/components/research/add-product-button";
 import { canAddProduct, canAddRunningProduct } from "@/lib/domain/resources";
 import { getBrands } from "@/lib/server/queries/product";
 import Link from "next/link";
-import { AlertTriangleIcon, ClockIcon, EyeIcon, InboxIcon, KanbanSquareIcon, ListTodoIcon, RotateCcwIcon } from "lucide-react";
-import { DuePill, PriorityPill } from "@/components/common/pills";
+import { AlertTriangleIcon, ArrowRightIcon, ClockIcon, FlaskConicalIcon, EyeIcon, InboxIcon, KanbanSquareIcon, ListTodoIcon, RotateCcwIcon } from "lucide-react";
+import { BrandPill, DuePill, PriorityPill } from "@/components/common/pills";
+import { Thumbnail } from "@/components/common/thumbnail";
+import { canPlaceTestOrder, testOrderState } from "@/lib/domain/orders";
+import { formatDate } from "@/lib/format";
+import { getOpenTestOrders } from "@/lib/server/queries/orders";
 import { MANUAL_STATUS_LABELS, manualTaskRef } from "@/lib/domain/manual-tasks";
 import { getMyManualTasks } from "@/lib/server/queries/manual-tasks";
 import { EmptyState } from "@/components/common/empty-state";
@@ -29,6 +33,9 @@ const HELP: Record<string, string> = {
   MEDIA_BUYER: "Work waiting for your review, plus your own tasks like writing briefs and launching campaigns.",
   REVIEWER: "Products waiting for your approval and creative work waiting for review.",
   ADMIN: "Every product in progress and who it's waiting on, then your own tasks and anything that needs a decision.",
+  CUSTOMER_SUPPORT: "Tasks the team gives you on the Tasks board, with due times. You'll get a reminder before each one is due.",
+  OFFICE_SECRETARY: "Tasks the team gives you on the Tasks board, with due times. You'll get a reminder before each one is due.",
+  SUPPLY_CHAIN: "Test orders to place and test units on their way, then any tasks the team gives you.",
 };
 
 function hour() {
@@ -48,10 +55,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     isAdmin ? getTeamStats(user) : Promise.resolve(null),
     getMyManualTasks(user),
   ]);
+  const testOrders = canPlaceTestOrder(user) ? await getOpenTestOrders(user) : [];
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka" }).format(new Date());
   const brands = canAddRunningProduct(user) ? await getBrands(user) : [];
   const running = products.filter((p) => p.stage !== "COMPLETED" && p.stage !== "KILLED");
   const mine = q.today.length + q.upcoming.length + q.overdue.length + q.revision.length;
-  const total = mine + q.review.length + q.unassigned.length + boardTasks.length;
+  const total = mine + q.review.length + q.unassigned.length + boardTasks.length + testOrders.length;
   const h = hour();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const show = (PIP_FILTERS.find((f) => f.key === sp.show)?.key ?? "all") as PipFilter;
@@ -148,6 +157,51 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <QueueGroup group="today" items={q.today} />
           <QueueGroup group="upcoming" items={q.upcoming} />
           <QueueGroup group="unassigned" items={q.unassigned} />
+          {testOrders.length ? (
+            <section aria-labelledby="q-tests" className="grid gap-2">
+              <h2 id="q-tests" className="flex items-center gap-2 text-section text-slate-900">
+                <FlaskConicalIcon className="size-4 text-amber-600" aria-hidden /> Test orders <span className="num text-meta text-slate-500">{testOrders.length}</span>
+              </h2>
+              <ul className="grid gap-2">
+                {testOrders.map((t) => {
+                  const state = testOrderState(t, today);
+                  return (
+                    <li key={t.id}>
+                      <Link
+                        href={`/products/${t.product.id}?phase=orders`}
+                        className={cn(
+                          "surface group flex items-center gap-3 rounded-panel p-3 ring-1 transition-[box-shadow,transform] duration-150 ease-out hover:-translate-y-px hover:shadow-md sm:p-3.5 motion-reduce:hover:translate-y-0",
+                          state === "requested" ? "ring-slate-200" : state === "overdue" ? "ring-rose-200" : "ring-amber-200",
+                        )}
+                      >
+                        <Thumbnail src={t.product.imageUrl} alt="" className="size-14 rounded-control" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <BrandPill brand={t.product.brand} />
+                            <span className="truncate text-body font-semibold text-slate-900">{t.product.name}</span>
+                          </span>
+                          <span className="mt-1 block truncate text-meta text-slate-700">
+                            Test order: <span className="font-semibold text-slate-900">{t.name}</span>
+                          </span>
+                          <span
+                            className={cn(
+                              "mt-1.5 inline-flex rounded-full px-2 py-0.5 text-meta ring-1 ring-inset",
+                              state === "requested" ? "bg-slate-50 text-slate-700 ring-slate-200" : state === "overdue" ? "bg-rose-50 text-rose-700 ring-rose-200" : "bg-amber-50 text-amber-800 ring-amber-200",
+                            )}
+                          >
+                            {state === "requested"
+                              ? "Needs placing — open it and mark it as ordered"
+                              : `${state === "overdue" ? "Was expected" : "Expected"} ${t.expectedOn ? formatDate(new Date(`${t.expectedOn}T00:00:00Z`)) : ""}`}
+                          </span>
+                        </span>
+                        <ArrowRightIcon className="hidden size-4 text-slate-400 transition-transform duration-150 group-hover:translate-x-0.5 sm:block" aria-hidden />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
           {boardTasks.length ? (
             <section aria-labelledby="q-board" className="grid gap-2">
               <div className="flex items-center justify-between gap-2">

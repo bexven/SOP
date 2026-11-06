@@ -20,7 +20,7 @@ export async function getCreativeBoard(user: { id: string; role: Role; jobRole: 
     },
     orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
     include: {
-      product: { select: { id: true, number: true, name: true, imageUrl: true, priority: true } },
+      product: { select: { id: true, number: true, name: true, imageUrl: true, priority: true, brand: { select: { name: true, color: true } } } },
       assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } },
     },
   });
@@ -32,7 +32,7 @@ export async function getCreativeBoard(user: { id: string; role: Role; jobRole: 
     dueAt: t.dueAt?.toISOString() ?? null,
     revisionNote: t.revisionNote,
     assignee: t.assignee,
-    product: { id: t.product.id, ref: productRef(t.product.number), name: t.product.name, imageUrl: t.product.imageUrl, priority: t.product.priority },
+    product: { id: t.product.id, ref: productRef(t.product.number), name: t.product.name, imageUrl: t.product.imageUrl, priority: t.product.priority, brand: t.product.brand },
     lane: (IMAGE_LANE as readonly string[]).includes(t.type) ? ("images" as const) : ("videos" as const),
   }));
   return { lanes, rows };

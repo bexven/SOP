@@ -54,7 +54,7 @@ function ordered(tasks: TaskDTO[]): TaskDTO[] {
 }
 
 type Batch = ProductDetail["batches"][number];
-const batchTitle = (b: Batch) => (b.number === 1 ? "First creatives" : b.name || `Batch #${b.number}`);
+const batchTitle = (b: Batch) => b.name || (b.number === 1 ? "First creatives" : `Batch #${b.number}`);
 
 /**
  * Image or video creative for one product: brief on top, then one board per

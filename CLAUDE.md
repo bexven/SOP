@@ -207,6 +207,22 @@ src/generated/     Prisma client (generated, git-ignored)
   Notifications carry `Notification.link` (`/tasks?task=…`). Dashboard lists "From the Tasks board".
   Actions take `manualTaskId` (never `taskId`, which `brandAllowed` reads as a workflow task).
 
+## Round 8 (running products, resources, dashboards, reminders)
+- **New product** button on the dashboard for Admins and Media Buyers (`canAddProduct` / `canAddRunningProduct` in
+  `domain/resources.ts`; Media Buyers can now add products too). The add window has two modes: **New product** (research as
+  before) and **Already running** (Admins / Media Buyers): name + brand required, image / supplier / resources optional;
+  it starts **Live** (`Product.addedRunning`, campaign #1 "Running campaign" RUNNING) and the picked creative batch
+  (name, formats, due) is created and assigned straight away.
+- **Resources**: links added with the product (`referenceLinks`) show on Product review and on both creative tabs;
+  each creative tab also has its own links (`Product.imageResourceLinks` / `videoResourceLinks`) that the tab's makers,
+  Seniors, Media Buyers and Admins add (`canEditResources`).
+- **Dashboards** lead with the product (brand + name), then "Your task: …"; Creative cards the same. Supply Chain / Media
+  Buyers / Admins get a **Test orders** section (to place / on their way). Every job role has a help line.
+- **Due reminders** (`domain/reminders.ts`, `runDueReminders`, on every `/api/cron/morning` call): one "Due soon" ~3 h
+  before and one "Overdue" notification per due time (`dueSoonNotifiedAt` / `overdueNotifiedAt` on Task and ManualTask),
+  also sent to phones / Telegram. On Vercel the scheduler only runs daily; on the VPS every 10 minutes.
+- A named batch #1 shows its own name (falls back to "First creatives").
+
 ## Alerts: phone push + Telegram + 10:00 summary
 - **Web Push** (free, `web-push`): `public/sw.js` shows notifications; `src/app/manifest.ts` + `/public/icons`
   make the app installable (iPhone only allows push from a home-screen app). VAPID keys are generated on first

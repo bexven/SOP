@@ -64,3 +64,22 @@ function firstLaunch(cs: { launchedAt: Date | null }[]): string | null {
   const times = cs.map((c) => c.launchedAt?.getTime()).filter((t): t is number => t !== undefined);
   return times.length ? new Date(Math.min(...times)).toISOString() : null;
 }
+
+/** Test orders still in progress (to place, or on their way), for the dashboard of whoever places them. */
+export async function getOpenTestOrders(viewer: BrandViewer) {
+  const rows = await db.testOrder.findMany({
+    where: { confirmedAt: null, product: { AND: [productScope(viewer)], stage: { notIn: ["KILLED"] } } },
+    orderBy: [{ placedAt: { sort: "asc", nulls: "first" } }, { expectedOn: "asc" }, { createdAt: "asc" }],
+    take: 50,
+    include: { product: { select: { id: true, name: true, imageUrl: true, brand: { select: { name: true, color: true } } } } },
+  });
+  return rows.map((t) => ({
+    id: t.id,
+    name: t.name ?? "Test order",
+    note: t.note,
+    placedAt: t.placedAt?.toISOString() ?? null,
+    confirmedAt: null as string | null,
+    expectedOn: t.expectedOn ? t.expectedOn.toISOString().slice(0, 10) : null,
+    product: t.product,
+  }));
+}
