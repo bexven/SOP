@@ -263,6 +263,11 @@ model Product {
   problemSolved          String?
   sellingAngle           String?
   referenceLinks         String[]        @default([])
+  /// Extra resource links added on the Image creative / Video creative tabs (by makers, Seniors, Media Buyers, Admins).
+  imageResourceLinks     String[]        @default([])
+  videoResourceLinks     String[]        @default([])
+  /// Added as an already-running product (skipped research and review).
+  addedRunning           Boolean         @default(false)
   priority               Priority        @default(MEDIUM)
   targetLaunchDate       DateTime?       @db.Date
   stage                  ProductStage    @default(RESEARCH)

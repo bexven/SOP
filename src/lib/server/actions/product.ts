@@ -11,11 +11,15 @@ import {
   planRejectProduct,
   planResearchSubmit,
   researchBlockers,
+  planNewBatch,
   researchTask,
 } from "@/lib/domain/workflow";
+import { canAddProduct, canAddRunningProduct, canEditResources } from "@/lib/domain/resources";
 import {
   createProductSchema,
+  createRunningProductSchema,
   productIdSchema,
+  resourceLinkSchema,
   rejectSchema,
   reviewDecisionSchema,
   toggleChecklistSchema,
@@ -53,9 +57,9 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 export const createProductAction = defineAction({
-  capability: "product.create",
   schema: createProductSchema,
   run: async (input, { user }) => {
+    if (!canAddProduct(user)) throw new ActionError("You don't have permission to add products.");
     const now = new Date();
     const id = await db.$transaction(async (tx) => {
       const brand = await tx.brand.findUnique({ where: { id: input.brandId! } });
@@ -298,5 +302,98 @@ export const rejectProductAction = defineAction({
     });
     revalidateProduct();
     return { ok: true, message: "Marked as not approved" };
+  },
+});
+
+/** End of the chosen calendar day in Dhaka (23:59), as a UTC instant. */
+function endOfDhakaDay(day: string): Date {
+  return new Date(`${day}T23:59:00+06:00`);
+}
+
+/**
+ * An old product that is already selling (owner's rule): no research or review. It starts as Live with its
+ * existing campaign, and the new creative batch picked in the form goes straight to the designers / editor.
+ */
+export const createRunningProductAction = defineAction({
+  schema: createRunningProductSchema,
+  run: async ({ brandId, name, imageUrl, supplierUrl, referenceLinks, priority, batchName, types, dueDate }, { user }) => {
+    if (!canAddRunningProduct(user)) throw new ActionError("Only Admins and Media Buyers can add a running product.");
+    const now = new Date();
+    const dueAt = endOfDhakaDay(dueDate);
+    if (dueAt.getTime() <= now.getTime()) return { ok: false, error: "Pick a due date in the future.", fieldErrors: { dueDate: ["Pick a future date"] } };
+    const result = await db.$transaction(async (tx) => {
+      const brand = await tx.brand.findUnique({ where: { id: brandId } });
+      if (!brand?.active) throw new ActionError("Choose one of the brands.");
+      const { rates } = await currentRates(tx);
+      const mediaBuyerId =
+        user.jobRole === "MEDIA_BUYER" ? user.id : ((await autoAssign(tx, ["MEDIA_BUYER"], now, { brandId }))[0] ?? null);
+      const product = await tx.product.create({
+        data: {
+          brandId,
+          name,
+          imageUrl,
+          supplierUrl,
+          referenceLinks,
+          priority,
+          ...rates,
+          stage: "LIVE",
+          stageEnteredAt: now,
+          addedRunning: true,
+          mediaBuyerId,
+          createdById: user.id,
+        },
+      });
+      await tx.stageTransition.create({ data: { productId: product.id, fromStage: null, toStage: "LIVE", actorId: user.id, at: now } });
+      // Its ads are already running: record that as campaign #1 (name and details can be filled in later).
+      await tx.adCampaign.create({
+        data: { productId: product.id, number: 1, name: "Running campaign", status: "RUNNING", launchedAt: now, launchedById: user.id, createdById: user.id },
+      });
+      await logEvents(tx, [{ type: "PRODUCT_CREATED", actorId: user.id, productId: product.id, data: { running: true } }]);
+      const { product: full, snap } = await loadSnapshot(tx, product.id);
+      const planned = planNewBatch(snap, { types, dueAt, reason: null, name: batchName });
+      if (!planned.ok) throw new ActionError(planned.error);
+      const applied = await applyPlan(tx, planned.plan, { actorId: user.id, product: full, now });
+      await logEvents(tx, [
+        { type: "BATCH_REQUESTED", actorId: user.id, productId: product.id, data: { number: planned.plan.newBatch!.number, name: batchName, types, dueAt: dueAt.toISOString() } },
+      ]);
+      return { id: product.id, count: applied.createdTasks.length };
+    });
+    revalidateProduct();
+    return { ok: true, message: `${name} added as running · ${result.count} creative task${result.count === 1 ? "" : "s"} assigned`, data: { id: result.id } };
+  },
+});
+
+/** Add an extra resource link on the Image or Video creative tab. */
+export const addResourceLinkAction = defineAction({
+  schema: resourceLinkSchema,
+  run: async ({ productId, lane, url }, { user }) => {
+    if (!canEditResources(user, lane)) throw new ActionError("You can't add links on this tab.");
+    const field = lane === "images" ? "imageResourceLinks" : "videoResourceLinks";
+    await db.$transaction(async (tx) => {
+      const p = await tx.product.findUnique({ where: { id: productId }, select: { imageResourceLinks: true, videoResourceLinks: true } });
+      if (!p) throw new ActionError("This product no longer exists.");
+      const list = p[field];
+      if (list.includes(url)) throw new ActionError("That link is already there.");
+      if (list.length >= 30) throw new ActionError("Up to 30 links per tab.");
+      await tx.product.update({ where: { id: productId }, data: { [field]: { push: url } } });
+      await logEvents(tx, [{ type: "PRODUCT_UPDATED", actorId: user.id, productId, data: { fields: [`${lane === "images" ? "image" : "video"} resources`] } }]);
+    });
+    revalidateProduct();
+    return { ok: true, message: "Link added" };
+  },
+});
+
+export const removeResourceLinkAction = defineAction({
+  schema: resourceLinkSchema,
+  run: async ({ productId, lane, url }, { user }) => {
+    if (!canEditResources(user, lane)) throw new ActionError("You can't change links on this tab.");
+    const field = lane === "images" ? "imageResourceLinks" : "videoResourceLinks";
+    await db.$transaction(async (tx) => {
+      const p = await tx.product.findUnique({ where: { id: productId }, select: { imageResourceLinks: true, videoResourceLinks: true } });
+      if (!p) throw new ActionError("This product no longer exists.");
+      await tx.product.update({ where: { id: productId }, data: { [field]: p[field].filter((l) => l !== url) } });
+    });
+    revalidateProduct();
+    return { ok: true, message: "Link removed" };
   },
 });

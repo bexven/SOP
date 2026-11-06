@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Priority, ShippingMethod } from "@/generated/prisma/enums";
+import { Priority, ShippingMethod, TaskType } from "@/generated/prisma/enums";
 import { idSchema } from "./common";
 
 const optionalText = (max: number) =>
@@ -89,4 +89,23 @@ export const reviewDecisionSchema = z.object({
 export const rejectSchema = z.object({
   productId: idSchema,
   note: z.string().trim().min(3, "Say why it isn't approved").max(2000),
+});
+
+/** An old product that is already selling: straight to Live with a new creative batch. */
+export const createRunningProductSchema = z.object({
+  brandId: z.string().trim().min(1, "Choose the brand").max(64),
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(120, "Name is too long"),
+  imageUrl: optionalUrl,
+  supplierUrl: optionalUrl,
+  referenceLinks: z.array(urlSchema).max(20, "Up to 20 links").default([]),
+  priority: z.enum(Priority).default("MEDIUM"),
+  batchName: z.string().trim().min(2, "Give the creative batch a name").max(60, "Keep the name under 60 characters"),
+  types: z.array(z.enum(TaskType)).min(1, "Pick at least one image or video to make"),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a due date"),
+});
+
+export const resourceLinkSchema = z.object({
+  productId: idSchema,
+  lane: z.enum(["images", "videos"]),
+  url: urlSchema,
 });

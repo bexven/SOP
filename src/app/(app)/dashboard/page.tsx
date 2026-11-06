@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { AddProductButton } from "@/components/research/add-product-button";
+import { canAddProduct, canAddRunningProduct } from "@/lib/domain/resources";
+import { getBrands } from "@/lib/server/queries/product";
 import Link from "next/link";
 import { AlertTriangleIcon, ClockIcon, EyeIcon, InboxIcon, KanbanSquareIcon, ListTodoIcon, RotateCcwIcon } from "lucide-react";
 import { DuePill, PriorityPill } from "@/components/common/pills";
@@ -44,6 +48,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     isAdmin ? getTeamStats(user) : Promise.resolve(null),
     getMyManualTasks(user),
   ]);
+  const brands = canAddRunningProduct(user) ? await getBrands(user) : [];
   const running = products.filter((p) => p.stage !== "COMPLETED" && p.stage !== "KILLED");
   const mine = q.today.length + q.upcoming.length + q.overdue.length + q.revision.length;
   const total = mine + q.review.length + q.unassigned.length + boardTasks.length;
@@ -74,12 +79,19 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   return (
     <>
       <AutoRefresh seconds={30} />
-      <div className="mb-6">
-        <p className="text-meta text-slate-500">{ROLE_LABELS[user.jobRole]}{user.isMaster ? " · Master Admin" : user.adminAccess ? " · Admin access" : ""}</p>
-        <h1 className="text-page text-slate-900">
-          {greeting}, {user.name}
-        </h1>
-        <p className="mt-1 max-w-2xl text-body text-slate-600">{isAdmin ? HELP.ADMIN : HELP[user.jobRole]}</p>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-meta text-slate-500">{ROLE_LABELS[user.jobRole]}{user.isMaster ? " · Master Admin" : user.adminAccess ? " · Admin access" : ""}</p>
+          <h1 className="text-page text-slate-900">
+            {greeting}, {user.name}
+          </h1>
+          <p className="mt-1 max-w-2xl text-body text-slate-600">{isAdmin ? HELP.ADMIN : HELP[user.jobRole]}</p>
+        </div>
+        {canAddRunningProduct(user) ? (
+          <Suspense>
+            <AddProductButton brands={brands.filter((b) => b.active)} canResearch={canAddProduct(user)} canRunning label="New product" />
+          </Suspense>
+        ) : null}
       </div>
 
       <section aria-label={team ? "Whole team right now" : "My work right now"} className="mb-8">

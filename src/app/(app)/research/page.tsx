@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { canAddProduct, canAddRunningProduct } from "@/lib/domain/resources";
 import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
@@ -28,7 +29,7 @@ export default async function ResearchPage({ searchParams }: PageProps<"/researc
   const user = await requireUser();
   if (!canSeeEarlyStages(user)) redirect("/dashboard");
   const [board, brands, sp] = await Promise.all([getResearchBoard(user), getBrands(user), searchParams]);
-  const canAdd = can(user, "product.create");
+  const canAdd = canAddProduct(user);
   const canApprove = can(user, "product.approve");
   const counts: Record<TabKey, number> = {
     pending: board.pending.length,
@@ -53,7 +54,7 @@ export default async function ResearchPage({ searchParams }: PageProps<"/researc
         actions={
           canAdd ? (
             <Suspense>
-              <AddProductButton brands={brands.filter((b) => b.active)} />
+              <AddProductButton brands={brands.filter((b) => b.active)} canResearch={canAddProduct(user)} canRunning={canAddRunningProduct(user)} />
             </Suspense>
           ) : null
         }
