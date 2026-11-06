@@ -213,9 +213,9 @@ src/generated/     Prisma client (generated, git-ignored)
   before) and **Already running** (Admins / Media Buyers): name + brand required, image / supplier / resources optional;
   it starts **Live** (`Product.addedRunning`, campaign #1 "Running campaign" RUNNING) and the picked creative batch
   (name, formats, due) is created and assigned straight away.
-- **Resources**: links added with the product (`referenceLinks`) show on Product review and on both creative tabs;
-  each creative tab also has its own links (`Product.imageResourceLinks` / `videoResourceLinks`) that the tab's makers,
-  Seniors, Media Buyers and Admins add (`canEditResources`).
+- **Resources = one shared list**: product links (`referenceLinks`) + links added on the Image tab (`imageResourceLinks`)
+  + Video tab (`videoResourceLinks`) all show on Product review and on both creative tabs, each tagged Product / Images /
+  Videos. A tab's makers, Seniors, Media Buyers and Admins add there (`canEditResources`) and can remove that tab's links.
 - **Dashboards** lead with the product (brand + name), then "Your task: …"; Creative cards the same. Supply Chain / Media
   Buyers / Admins get a **Test orders** section (to place / on their way). Every job role has a help line.
 - **Due reminders** (`domain/reminders.ts`, `runDueReminders`, on every `/api/cron/morning` call): one "Due soon" ~3 h

@@ -20,7 +20,7 @@ function host(url: string) {
   }
 }
 
-function LinkRow({ url, onRemove, pending }: { url: string; onRemove?: () => void; pending?: boolean }) {
+function LinkRow({ url, tag, onRemove, pending }: { url: string; tag: string; onRemove?: () => void; pending?: boolean }) {
   return (
     <li className="flex min-w-0 items-center gap-2 rounded-control bg-slate-50 px-2.5 py-1.5 ring-1 ring-slate-900/[0.04] ring-inset">
       <LinkIcon className="size-3.5 shrink-0 text-slate-500" aria-hidden />
@@ -28,6 +28,7 @@ function LinkRow({ url, onRemove, pending }: { url: string; onRemove?: () => voi
         {host(url)}
         <span className="sr-only"> (opens in a new tab)</span>
       </a>
+      <span className="shrink-0 rounded-full bg-white px-1.5 py-px text-[11px] text-slate-600 ring-1 ring-slate-200 ring-inset">{tag}</span>
       <ExternalLinkIcon className="size-3.5 shrink-0 text-slate-400" aria-hidden />
       {onRemove ? (
         <Button variant="ghost" size="icon-sm" aria-label={`Remove ${host(url)}`} onClick={onRemove} disabled={pending}>
@@ -39,16 +40,14 @@ function LinkRow({ url, onRemove, pending }: { url: string; onRemove?: () => voi
 }
 
 /**
- * Resources on the Image / Video creative tab: the product's own links (from when it was added / researched)
- * plus this tab's extra links, which its makers, Seniors, Media Buyers and Admins can add.
+ * Resources on the Image / Video creative tabs: one shared list (the product's links plus links added on either tab).
+ * This tab's makers, Seniors, Media Buyers and Admins can add; each link shows where it was added.
  */
 export function ResourcesCard({ product, viewer, lane }: { product: ProductDetail; viewer: Viewer; lane: ResourceLane }) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [pending, startTransition] = useTransition();
-  const extra = lane === "images" ? product.imageResourceLinks : product.videoResourceLinks;
   const canEdit = canEditResources(viewer, lane);
-  const label = lane === "images" ? "Image" : "Video";
 
   function add() {
     const v = url.trim();
@@ -67,69 +66,63 @@ export function ResourcesCard({ product, viewer, lane }: { product: ProductDetai
     });
   }
 
-  function remove(link: string) {
+  function remove(link: string, from: ResourceLane) {
     startTransition(async () => {
-      const r = await removeResourceLinkAction({ productId: product.id, lane, url: link });
+      const r = await removeResourceLinkAction({ productId: product.id, lane: from, url: link });
       if (r.ok) router.refresh();
       else toast.error(r.error);
     });
   }
 
+  // One shared list: whoever adds a link anywhere, everyone sees it on every tab (tagged with where it came from).
+  const all = [
+    ...product.referenceLinks.map((url) => ({ url, from: "Product" as const, lane: null })),
+    ...product.imageResourceLinks.map((url) => ({ url, from: "Images" as const, lane: "images" as const })),
+    ...product.videoResourceLinks.map((url) => ({ url, from: "Videos" as const, lane: "videos" as const })),
+  ];
+
   return (
     <section aria-labelledby={`res-${lane}`} className="surface grid gap-3 rounded-panel p-4">
       <h2 id={`res-${lane}`} className="flex items-center gap-2 text-section text-slate-900">
         <LibraryIcon className="size-4 text-slate-500" aria-hidden /> Resources
-        <span className="num text-meta text-slate-500">{product.referenceLinks.length + extra.length}</span>
+        <span className="num text-meta text-slate-500">{all.length}</span>
       </h2>
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="grid content-start gap-1.5">
-          <p className="text-meta text-slate-600">From the product</p>
-          {product.referenceLinks.length ? (
-            <ul className="grid gap-1.5">
-              {product.referenceLinks.map((l) => (
-                <LinkRow key={l} url={l} />
-              ))}
-            </ul>
-          ) : (
-            <p className="text-meta font-normal text-slate-500">None added with the product.</p>
-          )}
+      {all.length ? (
+        <ul className="grid gap-1.5 md:grid-cols-2">
+          {all.map((r) => (
+            <LinkRow
+              key={`${r.from}-${r.url}`}
+              url={r.url}
+              tag={r.from}
+              onRemove={r.lane && canEditResources(viewer, r.lane) ? () => remove(r.url, r.lane!) : undefined}
+              pending={pending}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="text-meta font-normal text-slate-500">No resources yet. Links added here show on the Image and Video creative tabs for everyone.</p>
+      )}
+      {canEdit ? (
+        <div className="flex gap-2 md:max-w-xl">
+          <Input
+            aria-label="Add a resource link"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                add();
+              }
+            }}
+            inputMode="url"
+            placeholder="Add a link: reference ad, inspiration, Drive folder…"
+            className="h-9"
+          />
+          <Button size="sm" variant="outline" className="h-9" onClick={add} disabled={pending || !url.trim()}>
+            <PlusIcon /> Add
+          </Button>
         </div>
-        <div className="grid content-start gap-1.5">
-          <p className="text-meta text-slate-600">{label} creative links</p>
-          {extra.length ? (
-            <ul className="grid gap-1.5">
-              {extra.map((l) => (
-                <LinkRow key={l} url={l} onRemove={canEdit ? () => remove(l) : undefined} pending={pending} />
-              ))}
-            </ul>
-          ) : (
-            <p className="text-meta font-normal text-slate-500">
-              {canEdit ? `Add reference ads, inspiration or Drive folders for the ${label.toLowerCase()} work.` : "No extra links yet."}
-            </p>
-          )}
-          {canEdit ? (
-            <div className="flex gap-2">
-              <Input
-                aria-label={`Add a ${label.toLowerCase()} resource link`}
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    add();
-                  }
-                }}
-                inputMode="url"
-                placeholder="https://…"
-                className="h-9"
-              />
-              <Button size="sm" variant="outline" className="h-9" onClick={add} disabled={pending || !url.trim()}>
-                <PlusIcon /> Add
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      </div>
+      ) : null}
     </section>
   );
 }
