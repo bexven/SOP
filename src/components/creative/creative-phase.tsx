@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { BriefCard } from "@/components/product/brief-card";
+import { ResourcesCard } from "./resources-card";
 import type { Viewer } from "@/components/product/product-view";
 import { boardGroupOf, FOLLOW_UP_LABELS, laneOf, TASK_TYPE_LABELS, TASK_TYPE_SHORT } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
@@ -91,6 +92,7 @@ export function CreativePhase({
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       <BriefCard productId={product.id} brief={product.creativeBrief} updatedAt={product.creativeBriefUpdatedAt} canEdit={canEditBrief} />
       {lane === "images" ? <WebsiteLinkCard product={product} viewer={viewer} /> : null}
+      <ResourcesCard product={product} viewer={viewer} lane={lane} />
 
       {!batch ? (
         <p className="surface rounded-panel px-4 py-8 text-center text-body text-slate-600">
