@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { CornerDownLeftIcon, PlusIcon, SearchIcon } from "lucide-react";
@@ -11,6 +10,7 @@ import { Thumbnail } from "@/components/common/thumbnail";
 import type { NavItem } from "@/lib/domain/nav";
 import { paletteProductsAction } from "@/lib/server/actions/search";
 import { NAV_ICONS } from "./nav-icons";
+import { useNavRouter } from "@/components/shell/nav-progress";
 
 type PaletteProduct = { id: string; ref: string; name: string; stage: ProductStage; imageUrl: string | null };
 
@@ -24,7 +24,7 @@ function typingInField(e: KeyboardEvent) {
 
 /** ⌘K palette + global shortcuts: C add product (Research) · G D dashboard · G P pipeline. Esc closes dialogs. */
 export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCreate: boolean }) {
-  const router = useRouter();
+  const router = useNavRouter();
   const [open, setOpen] = useState(false);
   const [products, setProducts] = useState<PaletteProduct[] | null>(null);
   const gPressed = useRef<number>(0);

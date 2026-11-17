@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePendingPath } from "./nav-progress";
 import { usePathname } from "next/navigation";
 import { ChevronDownIcon, type LucideIcon, MenuIcon, PackageIcon, ShieldCheckIcon, XIcon } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -24,7 +25,10 @@ function isActive(pathname: string, href: string) {
 
 /** Glass menu bar across the top: clear labels with icons; Admin pages grouped in one menu. */
 export function TopNav({ items, user, badges, canSettings = false }: { items: NavItem[]; user: ShellUser; badges: Partial<Record<string, number>>; canSettings?: boolean }) {
-  const pathname = usePathname();
+  // Highlight the clicked item straight away, before the next page has arrived.
+  const pending = usePendingPath();
+  const current = usePathname();
+  const pathname = pending ?? current;
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(false);
   const main = items.filter((i) => i.section === "main");

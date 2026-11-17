@@ -1,11 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
+import { useNavRouter } from "@/components/shell/nav-progress";
 
 /** Goes back to wherever you came from inside the app; falls back to a list page. */
 export function BackLink({ fallback, label = "Back" }: { fallback: string; label?: string }) {
-  const router = useRouter();
+  const router = useNavRouter();
   return (
     <button
       type="button"

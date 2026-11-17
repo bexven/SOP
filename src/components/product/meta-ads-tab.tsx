@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { ArrowRightIcon, FilmIcon, GlobeIcon, ImageIcon, RocketIcon, TruckIcon } from "lucide-react";
 import { toast } from "sonner";
 import { CampaignPill } from "@/components/common/pills";
@@ -17,6 +16,7 @@ import { CampaignDialogButton } from "./campaign-edit";
 import { Discussion } from "./discussion";
 import { LaunchPanel } from "./launch-panel";
 import type { Viewer } from "./product-view";
+import { useNavRouter } from "@/components/shell/nav-progress";
 
 function daysSince(iso: string) {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
@@ -32,7 +32,7 @@ export function MetaAdsTab({
   /** Switch to the image / video creative tab to check the work. */
   onOpenPhase: (phase: "images" | "videos") => void;
 }) {
-  const router = useRouter();
+  const router = useNavRouter();
   const [pending, startTransition] = useTransition();
   const launch = [...product.tasks].reverse().find((t) => t.type === "CAMPAIGN_LAUNCH" && t.status !== "CANCELLED");
   const launchedCampaigns = product.campaigns.filter((c) => c.launchedAt);

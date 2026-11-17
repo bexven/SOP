@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import {
   CheckCheckIcon,
   CornerUpLeftIcon,
@@ -43,6 +42,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { OverrideDialog } from "./override-dialog";
 import type { Viewer } from "./product-view";
+import { useNavRouter } from "@/components/shell/nav-progress";
 
 type DialogKey = "batch" | "complete" | "kill" | "delete" | "sendBack" | "override" | null;
 
@@ -119,7 +119,7 @@ type DialogProps = { open: boolean; onClose: () => void; product: ProductDetail 
 
 /** Shared wrapper: runs an action, toasts, refreshes, closes. */
 function useRun(onClose: () => void) {
-  const router = useRouter();
+  const router = useNavRouter();
   const [pending, startTransition] = useTransition();
   const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   function run(fn: () => Promise<{ ok: boolean; message?: string; error?: string; fieldErrors?: Record<string, string[]> }>) {
@@ -236,7 +236,7 @@ function CompleteDialog({ open, onClose, product }: DialogProps) {
 }
 
 function KillDialog({ open, onClose, product, canDelete }: DialogProps & { canDelete: boolean }) {
-  const router = useRouter();
+  const router = useNavRouter();
   const [reason, setReason] = useState<KillReason | "">("");
   const [note, setNote] = useState("");
   const [pending, startTransition] = useTransition();
@@ -319,7 +319,7 @@ function KillDialog({ open, onClose, product, canDelete }: DialogProps & { canDe
 }
 
 function DeleteDialog({ open, onClose, product }: DialogProps) {
-  const router = useRouter();
+  const router = useNavRouter();
   const [pending, startTransition] = useTransition();
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>

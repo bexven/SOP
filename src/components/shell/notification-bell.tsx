@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BellIcon, CheckCheckIcon, SmartphoneIcon } from "lucide-react";
 import { UserAvatar } from "@/components/common/user-avatar";
@@ -9,11 +8,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatRelative } from "@/lib/format";
 import { fetchNotificationsAction, markNotificationsReadAction, type NotificationDTO } from "@/lib/server/actions/notifications";
 import { cn } from "@/lib/utils";
+import { useNavRouter } from "@/components/shell/nav-progress";
 
 const POLL_MS = 30_000;
 
 export function NotificationBell() {
-  const router = useRouter();
+  const router = useNavRouter();
   const [items, setItems] = useState<NotificationDTO[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);

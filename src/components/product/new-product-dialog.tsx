@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { FlaskConicalIcon, PlusIcon, RocketIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { Priority, TaskType } from "@/generated/prisma/enums";
@@ -15,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CREATIVE_TYPES, PRIORITIES, PRIORITY_LABELS, TASK_TYPE_LABELS } from "@/lib/domain/labels";
 import { createProductAction, createRunningProductAction } from "@/lib/server/actions/product";
 import { cn } from "@/lib/utils";
+import { useNavRouter } from "@/components/shell/nav-progress";
 
 type Brand = { id: string; name: string; color: string };
 type Mode = "research" | "running";
@@ -50,7 +50,7 @@ export function NewProductDialog({
 }
 
 function NewProductForm({ onDone, brands, canResearch, canRunning }: { onDone: () => void; brands: Brand[]; canResearch: boolean; canRunning: boolean }) {
-  const router = useRouter();
+  const router = useNavRouter();
   const [mode, setMode] = useState<Mode>(canResearch ? "research" : "running");
   const [brandId, setBrandId] = useState(brands.length === 1 ? brands[0]!.id : "");
   const [name, setName] = useState("");

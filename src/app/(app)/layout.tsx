@@ -1,4 +1,5 @@
 import { CommandPalette } from "@/components/shell/command-palette";
+import { NavProgress } from "@/components/shell/nav-progress";
 import { PushSync } from "@/components/shell/push-sync";
 import { TopNav } from "@/components/shell/top-nav";
 import { navItemsFor } from "@/lib/domain/nav";
@@ -20,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-dvh flex-col pb-8">
+      <NavProgress />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-white focus:px-3 focus:py-2 focus:shadow-lg">
         Skip to content
       </a>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, CircleDollarSignIcon, PencilIcon, PlusIcon, ReceiptIcon, SaveIcon, ScaleIcon, WalletIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Field } from "@/components/common/field";
@@ -14,6 +13,7 @@ import { addProviderAction, saveAccountAction, setFundPaidAction } from "@/lib/s
 import type { AdBudget } from "@/lib/server/queries/ad-budget";
 import { cn } from "@/lib/utils";
 import { FundDialog } from "./fund-dialog";
+import { useNavRouter } from "@/components/shell/nav-progress";
 
 export type Tab = "overview" | "spend" | "history" | "accounts";
 
@@ -26,7 +26,7 @@ const d = (day: string) => formatDate(new Date(`${day}T00:00:00Z`));
 const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 
 export function AdBudgetView({ data, tab, canManage }: { data: AdBudget; tab: Tab; canManage: boolean }) {
-  const router = useRouter();
+  const router = useNavRouter();
   const go = (t: Tab, month = data.month) => router.push(`/ad-budget?tab=${t}&month=${month}`, { scroll: false });
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
@@ -159,7 +159,7 @@ function Overview({ data, canManage }: { data: AdBudget; canManage: boolean }) {
 }
 
 function FundRow({ f, provider, canManage, onEdit }: { f: AdBudget["funds"][number]; provider: string; canManage: boolean; onEdit: () => void }) {
-  const router = useRouter();
+  const router = useNavRouter();
   const [pending, startTransition] = useTransition();
   return (
     <li className={cn("surface grid gap-2 rounded-panel p-4 ring-1 ring-inset", f.paid ? "ring-emerald-200" : "ring-rose-200")}>
@@ -412,7 +412,7 @@ function Spend({ data }: { data: AdBudget }) {
 }
 
 function Accounts({ data, canManage }: { data: AdBudget; canManage: boolean }) {
-  const router = useRouter();
+  const router = useNavRouter();
   const [pending, startTransition] = useTransition();
   const [acc, setAcc] = useState({ name: "", currency: "BDT", providerId: data.providers[0]?.id ?? "" });
   const [provider, setProvider] = useState("");
@@ -525,7 +525,7 @@ function AccountFields({ v, onChange, providers, idPrefix }: { v: AccountValues;
 }
 
 function AccountEditor({ account, providers, onDone }: { account: AdBudget["accounts"][number]; providers: AdBudget["providers"]; onDone: () => void }) {
-  const router = useRouter();
+  const router = useNavRouter();
   const [v, setV] = useState<AccountValues>({ name: account.name, currency: account.currency, providerId: account.providerId ?? "" });
   const [active, setActive] = useState(account.active);
   const [pending, startTransition] = useTransition();

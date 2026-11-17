@@ -259,6 +259,16 @@ src/generated/     Prisma client (generated, git-ignored)
   match a filter are clickable; the page opens on **All**. `Shipment.shippingPaidOn` / `arrivedOn` (Dhaka days; `flagDay()`):
   set to today by the one-tap buttons, editable in the dialog. Desktop = table, below `lg` = cards.
 
+## Navigation feel (Nov 2026)
+- **Loading bar** (`components/shell/nav-progress.tsx`, in the app layout): starts on any same-site link click (document
+  listener) or a push/replace from `useNavRouter()` (use it instead of `useRouter()` when navigating in code); finishes once
+  the new page has replaced its `[data-skeleton]` placeholder. Shown after 120 ms only. The top menu highlights the clicked
+  item at once (`usePendingPath()`).
+- **Every route has a `loading.tsx`** whose skeleton root carries `data-skeleton` (`components/common/skeletons.tsx`; the
+  product page one is shaped like the page). `app/(app)/template.tsx` wraps pages in `.page-flow`: top-level blocks glide in
+  (240 ms); placeholders fade in only after 140 ms so fast pages never flash grey. Clickable cards (`raised-hover`) press in.
+- The server renders in ~15–60 ms; slowness is network / hosting distance (Vercel function ↔ database), not rendering.
+
 ## Alerts: phone push + Telegram + 10:00 summary
 - **Web Push** (free, `web-push`): `public/sw.js` shows notifications; `src/app/manifest.ts` + `/public/icons`
   make the app installable (iPhone only allows push from a home-screen app). VAPID keys are generated on first
