@@ -2,7 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLinkIcon, LinkIcon, PlusIcon, SaveIcon, Trash2Icon, XIcon } from "lucide-react";
+import { CalendarIcon, CircleDotIcon, ExternalLinkIcon, FlagIcon, LinkIcon, PackageIcon, PlusIcon, SaveIcon, Trash2Icon, UserRoundIcon, XIcon } from "lucide-react";
+import { PROP_CONTROL, PropertyRow } from "@/components/common/property-row";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { ManualTaskStatus, Priority } from "@/generated/prisma/enums";
 import { Field, fieldA11y } from "@/components/common/field";
@@ -67,8 +69,18 @@ export function ManualTaskDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[calc(100dvh-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[92dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none max-sm:data-[state=open]:slide-in-from-bottom-8"
+        className={cn(
+          "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 outline-none max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[92dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none max-sm:data-[state=open]:slide-in-from-bottom-8",
+          task ? "max-w-6xl md:h-[min(52rem,calc(100dvh-4rem))]" : "max-w-2xl",
+        )}
         aria-describedby={undefined}
+        tabIndex={-1}
+        // Existing task: focus the window, not the title field, so nothing looks selected on open.
+        onOpenAutoFocus={(e) => {
+          if (!task) return;
+          e.preventDefault();
+          (e.currentTarget as HTMLElement).focus();
+        }}
       >
         {open ? <Body key={task?.id ?? "new"} task={task} board={board} viewer={viewer} startStatus={startStatus} onDone={() => onOpenChange(false)} /> : null}
       </DialogContent>
@@ -136,30 +148,41 @@ function Body({ task, board, viewer, startStatus, onDone }: { task: ManualTaskDT
 
   return (
     <>
-      <div className="border-b border-slate-100 py-4 pr-12 pl-5">
-        <div className="min-w-0">
-          <p className="num text-meta text-slate-500">{task ? manualTaskRef(task.number) : "New task"}</p>
-          <DialogTitle className="text-section text-slate-900">{task ? task.title : "Add a task"}</DialogTitle>
-          {task ? (
-            <DialogDescription className="text-meta font-normal text-slate-500">
-              Added by {task.createdBy.name} · {formatRelative(new Date(task.createdAt))}
-            </DialogDescription>
-          ) : null}
-        </div>
+      <div className="flex items-center gap-2 border-b border-[var(--line)] py-2.5 pr-12 pl-5 text-meta font-normal text-slate-500">
+        <span>Tasks board</span>
+        <span aria-hidden>›</span>
+        <span className="num font-medium text-slate-700">{task ? manualTaskRef(task.number) : "New task"}</span>
+        {task ? (
+          <DialogDescription className="ml-2 hidden truncate text-meta font-normal text-slate-500 sm:block">
+            Added by {task.createdBy.name} · {formatRelative(new Date(task.createdAt))}
+          </DialogDescription>
+        ) : null}
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-5 overflow-y-auto px-5 py-4">
-        <div className="grid gap-3">
-          <Field id="mt-title" label="Title *" error={err("title")}>
-            <Input {...fieldA11y("mt-title", err("title"))} value={v.title} onChange={(e) => set("title", e.target.value)} maxLength={140} disabled={!editable} autoFocus={!task} />
-          </Field>
-          <Field id="mt-desc" label="Details" error={err("description")}>
-            <Textarea {...fieldA11y("mt-desc", err("description"))} value={v.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="What needs doing, and what does done look like?" disabled={!editable} />
-          </Field>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Field id="mt-status" label="Status">
+      <div className={cn("grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] overflow-y-auto", task && "md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] md:overflow-hidden")}>
+        <div className="grid content-start gap-4 px-5 py-5 sm:px-7 md:overflow-y-auto">
+          <DialogTitle className="sr-only">{task ? task.title : "Add a task"}</DialogTitle>
+          <div className="grid gap-1">
+            <label htmlFor="mt-title" className="sr-only">
+              Title
+            </label>
+            <Input
+              {...fieldA11y("mt-title", err("title"))}
+              value={v.title}
+              onChange={(e) => set("title", e.target.value)}
+              maxLength={140}
+              disabled={!editable}
+              autoFocus={!task}
+              placeholder="Task name"
+              className="h-auto border-transparent px-2 py-1 text-[22px] leading-8 font-semibold shadow-none hover:border-[var(--line)] focus-visible:border-[var(--input)] disabled:opacity-100"
+            />
+            {err("title") ? <p className="px-2 text-meta text-rose-700">{err("title")}</p> : null}
+          </div>
+
+          <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
+            <PropertyRow icon={CircleDotIcon} label="Status" htmlFor="mt-status">
               <Select value={v.status} onValueChange={(s) => set("status", s as ManualTaskStatus)} disabled={!editable}>
-                <SelectTrigger id="mt-status">
+                <SelectTrigger id="mt-status" className={PROP_CONTROL}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -170,29 +193,10 @@ function Body({ task, board, viewer, startStatus, onDone }: { task: ManualTaskDT
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
-            <Field id="mt-priority" label="Urgency">
-              <Select value={v.priority} onValueChange={(p) => set("priority", p as Priority)} disabled={!editable}>
-                <SelectTrigger id="mt-priority">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITIES.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {PRIORITY_LABELS[p]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field id="mt-due" label="Due (Dhaka time)" error={err("dueAt")} className="col-span-2">
-              <Input {...fieldA11y("mt-due", err("dueAt"))} type="datetime-local" value={v.due} onChange={(e) => set("due", e.target.value)} className="num" disabled={!editable} />
-            </Field>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field id="mt-assignee" label="Assigned to">
+            </PropertyRow>
+            <PropertyRow icon={UserRoundIcon} label="Assignee" htmlFor="mt-assignee">
               <Select value={v.assigneeId || NONE} onValueChange={(id) => set("assigneeId", id === NONE ? "" : id)} disabled={!editable}>
-                <SelectTrigger id="mt-assignee">
+                <SelectTrigger id="mt-assignee" className={PROP_CONTROL}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -205,10 +209,27 @@ function Body({ task, board, viewer, startStatus, onDone }: { task: ManualTaskDT
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
-            <Field id="mt-product" label="Product (optional)">
+            </PropertyRow>
+            <PropertyRow icon={CalendarIcon} label="Due (Dhaka)" htmlFor="mt-due">
+              <Input {...fieldA11y("mt-due", err("dueAt"))} type="datetime-local" value={v.due} onChange={(e) => set("due", e.target.value)} className={cn("num", PROP_CONTROL)} disabled={!editable} />
+            </PropertyRow>
+            <PropertyRow icon={FlagIcon} label="Urgency" htmlFor="mt-priority">
+              <Select value={v.priority} onValueChange={(p) => set("priority", p as Priority)} disabled={!editable}>
+                <SelectTrigger id="mt-priority" className={PROP_CONTROL}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {PRIORITY_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </PropertyRow>
+            <PropertyRow icon={PackageIcon} label="Product" htmlFor="mt-product" className="sm:col-span-2">
               <Select value={v.productId || NONE} onValueChange={(id) => set("productId", id === NONE ? "" : id)} disabled={!editable}>
-                <SelectTrigger id="mt-product">
+                <SelectTrigger id="mt-product" className={cn(PROP_CONTROL, "sm:max-w-[calc(50%-1rem)]")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -220,8 +241,13 @@ function Body({ task, board, viewer, startStatus, onDone }: { task: ManualTaskDT
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
+            </PropertyRow>
+            {err("dueAt") ? <p className="text-meta text-rose-700 sm:col-span-2">{err("dueAt")}</p> : null}
           </div>
+
+          <Field id="mt-desc" label="Details" error={err("description")}>
+            <Textarea {...fieldA11y("mt-desc", err("description"))} value={v.description} onChange={(e) => set("description", e.target.value)} rows={4} placeholder="What needs doing, and what does done look like?" disabled={!editable} />
+          </Field>
 
           <section aria-labelledby="mt-links-h" className="grid gap-2">
             <h3 id="mt-links-h" className="text-meta text-slate-700">
@@ -230,7 +256,7 @@ function Body({ task, board, viewer, startStatus, onDone }: { task: ManualTaskDT
             {v.links.length ? (
               <ul className="grid gap-1.5">
                 {v.links.map((l, i) => (
-                  <li key={`${l}-${i}`} className="flex items-center gap-2 rounded-control bg-slate-50 px-2.5 py-1.5">
+                  <li key={`${l}-${i}`} className="flex items-center gap-2 rounded-control border border-[var(--line)] px-2.5 py-1.5">
                     <LinkIcon className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                     <a href={l} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-body text-primary underline-offset-2 hover:underline">
                       {host(l)}
@@ -272,10 +298,14 @@ function Body({ task, board, viewer, startStatus, onDone }: { task: ManualTaskDT
           </section>
         </div>
 
-        {task ? <Comments task={task} board={board} /> : null}
+        {task ? (
+          <aside className="min-w-0 border-t border-[var(--line)] bg-[#f9fafb] px-5 py-5 md:overflow-y-auto md:border-t-0 md:border-l">
+            <Comments task={task} board={board} />
+          </aside>
+        ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-3">
+      <div className="flex flex-wrap items-center gap-2 border-t border-[var(--line)] px-5 py-3">
         {canDelete ? (
           <Button
             variant="ghost"
@@ -315,9 +345,9 @@ function Body({ task, board, viewer, startStatus, onDone }: { task: ManualTaskDT
 function Comments({ task, board }: { task: ManualTaskDTO; board: ManualBoard }) {
   const router = useRouter();
   return (
-    <section aria-labelledby="mt-comments-h" className="grid gap-3 border-t border-slate-100 pt-4">
+    <section aria-labelledby="mt-comments-h" className="grid content-start gap-3">
       <h3 id="mt-comments-h" className="text-section text-slate-900">
-        Comments {task.comments.length ? <span className="num text-meta text-slate-500">{task.comments.length}</span> : null}
+        Activity {task.comments.length ? <span className="num text-meta text-slate-500">{task.comments.length}</span> : null}
       </h3>
       {task.comments.length === 0 ? <p className="text-meta font-normal text-slate-500">No comments yet. Questions, updates and decisions about this task go here.</p> : null}
       <ol className="grid gap-3">

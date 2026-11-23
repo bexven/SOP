@@ -18,29 +18,48 @@ export function ProductHeader({
   stepper?: { onSelect: (i: number) => void; canSelect: (i: number) => boolean; selected: number[] };
 }) {
   return (
-    <header className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-      <div className="flex items-start gap-3 sm:gap-4">
-        <Thumbnail src={product.imageUrl} alt="" className="size-14 rounded-[12px] sm:size-16" />
+    <header className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
+      <div className="flex items-start gap-3">
+        <Thumbnail src={product.imageUrl} alt="" className="size-12 rounded-[10px]" />
         <div className="min-w-0 flex-1">
-          <p className="num text-meta text-slate-500">{product.ref}</p>
-          <h1 className="text-page text-slate-900 [overflow-wrap:anywhere]">{product.name}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <BrandPill brand={product.brand} />
-            <StagePill stage={product.stage} />
-            <PriorityPill priority={product.priority} />
-            <MarginBadge pct={product.margin?.marginPct} band={product.marginBand} />
-            {product.campaignStatus && product.campaignStatus !== "NOT_LAUNCHED" ? <CampaignPill status={product.campaignStatus} /> : null}
-            {product.mediaBuyer ? (
-              <span className="inline-flex items-center gap-1.5 pl-1 text-meta text-slate-600">
-                <UserAvatar name={product.mediaBuyer.name} color={product.mediaBuyer.avatarColor} imageId={product.mediaBuyer.avatarAssetId} size="xs" />
-                Media buyer: {product.mediaBuyer.name}
-              </span>
-            ) : null}
-          </div>
+          <p className="num text-meta font-normal text-slate-500">{product.ref}</p>
+          <h1 className="text-[22px] leading-7 font-semibold tracking-[-0.01em] text-slate-900 [overflow-wrap:anywhere]">{product.name}</h1>
         </div>
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </div>
-      <div className="surface rounded-panel px-2 py-2 sm:px-3">
+      {/* ClickUp-style property bar: one quiet line of facts. */}
+      <dl className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-[var(--line)] py-2 text-meta">
+        <Prop label="Stage">
+          <StagePill stage={product.stage} />
+        </Prop>
+        {product.brand ? (
+          <Prop label="Brand">
+            <BrandPill brand={product.brand} />
+          </Prop>
+        ) : null}
+        <Prop label="Priority">
+          <PriorityPill priority={product.priority} />
+        </Prop>
+        {product.margin?.marginPct ? (
+          <Prop label="Margin">
+            <MarginBadge pct={product.margin?.marginPct} band={product.marginBand} />
+          </Prop>
+        ) : null}
+        {product.campaignStatus && product.campaignStatus !== "NOT_LAUNCHED" ? (
+          <Prop label="Ads">
+            <CampaignPill status={product.campaignStatus} />
+          </Prop>
+        ) : null}
+        {product.mediaBuyer ? (
+          <Prop label="Media buyer">
+            <span className="inline-flex items-center gap-1.5 text-slate-700">
+              <UserAvatar name={product.mediaBuyer.name} color={product.mediaBuyer.avatarColor} imageId={product.mediaBuyer.avatarAssetId} size="xs" />
+              {product.mediaBuyer.name}
+            </span>
+          </Prop>
+        ) : null}
+      </dl>
+      <div className="rounded-panel border border-[var(--line)] bg-white px-2 py-1.5 sm:px-3">
         <PipelineStepper stepper={product.stepper} {...stepper} />
       </div>
       {product.stage === "KILLED" && product.killReason ? (
@@ -50,5 +69,14 @@ export function ProductHeader({
         </div>
       ) : null}
     </header>
+  );
+}
+
+function Prop({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <dt className="font-normal text-slate-500">{label}</dt>
+      <dd className="flex items-center">{children}</dd>
+    </div>
   );
 }

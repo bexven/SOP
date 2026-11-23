@@ -23,9 +23,9 @@ export default async function ProductPage({ params, searchParams }: PageProps<"/
   const phase = typeof sp.phase === "string" ? sp.phase : undefined;
   return (
     <>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <BackLink fallback="/products" />
-        <nav aria-label="Breadcrumb" className="hidden text-meta text-slate-500 sm:block">
+        <nav aria-label="Breadcrumb" className="hidden text-meta text-slate-500 sm:block lg:hidden">
           <ol className="flex items-center gap-1">
             <li>
               <Link href="/products" className="hover:text-slate-900">

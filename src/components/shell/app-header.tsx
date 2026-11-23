@@ -28,7 +28,7 @@ export function AppHeader({ items, user, canSettings }: { items: NavItem[]; user
         <Logo />
       </Link>
       <nav aria-label="Breadcrumb" className="hidden min-w-0 items-center gap-1.5 text-body lg:flex">
-        {group?.label ? (
+        {group?.label && group.label !== item?.label ? (
           <>
             <span className="text-slate-500">{group.label}</span>
             <ChevronRightIcon className="size-3.5 text-slate-400" aria-hidden />
@@ -39,6 +39,12 @@ export function AppHeader({ items, user, canSettings }: { items: NavItem[]; user
             <Icon className="size-4 text-slate-500" aria-hidden />
             {item.label}
           </Link>
+        ) : null}
+        {item && pathname !== item.href && pathname.startsWith(`${item.href}/`) && !items.some((i) => i.href !== item.href && isActive(pathname, i.href)) ? (
+          <>
+            <ChevronRightIcon className="size-3.5 text-slate-400" aria-hidden />
+            <span className="text-slate-600">{item.key === "products" ? "Product" : "Details"}</span>
+          </>
         ) : null}
       </nav>
       <div className="ml-auto flex shrink-0 items-center gap-1">

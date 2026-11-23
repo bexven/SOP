@@ -4,6 +4,10 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
+  CalendarIcon,
+  CircleDotIcon,
+  PackageIcon,
+  UserRoundIcon,
   CheckCircle2Icon,
   Loader2Icon,
   LockIcon,
@@ -15,7 +19,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { FollowUpKind } from "@/generated/prisma/enums";
-import { DuePill, TaskStatusPill } from "@/components/common/pills";
+import { BrandPill, DuePill, TaskStatusPill } from "@/components/common/pills";
+import { PropertyRow } from "@/components/common/property-row";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -65,7 +70,7 @@ export function TaskDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[calc(100dvh-2rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 outline-none max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[92dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none max-sm:data-[state=open]:slide-in-from-bottom-8 sm:max-h-[calc(100dvh-4rem)]"
+        className="flex max-h-[calc(100dvh-2rem)] max-w-6xl flex-col gap-0 overflow-hidden p-0 outline-none md:h-[min(52rem,calc(100dvh-4rem))] max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[92dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none max-sm:data-[state=open]:slide-in-from-bottom-8 sm:max-h-[calc(100dvh-4rem)]"
         style={brandThemeStyle(product.brand?.color)}
         aria-describedby={undefined}
         tabIndex={-1}
@@ -132,33 +137,49 @@ function TaskBody({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="grid shrink-0 gap-2 border-b border-slate-900/[0.06] px-5 pt-5 pb-4 pr-12 sm:px-6">
-        <p className="text-meta font-normal text-slate-500">
-          {lane === "videos" ? "Video creative" : "Image creative"} · {batchLabel}
-        </p>
-        <DialogTitle className="text-[18px] leading-tight font-semibold text-slate-900">
+      <div className="flex min-w-0 items-center gap-1.5 border-b border-[var(--line)] py-2.5 pr-12 pl-5 text-meta font-normal text-slate-500 sm:pl-6">
+        <span className="truncate">{product.name}</span>
+        <span aria-hidden>›</span>
+        <span className="shrink-0">{lane === "videos" ? "Video creative" : "Image creative"}</span>
+        <span aria-hidden>›</span>
+        <span className="truncate font-medium text-slate-700">{batchLabel}</span>
+      </div>
+      <header className="grid shrink-0 gap-3 px-5 pt-4 pb-3 sm:px-6">
+        <DialogTitle className="text-[22px] leading-8 font-semibold text-slate-900">
           {TASK_TYPE_LABELS[task.type]}
           {task.requestKind ? <span className="text-primary"> · {FOLLOW_UP_LABELS[task.requestKind]}</span> : null}
         </DialogTitle>
         <DialogDescription className="sr-only">Work, review and discussion for this task.</DialogDescription>
-        <div className="flex flex-wrap items-center gap-2">
-          <TaskStatusPill status={task.status} />
-          {!locked && task.status !== "APPROVED" ? <DuePill dueAt={task.dueAt} /> : null}
-          <span className="flex items-center gap-1.5 text-meta text-slate-600">
-            <ReassignMenu
-              taskId={task.id}
-              assignee={task.assignee}
-              people={product.people}
-              taskRole={task.role}
-              canReassign={!locked && task.status !== "APPROVED" && (viewer.role === "ADMIN" || can(viewer, "task.reassignAny") || task.assignee?.id === viewer.id)}
-              viewerIsAdmin={viewer.role === "ADMIN" || can(viewer, "task.reassignAny")}
-            />
-            {task.assignee?.name ?? "Unassigned"}
-          </span>
+        <div className="grid gap-x-8 gap-y-0.5 sm:grid-cols-2">
+          <PropertyRow icon={CircleDotIcon} label="Status">
+            <TaskStatusPill status={task.status} />
+          </PropertyRow>
+          <PropertyRow icon={UserRoundIcon} label="Assignee">
+            <span className="flex items-center gap-1.5 text-body text-slate-800">
+              <ReassignMenu
+                taskId={task.id}
+                assignee={task.assignee}
+                people={product.people}
+                taskRole={task.role}
+                canReassign={!locked && task.status !== "APPROVED" && (viewer.role === "ADMIN" || can(viewer, "task.reassignAny") || task.assignee?.id === viewer.id)}
+                viewerIsAdmin={viewer.role === "ADMIN" || can(viewer, "task.reassignAny")}
+              />
+              {task.assignee?.name ?? "Unassigned"}
+            </span>
+          </PropertyRow>
+          <PropertyRow icon={CalendarIcon} label="Due">
+            {!locked && task.status !== "APPROVED" && task.dueAt ? <DuePill dueAt={task.dueAt} /> : <span className="text-body text-slate-400">—</span>}
+          </PropertyRow>
+          <PropertyRow icon={PackageIcon} label="Product">
+            <span className="flex min-w-0 items-center gap-2 text-body text-slate-800">
+              <span className="truncate">{product.name}</span>
+              <BrandPill brand={product.brand} className="shrink-0" />
+            </span>
+          </PropertyRow>
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] overflow-x-hidden overflow-y-auto overscroll-contain md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] overflow-x-hidden overflow-y-auto overscroll-contain border-t border-[var(--line)] md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] md:overflow-hidden">
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 px-5 py-5 sm:px-6 md:overflow-x-hidden md:overflow-y-auto">
           {locked ? (
             <Notice tone="slate" icon={LockIcon}>
@@ -234,8 +255,8 @@ function TaskBody({
           {viewer.role === "ADMIN" && !locked && task.status !== "APPROVED" ? <DueOverride taskId={task.id} dueAt={task.dueAt} /> : null}
         </div>
 
-        <aside className="min-w-0 border-t border-slate-900/[0.06] bg-slate-50/60 px-5 py-5 sm:px-6 md:overflow-x-hidden md:overflow-y-auto md:border-t-0 md:border-l">
-          <Discussion product={product} viewer={viewer} phase={lane === "videos" ? "VIDEOS" : "IMAGES"} taskId={task.id} title="Discussion" />
+        <aside className="min-w-0 border-t border-[var(--line)] bg-[#f9fafb] px-5 py-5 sm:px-6 md:overflow-x-hidden md:overflow-y-auto md:border-t-0 md:border-l">
+          <Discussion product={product} viewer={viewer} phase={lane === "videos" ? "VIDEOS" : "IMAGES"} taskId={task.id} title="Activity" />
         </aside>
       </div>
     </div>

@@ -163,17 +163,17 @@ export function ProductView({
         <ReviewPhase product={product} viewer={viewer} />
       ) : (
         <Tabs value={phase} onValueChange={choose} id="product-phases" className="scroll-mt-24">
-          <TabsList aria-label="Product phases" className="no-scrollbar relative flex w-full max-w-full justify-start overflow-x-auto sm:inline-flex sm:w-auto">
+          <TabsList aria-label="Product phases" className="no-scrollbar relative flex h-auto w-full max-w-full justify-start gap-5 overflow-x-auto rounded-none border-b border-[var(--line)] bg-transparent p-0">
             {available.map((p) => (
               <TabsTrigger
                 key={p}
                 value={p}
-                className="relative h-8 shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                className="relative h-9 shrink-0 rounded-none px-0.5 pb-1 whitespace-nowrap text-slate-500 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none"
               >
                 {phase === p ? (
                   <motion.span
                     layoutId="phase-tab-pill"
-                    className="absolute inset-0 rounded-[8px] bg-white shadow-[0_1px_3px_rgb(15_23_42/0.12)]"
+                    className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary"
                     transition={reduce ? { duration: 0 } : { type: "spring", bounce: 0.18, duration: 0.4 }}
                   />
                 ) : null}
@@ -185,7 +185,7 @@ export function ProductView({
             ))}
           </TabsList>
           {available.map((p) => (
-            <TabsContent key={p} value={p} className="mt-5 outline-none">
+            <TabsContent key={p} value={p} className="mt-4 outline-none">
               <AnimatePresence mode="wait" initial={false}>
                 {phase === p ? (
                   <motion.div
@@ -211,7 +211,7 @@ export function ProductView({
 function PhaseCount({ product, phase }: { product: ProductDetail; phase: Phase }) {
   if (phase !== "images" && phase !== "videos") return null;
   const open = product.tasks.filter((t) => laneOf(t.type) === phase && (t.status === "TODO" || t.status === "REVISION" || t.status === "SUBMITTED")).length;
-  return open ? <span className="num rounded-full bg-slate-900/[0.06] px-1.5 text-meta text-slate-600">{open}</span> : null;
+  return open ? <span className="num text-meta font-normal text-slate-500">{open}</span> : null;
 }
 
 function ReviewPhase({ product, viewer }: { product: ProductDetail; viewer: Viewer }) {

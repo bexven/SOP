@@ -24,10 +24,10 @@ import { TaskDialog } from "./task-dialog";
 
 type Col = "todo" | "review" | "revision" | "approved";
 const COLS: { key: Col; title: string; dot: string; empty: string }[] = [
-  { key: "todo", title: "To do", dot: "bg-slate-400", empty: "Nothing to start" },
-  { key: "review", title: "In review", dot: "bg-indigo-500", empty: "Nothing waiting for a Senior" },
-  { key: "revision", title: "Needs changes", dot: "bg-rose-500", empty: "No changes asked" },
-  { key: "approved", title: "Approved", dot: "bg-emerald-500", empty: "Nothing approved yet" },
+  { key: "todo", title: "To do", dot: "bg-slate-500", empty: "Nothing to start" },
+  { key: "review", title: "In review", dot: "bg-violet-600", empty: "Nothing waiting for review" },
+  { key: "revision", title: "Needs changes", dot: "bg-orange-500", empty: "No changes asked" },
+  { key: "approved", title: "Approved", dot: "bg-emerald-600", empty: "Nothing approved yet" },
 ];
 const STRIPE: Record<Col, string> = { todo: "before:bg-slate-300", review: "before:bg-indigo-500", revision: "before:bg-rose-500", approved: "before:bg-emerald-500" };
 const GROUP_LABEL = { website: "Website images", metaAds: "Meta ads", videos: "Video" } as const;
@@ -89,17 +89,22 @@ export function CreativePhase({
   const parentOf = (t: TaskDTO) => (t.dependsOnId ? laneTasks.find((x) => x.id === t.dependsOnId) ?? product.tasks.find((x) => x.id === t.dependsOnId) : undefined);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
-      <BriefCard productId={product.id} brief={product.creativeBrief} updatedAt={product.creativeBriefUpdatedAt} canEdit={canEditBrief} />
-      {lane === "images" ? <WebsiteLinkCard product={product} viewer={viewer} /> : null}
-      <ResourcesCard product={product} viewer={viewer} lane={lane} />
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+      {/* Side panel (ClickUp-style): brief, website and resources beside the work on very wide screens, above it otherwise. */}
+      <aside aria-label="Brief and resources" className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-2 2xl:sticky 2xl:top-16 2xl:order-2 2xl:grid-cols-[minmax(0,1fr)]">
+        <BriefCard productId={product.id} brief={product.creativeBrief} updatedAt={product.creativeBriefUpdatedAt} canEdit={canEditBrief} />
+        {lane === "images" ? <WebsiteLinkCard product={product} viewer={viewer} /> : null}
+        <ResourcesCard product={product} viewer={viewer} lane={lane} />
+      </aside>
+
+      <div className="min-w-0 2xl:order-1">
 
       {!batch ? (
         <p className="surface rounded-panel px-4 py-8 text-center text-body text-slate-600">
           No {lane === "images" ? "image" : "video"} tasks yet. They are created when the product is approved for testing, or when the media buyer requests a new batch.
         </p>
       ) : (
-        <section aria-label="Creative board" className="surface grid gap-4 rounded-panel p-3 sm:p-4">
+        <section aria-label="Creative board" className="grid gap-3">
           {batches.length > 1 ? (
             <div role="tablist" aria-label="Batches" className="no-scrollbar relative -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
               {batches.map((b) => {
@@ -151,11 +156,10 @@ export function CreativePhase({
               {COLS.map((c) => {
                 const items = tasks.filter((t) => colOf(t) === c.key);
                 return (
-                  <div key={c.key} className={cn("flex flex-col gap-2 rounded-control bg-slate-900/[0.025] p-2 md:min-h-32", items.length === 0 && "py-1.5 md:py-2")}>
-                    <h3 className="flex items-center gap-2 px-1.5 pt-0.5 text-meta font-semibold text-slate-700">
-                      <span className={cn("size-2 rounded-full", c.dot)} aria-hidden />
-                      {c.title}
-                      <span className="num ml-auto font-medium text-slate-500">{items.length}</span>
+                  <div key={c.key} className={cn("flex min-w-0 flex-col gap-1.5 rounded-panel bg-[#f7f8f9] p-1.5 md:min-h-32", items.length === 0 && "md:py-1.5")}>
+                    <h3 className="flex items-center gap-2 px-1 pt-0.5 text-meta">
+                      <span className={cn("inline-flex h-[22px] items-center rounded-[5px] px-2 text-[11px] font-semibold tracking-[0.03em] whitespace-nowrap text-white uppercase", c.dot)}>{c.title}</span>
+                      <span className="num font-normal text-slate-500">{items.length}</span>
                     </h3>
                     <ul className="grid gap-2">
                       {items.map((t) => (
@@ -180,6 +184,7 @@ export function CreativePhase({
           </LayoutGroup>
         </section>
       )}
+      </div>
 
       <TaskDialog
         task={openTask}
@@ -236,12 +241,12 @@ function TaskCardButton({
         type="button"
         onClick={onOpen}
         className={cn(
-          "group relative w-full overflow-hidden rounded-control border bg-white p-3 pl-3.5 text-left shadow-[0_1px_2px_rgb(15_23_42/0.05)] outline-none",
-          "before:absolute before:inset-y-0 before:left-0 before:w-1",
-          "transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[var(--raised-shadow)] active:translate-y-0 active:scale-[0.985]",
+          "group relative w-full overflow-hidden rounded-control border bg-white p-2.5 pl-3 text-left shadow-[0_1px_1px_rgb(15_23_42/0.03)] outline-none",
+          "before:absolute before:inset-y-0 before:left-0 before:w-[3px]",
+          "transition-[box-shadow,border-color] duration-150 ease-out hover:border-slate-300 hover:shadow-[var(--raised-shadow)] active:scale-[0.99]",
           "focus-visible:ring-2 focus-visible:ring-ring/50",
           STRIPE[col],
-          locked ? "border-dashed border-slate-300 bg-slate-50 before:bg-slate-200" : "border-slate-200/90",
+          locked ? "border-dashed border-slate-300 bg-slate-50 before:bg-slate-200" : "border-[var(--line)]",
         )}
       >
         <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
