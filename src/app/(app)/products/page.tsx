@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/common/page-header";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ProductsTable } from "@/components/products/products-table";
+import { ProductViewTabs } from "@/components/products/product-view-tabs";
 import { STAGES } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
@@ -27,8 +28,9 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
     <>
       <PageHeader
         title="Products"
-        description="Search and filter every product, including dropped ones. Click a row to open it."
+        description="Every product, including dropped ones. Search, filter, and click a row to open it."
       />
+      <ProductViewTabs current="list" count={products.length} />
       {products.length === 0 ? (
         <EmptyState
           icon={PackageIcon}

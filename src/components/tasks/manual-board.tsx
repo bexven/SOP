@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { LinkIcon, MessageSquareIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { ChevronDownIcon, KanbanSquareIcon, LinkIcon, ListIcon, MessageSquareIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { ManualTaskStatus } from "@/generated/prisma/enums";
 import { DuePill, PriorityPill } from "@/components/common/pills";
@@ -35,12 +35,21 @@ import { ManualTaskDialog } from "./manual-task-dialog";
 type Columns = Record<ManualTaskStatus, ManualTaskDTO[]>;
 type Scope = "all" | "mine" | "created";
 
+/** ClickUp-style status tags (solid colour, white small caps). */
 const COLUMN_TONE: Record<ManualTaskStatus, string> = {
-  TODO: "bg-slate-400",
-  IN_PROGRESS: "bg-sky-500",
-  IN_REVIEW: "bg-violet-500",
-  DONE: "bg-emerald-500",
+  TODO: "bg-slate-500",
+  IN_PROGRESS: "bg-sky-600",
+  IN_REVIEW: "bg-violet-600",
+  DONE: "bg-emerald-600",
 };
+
+function StatusTag({ status }: { status: ManualTaskStatus }) {
+  return (
+    <span className={cn("inline-flex h-[22px] items-center rounded-[5px] px-2 text-[11px] font-semibold tracking-[0.03em] text-white uppercase", COLUMN_TONE[status])}>
+      {MANUAL_STATUS_LABELS[status]}
+    </span>
+  );
+}
 
 function group(tasks: ManualTaskDTO[]): Columns {
   const cols: Columns = { TODO: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] };
@@ -56,6 +65,7 @@ function findColumn(cols: Columns, id: string): ManualTaskStatus | null {
 export function ManualBoard({ board, viewer, openTaskId, startNew }: { board: Board; viewer: { id: string; role: string }; openTaskId?: string; startNew?: boolean }) {
   const router = useRouter();
   const [scope, setScope] = useState<Scope>("all");
+  const [view, setView] = useState<"board" | "list">("board");
   const [person, setPerson] = useState("anyone");
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(openTaskId ?? null);
@@ -161,6 +171,25 @@ export function ManualBoard({ board, viewer, openTaskId, startNew }: { board: Bo
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2">
+          <div role="radiogroup" aria-label="View" className="inline-flex rounded-control border border-[var(--line)] bg-white p-0.5">
+            {(
+              [
+                ["board", "Board", KanbanSquareIcon],
+                ["list", "List", ListIcon],
+              ] as const
+            ).map(([k, label, Icon]) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={view === k}
+                onClick={() => setView(k)}
+                className={cn("inline-flex h-7 items-center gap-1.5 rounded-[6px] px-2.5 text-meta transition-colors", view === k ? "bg-accent text-accent-foreground" : "text-slate-600 hover:bg-hover")}
+              >
+                <Icon className="size-3.5" aria-hidden /> {label}
+              </button>
+            ))}
+          </div>
           <div role="radiogroup" aria-label="Show" className="inline-flex rounded-control bg-slate-900/[0.04] p-0.5">
             {(
               [
@@ -212,6 +241,18 @@ export function ManualBoard({ board, viewer, openTaskId, startNew }: { board: Bo
         Drag a card to another column to change its status, or open it and pick a status. With a keyboard: focus a card, press space, use the arrow keys, then space again.
       </p>
 
+      {view === "list" ? (
+        <TaskList
+          cols={cols}
+          onOpen={(id) => {
+            setOpenId(id);
+            setUrl(id);
+          }}
+          onAdd={(st) => setCreating(st)}
+        />
+      ) : null}
+
+      <div hidden={view === "list"}>
       <DndContext id="manual-board" sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => {
           setActiveId(null);
           setDragCols(null);
@@ -233,6 +274,7 @@ export function ManualBoard({ board, viewer, openTaskId, startNew }: { board: Bo
         </div>
         <DragOverlay dropAnimation={{ duration: 180, easing: "ease-out" }}>{active ? <Card task={active} dragging /> : null}</DragOverlay>
       </DndContext>
+      </div>
 
       <ManualTaskDialog
         open={Boolean(openTask)}
@@ -270,14 +312,13 @@ function Column({
     <section
       aria-labelledby={`col-${status}`}
       className={cn(
-        "flex w-[82vw] max-w-sm shrink-0 snap-start flex-col rounded-panel bg-slate-900/[0.035] p-2 transition-colors duration-150 sm:w-72 lg:w-auto lg:max-w-none",
+        "flex w-[82vw] max-w-sm shrink-0 snap-start flex-col rounded-panel bg-[#f7f8f9] p-1.5 transition-colors duration-150 sm:w-72 lg:w-auto lg:max-w-none",
         isOver && "bg-primary/[0.07] ring-2 ring-primary/30",
       )}
     >
       <div className="flex items-center justify-between px-1.5 pt-1 pb-2">
-        <h2 id={`col-${status}`} className="flex items-center gap-2 text-meta font-semibold text-slate-800">
-          <span className={cn("size-2 rounded-full", COLUMN_TONE[status])} aria-hidden />
-          {MANUAL_STATUS_LABELS[status]}
+        <h2 id={`col-${status}`} className="flex items-center gap-2 text-meta">
+          <StatusTag status={status} />
           <span className="num font-normal text-slate-500">{tasks.length}</span>
         </h2>
         <Button variant="ghost" size="icon-sm" aria-label={`Add a task to ${MANUAL_STATUS_LABELS[status]}`} onClick={onAdd}>
@@ -326,7 +367,7 @@ function Card({ task: t, dragging }: { task: ManualTaskDTO; dragging?: boolean }
   return (
     <div
       className={cn(
-        "surface grid cursor-pointer gap-2 rounded-control p-3 text-left ring-1 ring-slate-900/[0.06] transition-[box-shadow,transform] duration-150 ease-out hover:-translate-y-px hover:shadow-md",
+        "grid cursor-pointer gap-1.5 rounded-control border border-[var(--line)] bg-white p-2.5 text-left shadow-[0_1px_1px_rgb(15_23_42/0.03)] transition-[box-shadow,border-color] duration-150 ease-out hover:border-slate-300 hover:shadow-[var(--raised-shadow)]",
         dragging && "rotate-[1.5deg] shadow-lg",
       )}
     >
@@ -363,3 +404,69 @@ function Card({ task: t, dragging }: { task: ManualTaskDTO; dragging?: boolean }
   );
 }
 
+
+const LIST_COLS = "md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_6.5rem_7.5rem_2rem]";
+
+/** List view: one collapsible group per status, dense rows; click a row to open the task. */
+function TaskList({ cols, onOpen, onAdd }: { cols: Columns; onOpen: (id: string) => void; onAdd: (s: ManualTaskStatus) => void }) {
+  return (
+    <div>
+      {MANUAL_STATUSES.map((s) => (
+        <details key={s} open={s !== "DONE"} className="group/list">
+          <summary className="flex cursor-pointer list-none items-center gap-2 py-1.5 select-none [&::-webkit-details-marker]:hidden">
+            <ChevronDownIcon className="size-4 -rotate-90 text-slate-500 transition-transform duration-150 group-open/list:rotate-0 motion-reduce:transition-none" aria-hidden />
+            <StatusTag status={s} />
+            <span className="num text-meta text-slate-500">{cols[s].length}</span>
+          </summary>
+          <div className="mt-1 mb-5 overflow-hidden rounded-panel border border-[var(--line)] bg-white">
+            <div className={cn("hidden border-b border-[var(--line)] bg-[#fafbfc] px-3 py-1.5 text-[11px] font-medium tracking-[0.02em] text-slate-500 uppercase md:grid", LIST_COLS)}>
+              <span>Task</span>
+              <span>Product</span>
+              <span>Priority</span>
+              <span>Due</span>
+              <span className="sr-only">Person</span>
+            </div>
+            <ul className="divide-y divide-[var(--line)]">
+              {cols[s].map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(t.id)}
+                    className={cn("group/row grid min-h-11 w-full items-center gap-x-3 gap-y-1 px-3 py-2 text-left text-body transition-colors hover:bg-hover focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset", LIST_COLS)}
+                  >
+                    <span className="min-w-0">
+                      <span className={cn("block truncate font-medium text-slate-900 group-hover/row:text-primary", s === "DONE" && "text-slate-600 line-through decoration-slate-300")}>{t.title}</span>
+                      <span className="flex items-center gap-2 text-meta font-normal text-slate-500">
+                        <span className="num">{manualTaskRef(t.number)}</span>
+                        {t.comments.length ? (
+                          <span className="inline-flex items-center gap-1">
+                            <MessageSquareIcon className="size-3" aria-hidden /> <span className="num">{t.comments.length}</span>
+                            <span className="sr-only">comments</span>
+                          </span>
+                        ) : null}
+                        <span className="truncate md:hidden">{t.product?.name}</span>
+                      </span>
+                    </span>
+                    <span className="hidden truncate text-slate-700 md:block">{t.product?.name ?? <span className="text-slate-400">—</span>}</span>
+                    <span className="flex flex-wrap items-center gap-2 md:contents">
+                      <PriorityPill priority={t.priority} />
+                      <span>{s !== "DONE" ? <DuePill dueAt={t.dueAt} /> : null}</span>
+                      <span className="max-md:ml-auto">
+                        {t.assignee ? <UserAvatar name={t.assignee.name} color={t.assignee.avatarColor} imageId={t.assignee.avatarAssetId} size="xs" /> : null}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+              <li>
+                <button type="button" onClick={() => onAdd(s)} className="flex h-9 w-full items-center gap-2 px-3 text-meta font-normal text-slate-500 transition-colors hover:bg-hover hover:text-slate-800">
+                  <PlusIcon className="size-3.5" aria-hidden /> Add task
+                </button>
+              </li>
+            </ul>
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}

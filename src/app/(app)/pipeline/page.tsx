@@ -6,15 +6,26 @@ import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { STAGE_DOT } from "@/components/common/pills";
 import { PipelineCard } from "@/components/pipeline/product-card";
+import { ProductViewTabs } from "@/components/products/product-view-tabs";
 import { Button } from "@/components/ui/button";
 import { PRIORITY_RANK, STAGE_LABELS, STAGES } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
 import { listProducts, type ProductRow } from "@/lib/server/queries/products";
 
-export const metadata: Metadata = { title: "Pipeline" };
+export const metadata: Metadata = { title: "Products · Board" };
 
 const CLOSED_LIMIT = 8;
+
+const STAGE_TAG: Record<ProductStage, string> = {
+  RESEARCH: "bg-sky-600",
+  REVIEW: "bg-indigo-600",
+  CREATIVE: "bg-violet-600",
+  READY_TO_LAUNCH: "bg-amber-600",
+  LIVE: "bg-emerald-600",
+  COMPLETED: "bg-slate-500",
+  KILLED: "bg-rose-600",
+};
 
 export default async function PipelinePage() {
   const user = await requireUser();
@@ -34,10 +45,8 @@ export default async function PipelinePage() {
 
   return (
     <>
-      <PageHeader
-        title="Pipeline"
-        description="Every product by stage. Click a product to open it."
-      />
+      <PageHeader title="Products" description="Every product by stage. Click a card to open it." />
+      <ProductViewTabs current="board" count={products.length} />
       {products.length === 0 ? (
         <EmptyState
           icon={KanbanSquareIcon}
@@ -54,7 +63,7 @@ export default async function PipelinePage() {
             const closed = stage === "COMPLETED" || stage === "KILLED";
             const shown = closed ? all.slice(0, CLOSED_LIMIT) : all;
             return (
-              <details key={stage} open={all.length > 0 && !closed} className="group rounded-panel bg-slate-900/[0.025] p-2 [&_summary::-webkit-details-marker]:hidden">
+              <details key={stage} open={all.length > 0 && !closed} className="group rounded-panel bg-[#f7f8f9] p-1.5 [&_summary::-webkit-details-marker]:hidden">
                 <summary className="flex cursor-pointer list-none items-center gap-2 rounded-control px-1.5 py-1.5 text-body font-semibold text-slate-800">
                   <span className={`size-2 rounded-full ${STAGE_DOT[stage]}`} aria-hidden />
                   {STAGE_LABELS[stage]}
@@ -88,13 +97,12 @@ export default async function PipelinePage() {
               const closed = stage === "COMPLETED" || stage === "KILLED";
               const shown = closed ? all.slice(0, CLOSED_LIMIT) : all;
               return (
-                <section key={stage} aria-labelledby={`col-${stage}`} className="flex flex-col rounded-panel bg-slate-900/[0.025] p-2">
-                  <h2 id={`col-${stage}`} className="flex items-center gap-2 px-1.5 pt-1 pb-2.5 text-body font-semibold text-slate-800">
-                    <span className={`size-2 rounded-full ${STAGE_DOT[stage]}`} aria-hidden />
-                    {STAGE_LABELS[stage]}
-                    <span className="num ml-auto text-meta text-slate-500">{all.length}</span>
+                <section key={stage} aria-labelledby={`col-${stage}`} className="flex flex-col rounded-panel bg-[#f7f8f9] p-1.5">
+                  <h2 id={`col-${stage}`} className="flex items-center gap-2 px-1.5 pt-1 pb-2">
+                    <span className={`inline-flex h-[22px] items-center rounded-[5px] px-2 text-[11px] font-semibold tracking-[0.03em] text-white uppercase ${STAGE_TAG[stage]}`}>{STAGE_LABELS[stage]}</span>
+                    <span className="num text-meta text-slate-500">{all.length}</span>
                   </h2>
-                  <ul className="grid gap-2">
+                  <ul className="grid gap-1.5">
                     {shown.map((p) => (
                       <li key={p.id}>
                         <PipelineCard p={p} />

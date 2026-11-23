@@ -209,10 +209,10 @@
 /* Pages glide in when they arrive instead of snapping (app/(app)/template.tsx wraps every page).
    Loading placeholders only fade in after a beat, so fast pages go straight to content. */
 .page-flow > * {
-  animation: page-in 240ms var(--ease-out-soft) both;
+  animation: page-in 240ms var(--ease-out-soft) backwards;
 }
 .page-flow > [data-skeleton] {
-  animation: skeleton-in 200ms ease-out 140ms both;
+  animation: skeleton-in 200ms ease-out 140ms backwards;
 }
 @keyframes page-in {
   from { opacity: 0; transform: translateY(6px); }

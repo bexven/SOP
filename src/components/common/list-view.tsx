@@ -112,3 +112,44 @@ export function StatStrip({ items }: { items: { label: string; value: number; hr
     </div>
   );
 }
+
+/** A ClickUp-style board column: coloured status tag + count on top, cards below on a light grey lane. */
+export function BoardColumn({ label, tone = "slate", count, empty, action, children }: { label: string; tone?: GroupTone; count: number; empty?: string; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section aria-label={`${label}, ${count}`} className="flex min-w-0 flex-col rounded-panel bg-[#f7f8f9] p-1.5">
+      <div className="flex items-center gap-2 px-1.5 pt-1 pb-2">
+        <span className={cn("inline-flex h-[22px] items-center rounded-[5px] px-2 text-[11px] font-semibold tracking-[0.03em] text-white uppercase", TONE[tone])}>{label}</span>
+        <span className="num text-meta text-slate-500">{count}</span>
+        {action ? <span className="ml-auto">{action}</span> : null}
+      </div>
+      {count === 0 && empty ? <p className="px-2 py-4 text-center text-meta font-normal text-slate-500">{empty}</p> : <ul className="grid grid-cols-[minmax(0,1fr)] gap-1.5">{children}</ul>}
+    </section>
+  );
+}
+
+/** View / scope tabs under a page title (List · Board, Everyone · Mine): links, underlined when current. */
+export function ViewTabs({ tabs, right, label = "Views" }: { tabs: { key: string; label: string; href: string; icon?: React.ComponentType<{ className?: string }>; current: boolean; count?: number }[]; right?: React.ReactNode; label?: string }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-[var(--line)]">
+      <nav aria-label={label} className="no-scrollbar relative -mb-px flex gap-5 overflow-x-auto">
+        {tabs.map((t) => (
+          <Link
+            key={t.key}
+            href={t.href}
+            scroll={false}
+            aria-current={t.current ? "page" : undefined}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1.5 border-b-2 px-0.5 pb-2 text-body font-medium whitespace-nowrap transition-colors",
+              t.current ? "border-primary text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800",
+            )}
+          >
+            {t.icon ? <t.icon className="size-4" aria-hidden /> : null}
+            {t.label}
+            {t.count !== undefined ? <span className="num text-meta font-normal text-slate-500">{t.count}</span> : null}
+          </Link>
+        ))}
+      </nav>
+      {right ? <div className="flex items-center gap-2 pb-2">{right}</div> : null}
+    </div>
+  );
+}
