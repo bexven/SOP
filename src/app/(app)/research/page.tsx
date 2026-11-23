@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { canAddProduct, canAddRunningProduct } from "@/lib/domain/resources";
-import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { BadgeCheckIcon, FlaskConicalIcon, HourglassIcon, XCircleIcon } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
+import { ViewTabs } from "@/components/common/list-view";
 import { PageHeader } from "@/components/common/page-header";
 import { AddProductButton } from "@/components/research/add-product-button";
 import { ApprovedList, NotApprovedList, PendingList } from "@/components/research/decided-list";
@@ -13,7 +13,6 @@ import { can, canSeeEarlyStages } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
 import { getBrands } from "@/lib/server/queries/product";
 import { getResearchBoard } from "@/lib/server/queries/research";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Research" };
 
@@ -60,31 +59,10 @@ export default async function ResearchPage({ searchParams }: PageProps<"/researc
         }
       />
 
-      <nav aria-label="Research lists" className="relative mb-5 max-w-full">
-        <ul className="grid grid-cols-2 gap-1 rounded-control bg-slate-900/[0.04] p-1 sm:inline-flex sm:gap-0">
-          {TABS.map((t) => {
-            const active = t.key === tab;
-            return (
-              <li key={t.key}>
-                <Link
-                  href={t.key === "pending" ? "/research" : `/research?tab=${t.key}`}
-                  aria-current={active ? "page" : undefined}
-                  scroll={false}
-                  className={cn(
-                    "flex items-center justify-between gap-1.5 rounded-[8px] px-3 py-1.5 text-body font-medium whitespace-nowrap transition-colors sm:inline-flex sm:justify-start",
-                    active ? "bg-white text-slate-900 shadow-[0_1px_2px_rgb(15_23_42/0.08)]" : "text-slate-600 hover:text-slate-900",
-                  )}
-                >
-                  {t.label}
-                  <span className={cn("num rounded-full px-1.5 text-meta", t.key === "pending" && counts.pending ? "bg-indigo-600 text-white" : "text-slate-500")}>
-                    {counts[t.key]}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      <ViewTabs
+        label="Research lists"
+        tabs={TABS.map((t) => ({ key: t.key, label: t.label, href: t.key === "pending" ? "/research" : `/research?tab=${t.key}`, current: t.key === tab, count: counts[t.key] }))}
+      />
 
       {tab === "pending" ? (
         board.pending.length ? (

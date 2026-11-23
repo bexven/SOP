@@ -18,11 +18,11 @@ export const metadata: Metadata = { title: "Products · Board" };
 const CLOSED_LIMIT = 8;
 
 const STAGE_TAG: Record<ProductStage, string> = {
-  RESEARCH: "bg-sky-600",
+  RESEARCH: "bg-sky-700",
   REVIEW: "bg-indigo-600",
   CREATIVE: "bg-violet-600",
-  READY_TO_LAUNCH: "bg-amber-600",
-  LIVE: "bg-emerald-600",
+  READY_TO_LAUNCH: "bg-amber-700",
+  LIVE: "bg-emerald-700",
   COMPLETED: "bg-slate-500",
   KILLED: "bg-rose-600",
 };

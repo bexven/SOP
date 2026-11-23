@@ -12,11 +12,11 @@ export type GroupTone = "slate" | "rose" | "amber" | "violet" | "sky" | "emerald
 const TONE: Record<GroupTone, string> = {
   slate: "bg-slate-500",
   rose: "bg-rose-600",
-  amber: "bg-amber-500",
+  amber: "bg-amber-700",
   violet: "bg-violet-600",
-  sky: "bg-sky-600",
-  emerald: "bg-emerald-600",
-  orange: "bg-orange-500",
+  sky: "bg-sky-700",
+  emerald: "bg-emerald-700",
+  orange: "bg-orange-700",
   indigo: "bg-indigo-600",
 };
 

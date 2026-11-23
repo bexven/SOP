@@ -21,7 +21,7 @@ function todayDhaka() {
 const d = (day: string) => formatDate(new Date(`${day}T00:00:00Z`));
 
 const STATE_PILL: Record<ShipmentState, string> = {
-  arrived: "bg-emerald-600 text-white ring-emerald-600",
+  arrived: "bg-emerald-700 text-white ring-emerald-700",
   late: "bg-rose-50 text-rose-700 ring-rose-200",
   in_transit: "bg-sky-50 text-sky-800 ring-sky-200",
   ordered: "bg-slate-50 text-slate-700 ring-slate-200",
@@ -113,8 +113,8 @@ export function ShipmentBoard({ board, canManage }: { board: Board; canManage: b
                 aria-checked={filter === k}
                 onClick={() => setFilter(k)}
                 className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-meta whitespace-nowrap ring-1 transition-colors ring-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  filter === k ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
+                  "inline-flex cursor-pointer items-center gap-1.5 rounded-[6px] px-2.5 py-1 text-meta whitespace-nowrap ring-1 transition-colors ring-inset focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  filter === k ? "bg-accent text-accent-foreground ring-indigo-200" : "bg-white text-slate-700 ring-[var(--line)] hover:bg-hover",
                 )}
               >
                 {label} <span className="num">{counts[k]}</span>

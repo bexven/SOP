@@ -13,6 +13,7 @@ import { addProviderAction, saveAccountAction, setFundPaidAction } from "@/lib/s
 import type { AdBudget } from "@/lib/server/queries/ad-budget";
 import { cn } from "@/lib/utils";
 import { FundDialog } from "./fund-dialog";
+import { ViewTabs } from "@/components/common/list-view";
 import { useNavRouter } from "@/components/shell/nav-progress";
 
 export type Tab = "overview" | "spend" | "history" | "accounts";
@@ -29,33 +30,19 @@ export function AdBudgetView({ data, tab, canManage }: { data: AdBudget; tab: Ta
   const router = useNavRouter();
   const go = (t: Tab, month = data.month) => router.push(`/ad-budget?tab=${t}&month=${month}`, { scroll: false });
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label="Ad budget" className="no-scrollbar relative flex max-w-full gap-1 overflow-x-auto rounded-control bg-slate-900/[0.04] p-1">
-          {(
-            [
-              ["overview", "Overview"],
-              ["spend", "Ad spend"],
-              ["history", "History"],
-              ["accounts", "Accounts"],
-            ] as const
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              role="tab"
-              aria-selected={tab === k}
-              onClick={() => go(k)}
-              className={cn(
-                "cursor-pointer rounded-[8px] px-3.5 py-1.5 text-body whitespace-nowrap transition-colors duration-150",
-                tab === k ? "bg-white font-medium text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {tab === "overview" ? <MonthSwitcher month={data.month} onChange={(m) => go(tab, m)} /> : null}
-      </div>
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
+      <ViewTabs
+        label="Ad budget"
+        tabs={(
+          [
+            ["overview", "Overview"],
+            ["spend", "Ad spend"],
+            ["history", "History"],
+            ["accounts", "Accounts"],
+          ] as const
+        ).map(([k, label]) => ({ key: k, label, href: `/ad-budget?tab=${k}&month=${data.month}`, current: tab === k }))}
+        right={tab === "overview" ? <MonthSwitcher month={data.month} onChange={(m) => go(tab, m)} /> : undefined}
+      />
       {tab === "overview" ? <Overview data={data} canManage={canManage} /> : null}
       {tab === "spend" ? <Spend data={data} /> : null}
       {tab === "history" ? <History data={data} /> : null}

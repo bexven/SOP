@@ -38,9 +38,9 @@ type Scope = "all" | "mine" | "created";
 /** ClickUp-style status tags (solid colour, white small caps). */
 const COLUMN_TONE: Record<ManualTaskStatus, string> = {
   TODO: "bg-slate-500",
-  IN_PROGRESS: "bg-sky-600",
+  IN_PROGRESS: "bg-sky-700",
   IN_REVIEW: "bg-violet-600",
-  DONE: "bg-emerald-600",
+  DONE: "bg-emerald-700",
 };
 
 function StatusTag({ status }: { status: ManualTaskStatus }) {
@@ -326,16 +326,17 @@ function Column({
         </Button>
       </div>
       <SortableContext items={sorted.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <ul ref={setNodeRef} className="grid min-h-24 content-start gap-2">
+        {/* Not a <ul>: each card is a draggable button, which a list item can't be. */}
+        <div ref={setNodeRef} className="grid min-h-24 content-start gap-2">
           {sorted.map((t) => (
             <SortableCard key={t.id} task={t} canDrag={canEditManualTask(viewer, t)} onOpen={() => onOpen(t.id)} />
           ))}
           {sorted.length === 0 ? (
-            <li className="rounded-control border border-dashed border-slate-300/80 px-3 py-4 text-center text-meta font-normal text-slate-500">
+            <p className="rounded-control border border-dashed border-slate-300/80 px-3 py-4 text-center text-meta font-normal text-slate-500">
               {status === "TODO" ? "Nothing to do. Add a task with +." : "Drag a card here."}
-            </li>
+            </p>
           ) : null}
-        </ul>
+        </div>
       </SortableContext>
     </section>
   );
@@ -344,7 +345,7 @@ function Column({
 function SortableCard({ task, canDrag, onOpen }: { task: ManualTaskDTO; canDrag: boolean; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, disabled: !canDrag });
   return (
-    <li
+    <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(isDragging && "[&>*]:bg-slate-100 [&>*]:shadow-none")}
@@ -358,7 +359,7 @@ function SortableCard({ task, canDrag, onOpen }: { task: ManualTaskDTO; canDrag:
       }}
     >
       <Card task={task} />
-    </li>
+    </div>
   );
 }
 

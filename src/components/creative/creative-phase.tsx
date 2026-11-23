@@ -26,8 +26,8 @@ type Col = "todo" | "review" | "revision" | "approved";
 const COLS: { key: Col; title: string; dot: string; empty: string }[] = [
   { key: "todo", title: "To do", dot: "bg-slate-500", empty: "Nothing to start" },
   { key: "review", title: "In review", dot: "bg-violet-600", empty: "Nothing waiting for review" },
-  { key: "revision", title: "Needs changes", dot: "bg-orange-500", empty: "No changes asked" },
-  { key: "approved", title: "Approved", dot: "bg-emerald-600", empty: "Nothing approved yet" },
+  { key: "revision", title: "Needs changes", dot: "bg-orange-700", empty: "No changes asked" },
+  { key: "approved", title: "Approved", dot: "bg-emerald-700", empty: "Nothing approved yet" },
 ];
 const STRIPE: Record<Col, string> = { todo: "before:bg-slate-300", review: "before:bg-indigo-500", revision: "before:bg-rose-500", approved: "before:bg-emerald-500" };
 const GROUP_LABEL = { website: "Website images", metaAds: "Meta ads", videos: "Video" } as const;

@@ -80,21 +80,38 @@ src/components/    ui/ (primitives), common/, shell/, auth/, team/, settings/, �
 src/generated/     Prisma client (generated, git-ignored)
 ```
 
-## Design system
-- Light only. Glass (`glass`, `glass-strong` utilities) for the app frame and floating layers only:
-  sidebar, top bar, dialogs, sheets, popovers, toasts, command palette. Never stack more than 2–3 blurred
-  layers; never blur table rows or list items.
-- Dense data sits on solid white (`surface` utility); hover lift uses `raised`.
-- Write only the standard `backdrop-filter` property in CSS — the build adds the `-webkit-` prefix.
-  (Writing both makes the minifier keep only the prefixed one, which Chromium ignores.)
-- Type scale utilities: `text-page` (24/600), `text-section` (15/600), `text-body` (14), `text-meta` (12/500).
-  Numbers, prices, dates and IDs use the `num` utility (Geist Mono, tabular-nums).
-- Radius: `rounded-panel` (14px) for cards/panels, `rounded-control` (10px) for inputs/buttons, full for pills.
-- Stage colours: Research sky · Creative violet · Ready to Launch amber · Live emerald · Completed slate ·
-  Killed rose. Priority: Urgent rose · High orange · Medium amber · Low slate. Pills are soft tints with
-  darker same-hue text (`Pill` component), never solid saturated blocks.
-- Motion 150–250 ms ease-out; respect `prefers-reduced-motion`. Skeletons, not spinners, for page content.
-- Every empty state says what will appear and what to do next. WCAG AA contrast, visible focus.
+## Design system (ClickUp-style redesign, Nov 2026 — supersedes the old "glass" look)
+- **White workspace, light grey sidebar (`bg-sidebar`), one purple accent** `--primary #6b4fe0` (Tailwind `indigo-*` is remapped
+  to the same purple in `globals.css`, so old `indigo-*` classes follow). Product pages no longer take the brand colour
+  (`BRAND_THEMED_PAGES = false` in `brand-color.ts`); brand shows as a coloured square dot (`BrandPill`).
+- `glass` / `glass-strong` are now **solid white + soft shadow, no blur** (names kept for menus, dialogs, toasts). `surface` =
+  white + thin border (`--line #e8eaed`), no shadow. Row hover `bg-hover`. Canvas is plain white (no colour blobs).
+- Type: `text-page` 20/600, `text-section` 14/600, `text-body` 14, `text-meta` 12/500. `num` = tabular figures in the normal font.
+- Radius: `rounded-panel` 10px, `rounded-control` 8px; tags `rounded-[5px]`.
+- **Status / stage / campaign = small-caps tags** (`TAG` in `pills.tsx`); group / column headers = solid tags with white text using
+  **700 shades** (AA). **Priority = coloured flag + word**, **due = quiet text** (rose when overdue, amber today), **margin = coloured
+  text**. Colour only for status and real warnings.
+- Shared pieces in `components/common/list-view.tsx`: `ListGroup` (collapsible `<details>` group + count), `ListColumns`, `ListRow`
+  (dense clickable row; `tone="danger"` = rose left bar), `StatStrip`, `BoardColumn`, `ViewTabs` (underlined view / section tabs).
+  `PropertyRow` + `PROP_CONTROL` (`common/property-row.tsx`) for task-window properties.
+- Motion 150–250 ms ease-out; respect `prefers-reduced-motion`. Skeletons, not spinners. Every empty state says what will appear
+  and what to do next. WCAG AA contrast (axe: 0 violations on every page), visible focus.
+
+## Redesign layout (Nov 2026)
+- **Shell** (`app/(app)/layout.tsx`, `NAV_LAYOUT = "sidebar"`; `"top"` brings back the old top menu): collapsible left sidebar
+  (`shell/sidebar.tsx`: Home · Work · Products · Admin; collapsed state in cookie `sop_sidebar`), slim header with breadcrumb,
+  search, alerts and profile (`shell/app-header.tsx`), and a **bottom tab bar on phones** (Home · Creative · Tasks · Products · More).
+  "Dashboard" is labelled **Home**.
+- **Home** = **My Work** (grouped dense list: Overdue · Waiting for my review · Needs changes · Due today · Upcoming · Unassigned ·
+  Test orders · Tasks board) with a stat strip; Admins also get **Team** (`?tab=team`): products in progress grouped by step
+  (list) or the grid view. Old `?show=` / `?view=` links open Team.
+- **Creative**: Mine / Everyone tabs (`?who=`, makers default to Mine) and Board / List (`?view=`). **Tasks board**: Board / List
+  (list grouped by status, "+ Add task" per group). **Products** (`/products`) and **Pipeline** (`/pipeline`) are its List and
+  Board views (`ProductViewTabs`).
+- **Task windows** (creative `task-dialog.tsx`, Tasks board `manual-task-dialog.tsx`): ClickUp size (`max-w-6xl`), breadcrumb,
+  big title, property grid, work left, **Activity** (comments) right; bottom sheet on phones.
+- **Product page**: compact header + one-line property bar, lighter stepper, underlined phase tabs; on very wide screens (2xl) the
+  creative tab shows brief / website / resources beside the board, otherwise above it.
 
 ## Gotchas learned the hard way
 - Horizontal scroll containers must be `relative`: `sr-only` text inside them is `position:absolute`
@@ -107,7 +124,7 @@ src/generated/     Prisma client (generated, git-ignored)
 - A `"use server"` file may only export async functions.
 
 ## Owner's redesign (after first test) — supersedes the brief where they differ
-- **Top menu bar**, no sidebar. Items: Dashboard · Research (researcher/admin) · Creative (designers,
+- (Superseded Nov 2026 by the sidebar redesign — see "Redesign layout".) **Top menu bar**, no sidebar. Items: Dashboard · Research (researcher/admin) · Creative (designers,
   editor, media buyer, admin) · Pipeline · Products · Admin ▾ (Overview, Team, Settings). Labels + hints. (Round 9: Settings moved to the profile menu.)
   (Nov 2026: Products ▾ groups Products · Pipeline · Orders; Products ▾ / Admin ▾ / profile menus open on hover.)
 - **No slide-over panel.** Products open as a full page `/products/[id]` (back link + breadcrumb);
