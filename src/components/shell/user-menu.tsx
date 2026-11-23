@@ -20,7 +20,7 @@ export function UserMenu({ user, canSettings = false }: { user: { name: string; 
   const { open, setOpen, hover } = useHoverMenu();
   return (
     <HoverDropdown open={open} setOpen={setOpen}>
-      <DropdownMenuTrigger {...hover} className="flex cursor-pointer items-center gap-2 rounded-control p-1 pr-1.5 text-left transition-colors outline-none hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-indigo-500/40 data-[state=open]:bg-white/70">
+      <DropdownMenuTrigger {...hover} className="flex cursor-pointer items-center gap-2 rounded-control p-1 pr-1.5 text-left transition-colors outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-indigo-500/40 data-[state=open]:bg-hover">
         <UserAvatar name={user.name} color={user.avatarColor} imageId={user.avatarAssetId} size="sm" />
         <span className="hidden max-w-[7rem] truncate text-body font-medium text-slate-900 xl:inline">{user.name}</span>
         <ChevronDownIcon className={cn("hidden size-3.5 text-slate-500 transition-transform duration-200 ease-out motion-reduce:transition-none sm:block", open && "rotate-180")} />

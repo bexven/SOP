@@ -14,7 +14,7 @@ export function BackLink({ fallback, label = "Back" }: { fallback: string; label
         if (internal && window.history.length > 1) router.back();
         else router.push(fallback);
       }}
-      className="-ml-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body text-slate-600 transition-colors hover:bg-white/70 hover:text-slate-900"
+      className="-ml-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body text-slate-600 transition-colors hover:bg-hover hover:text-slate-900"
     >
       <ArrowLeftIcon className="size-4" /> {label}
     </button>

@@ -61,8 +61,14 @@ export function brandText(hex: string): string {
 }
 
 /** CSS variables that re-theme every primary button / focus ring inside an element. */
+/**
+ * Product pages used to take on their brand's colour. The ClickUp-style redesign keeps one accent colour
+ * everywhere (brand shows as a coloured dot), so this returns nothing unless `BRAND_THEMED_PAGES` is turned on.
+ */
+export const BRAND_THEMED_PAGES = false;
+
 export function brandThemeStyle(hex: string | null | undefined): CSSProperties | undefined {
-  if (!hex || !HEX_COLOR.test(hex)) return undefined;
+  if (!BRAND_THEMED_PAGES || !hex || !HEX_COLOR.test(hex)) return undefined;
   const solid = brandSolid(hex);
   const vars: Record<string, string> = {
     "--primary": solid,

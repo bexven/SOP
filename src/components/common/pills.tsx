@@ -1,4 +1,5 @@
-import { CheckIcon, ClockIcon, LockIcon, RotateCcwIcon, SendIcon, XIcon } from "lucide-react";
+import { CalendarIcon, CheckIcon, FlagIcon, LockIcon, RotateCcwIcon, SendIcon, XIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { CampaignStatus, Priority, ProductStage, TaskStatus } from "@/generated/prisma/enums";
 import { dueBucket, dueLabel } from "@/lib/domain/due";
 import {
@@ -9,7 +10,7 @@ import {
 } from "@/lib/domain/labels";
 import type { MarginBand } from "@/lib/domain/margin";
 import { Pill, type PillTone } from "./pill";
-import { brandText, brandTint, HEX_COLOR } from "@/lib/brand-color";
+import { HEX_COLOR } from "@/lib/brand-color";
 
 export const STAGE_TONE: Record<ProductStage, PillTone> = {
   RESEARCH: "sky",
@@ -32,40 +33,51 @@ export const STAGE_DOT: Record<ProductStage, string> = {
   KILLED: "bg-rose-500",
 };
 
+/** Status-like tags read as ClickUp statuses: small caps, bold. */
+const TAG = "h-[18px] px-1.5 text-[10.5px] font-semibold tracking-[0.03em] uppercase";
+
 export function StagePill({ stage, className }: { stage: ProductStage; className?: string }) {
   return (
-    <Pill tone={STAGE_TONE[stage]} className={className}>
+    <Pill tone={STAGE_TONE[stage]} className={cn(TAG, className)}>
       <span className={`size-1.5 rounded-full ${STAGE_DOT[stage]}`} aria-hidden />
       {STAGE_LABELS[stage]}
     </Pill>
   );
 }
 
-const PRIORITY_TONE: Record<Priority, PillTone> = { URGENT: "rose", HIGH: "orange", MEDIUM: "amber", LOW: "slate" };
+const PRIORITY_FLAG: Record<Priority, string> = {
+  URGENT: "fill-rose-600 text-rose-600",
+  HIGH: "fill-orange-500 text-orange-500",
+  MEDIUM: "fill-sky-500 text-sky-500",
+  LOW: "fill-slate-300 text-slate-400",
+};
 
+/** ClickUp-style priority: a coloured flag and the word, no box. */
 export function PriorityPill({ priority, className }: { priority: Priority; className?: string }) {
   return (
-    <Pill tone={PRIORITY_TONE[priority]} className={className}>
+    <span className={cn("inline-flex h-5 items-center gap-1 text-meta whitespace-nowrap text-slate-600", className)}>
+      <FlagIcon className={cn("size-3.5", PRIORITY_FLAG[priority])} aria-hidden />
       {PRIORITY_LABELS[priority]}
-    </Pill>
+    </span>
   );
 }
 
 const DUE_TITLE = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
 
+/** Due date as quiet text: red only when overdue, amber when due today. */
 export function DuePill({ dueAt, className }: { dueAt: string | Date | null; className?: string }) {
   if (!dueAt) return null;
   const due = typeof dueAt === "string" ? new Date(dueAt) : dueAt;
   const now = new Date();
   const bucket = dueBucket(due, now);
-  const tone: PillTone = bucket === "overdue" ? "rose" : bucket === "today" ? "amber" : "slate";
+  const tone = bucket === "overdue" ? "text-rose-700" : bucket === "today" ? "text-amber-700" : "text-slate-600";
   return (
-    <Pill tone={tone} className={className} suppressHydrationWarning title={DUE_TITLE.format(due)}>
-      <ClockIcon aria-hidden />
-      <span className="num text-[11px]" suppressHydrationWarning>
+    <span className={cn("inline-flex h-5 items-center gap-1 text-meta whitespace-nowrap", tone, className)} suppressHydrationWarning title={DUE_TITLE.format(due)}>
+      <CalendarIcon className="size-3.5" aria-hidden />
+      <span className="num" suppressHydrationWarning>
         {dueLabel(due, now)}
       </span>
-    </Pill>
+    </span>
   );
 }
 
@@ -98,7 +110,7 @@ export function TaskStatusPill({
 }) {
   const Icon = STATUS_ICON[status];
   return (
-    <Pill tone={STATUS_TONE[status]} className={className}>
+    <Pill tone={STATUS_TONE[status]} className={cn(TAG, className)}>
       {Icon ? <Icon /> : <span className="size-1.5 rounded-full border border-slate-400" aria-hidden />}
       {label ?? TASK_STATUS_LABELS[status]}
     </Pill>
@@ -114,10 +126,14 @@ const CAMPAIGN_TONE: Record<CampaignStatus, PillTone> = {
 };
 
 export function CampaignPill({ status }: { status: CampaignStatus }) {
-  return <Pill tone={CAMPAIGN_TONE[status]}>{CAMPAIGN_STATUS_LABELS[status]}</Pill>;
+  return (
+    <Pill tone={CAMPAIGN_TONE[status]} className={TAG}>
+      {CAMPAIGN_STATUS_LABELS[status]}
+    </Pill>
+  );
 }
 
-const BAND_TONE: Record<MarginBand, PillTone> = { healthy: "emerald", ok: "amber", thin: "rose" };
+const BAND_TEXT: Record<MarginBand, string> = { healthy: "text-emerald-700", ok: "text-amber-700", thin: "text-rose-700" };
 const BAND_LABEL: Record<MarginBand, string> = { healthy: "Healthy", ok: "OK", thin: "Thin" };
 
 export function MarginBadge({
@@ -131,27 +147,20 @@ export function MarginBadge({
 }) {
   if (!pct || !band) return null;
   return (
-    <Pill tone={BAND_TONE[band]} className={className} title={`${BAND_LABEL[band]} margin`}>
-      <span className="num text-[11px]">{pct}%</span>
-      <span className="sr-only"> margin, {BAND_LABEL[band]}</span>
-    </Pill>
+    <span className={cn("num inline-flex h-5 items-center text-meta", BAND_TEXT[band], className)} title={`${BAND_LABEL[band]} margin`}>
+      {pct}%<span className="sr-only"> margin, {BAND_LABEL[band]}</span>
+    </span>
   );
 }
 
+/** Brand as a coloured dot and its name (ClickUp "space" style), not a coloured box. */
 export function BrandPill({ brand, className }: { brand: { name: string; color: string } | null | undefined; className?: string }) {
   if (!brand) return null;
   const valid = HEX_COLOR.test(brand.color);
   return (
-    <Pill
-      tone="slate"
-      className={`font-semibold ${className ?? ""}`}
-      style={
-        valid
-          ? ({ backgroundColor: brandTint(brand.color), color: brandText(brand.color), "--tw-ring-color": `${brand.color}40` } as React.CSSProperties)
-          : undefined
-      }
-    >
+    <span className={cn("inline-flex h-5 items-center gap-1.5 text-meta whitespace-nowrap text-slate-700", className)}>
+      <span className="size-2 shrink-0 rounded-[3px]" style={{ backgroundColor: valid ? brand.color : "#94a3b8" }} aria-hidden />
       {brand.name}
-    </Pill>
+    </span>
   );
 }

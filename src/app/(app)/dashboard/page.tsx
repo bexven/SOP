@@ -4,8 +4,9 @@ import { AddProductButton } from "@/components/research/add-product-button";
 import { canAddProduct, canAddRunningProduct } from "@/lib/domain/resources";
 import { getBrands } from "@/lib/server/queries/product";
 import Link from "next/link";
-import { AlertTriangleIcon, ArrowRightIcon, ClockIcon, FlaskConicalIcon, EyeIcon, InboxIcon, KanbanSquareIcon, ListTodoIcon, RotateCcwIcon } from "lucide-react";
-import { BrandPill, DuePill, PriorityPill } from "@/components/common/pills";
+import { InboxIcon, ListChecksIcon, UsersIcon } from "lucide-react";
+import { ListGroup, ListRow, StatStrip } from "@/components/common/list-view";
+import { DuePill, PriorityPill } from "@/components/common/pills";
 import { Thumbnail } from "@/components/common/thumbnail";
 import { canPlaceTestOrder, testOrderState } from "@/lib/domain/orders";
 import { formatDate } from "@/lib/format";
@@ -24,25 +25,24 @@ import { filterRows, PIP_FILTERS, ProductsInProgress, type PipFilter } from "@/c
 import { AutoRefresh } from "@/components/common/auto-refresh";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Home" };
 
 const HELP: Record<string, string> = {
-  RESEARCHER: "Research new products and submit them. Your drafts and any products sent back to you are below.",
-  IMAGE_DESIGNER: "Your image tasks. Tick “ready” on each one, add the links and send it to a Senior for review.",
-  VIDEO_EDITOR: "Your video tasks. Tick “ready” on each one, add the video links and send it to a Senior for review.",
-  MEDIA_BUYER: "Work waiting for your review, plus your own tasks like writing briefs and launching campaigns.",
-  REVIEWER: "Products waiting for your approval and creative work waiting for review.",
+  RESEARCHER: "your drafts and anything sent back to you.",
+  IMAGE_DESIGNER: "your image tasks: add the links, then send each one for review.",
+  VIDEO_EDITOR: "your video tasks: add the links, then send each one for review.",
+  MEDIA_BUYER: "work waiting for your review, plus briefs and launches.",
+  REVIEWER: "products waiting for approval and creative work to review.",
   ADMIN: "Every product in progress and who it's waiting on, then your own tasks and anything that needs a decision.",
-  CUSTOMER_SUPPORT: "Tasks the team gives you on the Tasks board, with due times. You'll get a reminder before each one is due.",
-  OFFICE_SECRETARY: "Tasks the team gives you on the Tasks board, with due times. You'll get a reminder before each one is due.",
-  SUPPLY_CHAIN: "Test orders to place and test units on their way, then any tasks the team gives you.",
+  ADMIN_MINE: "reviews, unassigned work and your own tasks.",
+  CUSTOMER_SUPPORT: "tasks from the Tasks board, with due times.",
+  OFFICE_SECRETARY: "tasks from the Tasks board, with due times.",
+  SUPPLY_CHAIN: "test orders to place, units on their way and your tasks.",
 };
 
 function hour() {
   return Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", hour: "numeric", hour12: false }).format(new Date()));
 }
-
-type Tile = { label: string; value: number; icon: typeof ListTodoIcon; tone: string; href: string | null; alert?: boolean };
 
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const user = await requireUser();
@@ -66,35 +66,36 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const show = (PIP_FILTERS.find((f) => f.key === sp.show)?.key ?? "all") as PipFilter;
   const pipCounts = Object.fromEntries(PIP_FILTERS.map((f) => [f.key, filterRows(running, f.key).length])) as Record<PipFilter, number>;
 
-  // Admin: whole-team numbers (each opens the matching filter). Everyone else: their own queue (each jumps to its list).
-  const tiles: Tile[] = team
+  const tab: "mine" | "team" = isAdmin && (sp.tab === "team" || typeof sp.show === "string" || typeof sp.view === "string") ? "team" : "mine";
+  const stats = team && tab === "team"
     ? [
-        { label: "Pending tasks", value: team.pending, icon: ListTodoIcon, tone: "text-slate-600", href: "/dashboard#products-in-progress" },
-        { label: "Overdue", value: team.overdue, icon: AlertTriangleIcon, tone: "text-rose-600", href: "/dashboard?show=overdue#products-in-progress", alert: true },
-        { label: "Due today", value: team.today, icon: ClockIcon, tone: "text-amber-600", href: null },
-        { label: "Needs changes", value: team.revision, icon: RotateCcwIcon, tone: "text-rose-600", href: "/dashboard?show=revision#products-in-progress" },
-        { label: "Waiting for review", value: team.review, icon: EyeIcon, tone: "text-indigo-600", href: "/dashboard?show=review#products-in-progress" },
+        { label: "open tasks", value: team.pending },
+        { label: "overdue", value: team.overdue, tone: "danger" as const, href: "/dashboard?tab=team&show=overdue" },
+        { label: "due today", value: team.today, tone: "warn" as const },
+        { label: "need changes", value: team.revision, tone: "warn" as const, href: "/dashboard?tab=team&show=revision" },
+        { label: "waiting for review", value: team.review, tone: "accent" as const, href: "/dashboard?tab=team&show=review" },
       ]
     : [
-        { label: "My pending tasks", value: mine, icon: ListTodoIcon, tone: "text-slate-600", href: mine ? "#my-work" : null },
-        { label: "Overdue", value: q.overdue.length, icon: AlertTriangleIcon, tone: "text-rose-600", href: q.overdue.length ? "#q-overdue" : null, alert: true },
-        { label: "Due today", value: q.today.length, icon: ClockIcon, tone: "text-amber-600", href: q.today.length ? "#q-today" : null },
-        { label: "Needs changes", value: q.revision.length, icon: RotateCcwIcon, tone: "text-rose-600", href: q.revision.length ? "#q-revision" : null },
-        ...(senior
-          ? [{ label: "Waiting for my review", value: q.review.length, icon: EyeIcon, tone: "text-indigo-600", href: q.review.length ? "#q-review" : null }]
-          : []),
+        { label: "my open tasks", value: mine },
+        { label: "overdue", value: q.overdue.length, tone: "danger" as const, href: q.overdue.length ? "#q-overdue" : undefined },
+        { label: "due today", value: q.today.length, tone: "warn" as const, href: q.today.length ? "#q-today" : undefined },
+        { label: "need changes", value: q.revision.length, tone: "warn" as const, href: q.revision.length ? "#q-revision" : undefined },
+        ...(senior ? [{ label: "to review", value: q.review.length, tone: "accent" as const, href: q.review.length ? "#q-review" : undefined }] : []),
+        ...(testOrders.length ? [{ label: "test orders", value: testOrders.length, href: "#q-tests" }] : []),
+        ...(boardTasks.length ? [{ label: "board tasks", value: boardTasks.length, href: "#q-board" }] : []),
       ];
 
   return (
     <>
       <AutoRefresh seconds={30} />
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-meta text-slate-500">{ROLE_LABELS[user.jobRole]}{user.isMaster ? " · Master Admin" : user.adminAccess ? " · Admin access" : ""}</p>
-          <h1 className="text-page text-slate-900">
-            {greeting}, {user.name}
-          </h1>
-          <p className="mt-1 max-w-2xl text-body text-slate-600">{isAdmin ? HELP.ADMIN : HELP[user.jobRole]}</p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-page text-slate-900">Home</h1>
+          <p className="mt-0.5 text-meta font-normal text-slate-500">
+            {greeting}, {user.name} · {ROLE_LABELS[user.jobRole]}
+            {user.isMaster ? " · Master Admin" : user.adminAccess ? " · Admin access" : ""}
+            <span className="hidden md:inline"> — {tab === "team" ? "every product in progress and who it's waiting on." : (isAdmin ? HELP.ADMIN_MINE : HELP[user.jobRole])}</span>
+          </p>
         </div>
         {canAddProduct(user) ? (
           <Suspense>
@@ -103,36 +104,36 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         ) : null}
       </div>
 
-      <section aria-label={team ? "Whole team right now" : "My work right now"} className="mb-8">
-        <p className="mb-2 text-meta font-normal text-slate-500">{team ? "Whole team, right now" : "Your work, right now"} · updates every 30 seconds</p>
-        <div className={cn("grid grid-cols-2 gap-3 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2", tiles.length === 5 ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4")}>
-          {tiles.map((t) => {
-            const body = (
-              <>
-                <span className="flex items-center gap-2 text-meta text-slate-600">
-                  <t.icon className={cn("size-4", t.tone)} /> {t.label}
-                </span>
-                <span className={cn("num mt-2 block text-[28px] leading-none font-semibold tracking-tight", t.alert && t.value > 0 ? "text-rose-700" : "text-slate-900")}>
-                  {t.value}
-                </span>
-              </>
-            );
-            return t.href ? (
-              <Link key={t.label} href={t.href} scroll={false} className="surface raised-hover block rounded-panel p-4">
-                {body}
-              </Link>
-            ) : (
-              <div key={t.label} className="surface rounded-panel p-4">
-                {body}
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {isAdmin ? (
+        <nav aria-label="Home views" className="mb-4 flex gap-5 border-b border-[var(--line)]">
+          {(
+            [
+              ["mine", "My Work", "/dashboard", ListChecksIcon],
+              ["team", "Team", "/dashboard?tab=team", UsersIcon],
+            ] as const
+          ).map(([k, label, href, Icon]) => (
+            <Link
+              key={k}
+              href={href}
+              scroll={false}
+              aria-current={tab === k ? "page" : undefined}
+              className={cn(
+                "-mb-px inline-flex items-center gap-1.5 border-b-2 px-0.5 pb-2 text-body font-medium transition-colors",
+                tab === k ? "border-primary text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800",
+              )}
+            >
+              <Icon className="size-4" aria-hidden /> {label}
+              {k === "team" ? <span className="num text-meta font-normal text-slate-500">{running.length}</span> : null}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
 
-      {isAdmin ? <ProductsInProgress rows={running} filter={show} counts={pipCounts} view={sp.view === "grid" ? "grid" : "list"} /> : null}
-      {isAdmin && total ? <h2 className="mb-3 text-section text-slate-900">Needs you</h2> : null}
-      {total === 0 && !(isAdmin && running.length) ? (
+      <StatStrip items={stats} />
+
+      {tab === "team" ? (
+        <ProductsInProgress rows={running} filter={show} counts={pipCounts} view={sp.view === "grid" ? "grid" : "list"} />
+      ) : total === 0 ? (
         <EmptyState
           icon={InboxIcon}
           title="You're all caught up"
@@ -150,7 +151,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           }
         />
       ) : (
-        <div id="my-work" className="grid scroll-mt-24 gap-6">
+        <div id="my-work">
           <QueueGroup group="overdue" items={q.overdue} />
           <QueueGroup group="review" items={q.review} showAssignee />
           <QueueGroup group="revision" items={q.revision} />
@@ -158,80 +159,63 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <QueueGroup group="upcoming" items={q.upcoming} />
           <QueueGroup group="unassigned" items={q.unassigned} />
           {testOrders.length ? (
-            <section aria-labelledby="q-tests" className="grid gap-2">
-              <h2 id="q-tests" className="flex items-center gap-2 text-section text-slate-900">
-                <FlaskConicalIcon className="size-4 text-amber-600" aria-hidden /> Test orders <span className="num text-meta text-slate-500">{testOrders.length}</span>
-              </h2>
-              <ul className="grid gap-2">
-                {testOrders.map((t) => {
-                  const state = testOrderState(t, today);
-                  return (
-                    <li key={t.id}>
-                      <Link
-                        href={`/products/${t.product.id}?phase=orders`}
-                        className={cn(
-                          "surface group flex items-center gap-3 rounded-panel p-3 ring-1 transition-[box-shadow,transform] duration-150 ease-out hover:-translate-y-px hover:shadow-md sm:p-3.5 motion-reduce:hover:translate-y-0",
-                          state === "requested" ? "ring-slate-200" : state === "overdue" ? "ring-rose-200" : "ring-amber-200",
-                        )}
-                      >
-                        <Thumbnail src={t.product.imageUrl} alt="" className="size-14 rounded-control" />
-                        <span className="min-w-0 flex-1">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <BrandPill brand={t.product.brand} />
-                            <span className="truncate text-body font-semibold text-slate-900">{t.product.name}</span>
-                          </span>
-                          <span className="mt-1 block truncate text-meta text-slate-700">
-                            Test order: <span className="font-semibold text-slate-900">{t.name}</span>
-                          </span>
-                          <span
-                            className={cn(
-                              "mt-1.5 inline-flex rounded-full px-2 py-0.5 text-meta ring-1 ring-inset",
-                              state === "requested" ? "bg-slate-50 text-slate-700 ring-slate-200" : state === "overdue" ? "bg-rose-50 text-rose-700 ring-rose-200" : "bg-amber-50 text-amber-800 ring-amber-200",
-                            )}
-                          >
-                            {state === "requested"
-                              ? "Needs placing — open it and mark it as ordered"
-                              : `${state === "overdue" ? "Was expected" : "Expected"} ${t.expectedOn ? formatDate(new Date(`${t.expectedOn}T00:00:00Z`)) : ""}`}
-                          </span>
-                        </span>
-                        <ArrowRightIcon className="hidden size-4 text-slate-400 transition-transform duration-150 group-hover:translate-x-0.5 sm:block" aria-hidden />
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+            <ListGroup id="q-tests" label="Test orders" tone="amber" count={testOrders.length}>
+              {testOrders.map((t) => {
+                const state = testOrderState(t, today);
+                return (
+                  <ListRow key={t.id} href={`/products/${t.product.id}?phase=orders`} className={TEST_COLS} tone={state === "overdue" ? "danger" : undefined}>
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <Thumbnail src={t.product.imageUrl} alt="" className="size-7 rounded-[6px]" />
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-slate-900 group-hover/row:text-primary">Test order: {t.name}</span>
+                        <span className="block truncate text-meta font-normal text-slate-500">{t.product.name}</span>
+                      </span>
+                    </span>
+                    <span className={cn("text-meta", state === "requested" ? "text-slate-700" : state === "overdue" ? "text-rose-700" : "text-amber-800")}>
+                      {state === "requested"
+                        ? "Needs placing — mark it as ordered"
+                        : `${state === "overdue" ? "Was expected" : "Expected"} ${t.expectedOn ? formatDate(new Date(`${t.expectedOn}T00:00:00Z`)) : ""}`}
+                    </span>
+                  </ListRow>
+                );
+              })}
+            </ListGroup>
           ) : null}
           {boardTasks.length ? (
-            <section aria-labelledby="q-board" className="grid gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <h2 id="q-board" className="flex items-center gap-2 text-section text-slate-900">
-                  <KanbanSquareIcon className="size-4 text-slate-500" aria-hidden /> From the Tasks board <span className="num text-meta text-slate-500">{boardTasks.length}</span>
-                </h2>
+            <ListGroup
+              id="q-board"
+              label="Tasks board"
+              tone="indigo"
+              count={boardTasks.length}
+              action={
                 <Link href="/tasks" className="text-meta text-primary underline-offset-2 hover:underline">
                   Open board
                 </Link>
-              </div>
-              <ul className="surface divide-y divide-slate-100 rounded-panel">
-                {boardTasks.map((t) => (
-                  <li key={t.id}>
-                    <Link href={`/tasks?task=${t.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-slate-50">
-                      <span className="num text-meta text-slate-500">{manualTaskRef(t.number)}</span>
-                      <span className="min-w-0 flex-1 text-body font-medium [overflow-wrap:anywhere] text-slate-900">
-                        {t.title}
-                        {t.product ? <span className="ml-2 text-meta font-normal text-slate-500">{t.product.name}</span> : null}
-                      </span>
-                      <span className="text-meta text-slate-600">{MANUAL_STATUS_LABELS[t.status]}</span>
-                      {t.priority === "URGENT" || t.priority === "HIGH" ? <PriorityPill priority={t.priority} /> : null}
-                      <DuePill dueAt={t.dueAt} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
+              }
+            >
+              {boardTasks.map((t) => (
+                <ListRow key={t.id} href={`/tasks?task=${t.id}`} className={BOARD_COLS}>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-slate-900 group-hover/row:text-primary">{t.title}</span>
+                    <span className="block truncate text-meta font-normal text-slate-500">
+                      {manualTaskRef(t.number)}
+                      {t.product ? ` · ${t.product.name}` : ""}
+                    </span>
+                  </span>
+                  <span className="flex flex-wrap items-center gap-3 md:contents">
+                    <span className="text-meta text-slate-600">{MANUAL_STATUS_LABELS[t.status]}</span>
+                    <PriorityPill priority={t.priority} />
+                    <DuePill dueAt={t.dueAt} />
+                  </span>
+                </ListRow>
+              ))}
+            </ListGroup>
           ) : null}
         </div>
       )}
     </>
   );
 }
+
+const TEST_COLS = "md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]";
+const BOARD_COLS = "md:grid-cols-[minmax(0,1.6fr)_7rem_6rem_7.5rem]";

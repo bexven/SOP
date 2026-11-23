@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 
 export type PillTone = "slate" | "indigo" | "violet" | "sky" | "emerald" | "amber" | "orange" | "rose";
 
-// Soft-tinted background with darker text of the same hue (AA contrast).
+// Soft-tinted background with darker text of the same hue (AA contrast). ClickUp-style: small square-ish tags.
 const TONES: Record<PillTone, string> = {
-  slate: "bg-slate-100 text-slate-700 ring-slate-200",
+  slate: "bg-slate-100 text-slate-700 ring-slate-200/70",
   indigo: "bg-indigo-50 text-indigo-700 ring-indigo-100",
   violet: "bg-violet-50 text-violet-700 ring-violet-100",
   sky: "bg-sky-50 text-sky-800 ring-sky-100",
@@ -25,7 +25,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        "inline-flex h-5 items-center gap-1 rounded-full px-2 text-meta whitespace-nowrap ring-1 ring-inset [&_svg]:size-3",
+        "inline-flex h-5 items-center gap-1 rounded-[5px] px-1.5 text-meta whitespace-nowrap ring-1 ring-inset [&_svg]:size-3",
         TONES[tone],
         className,
       )}

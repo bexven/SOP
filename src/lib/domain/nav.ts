@@ -16,7 +16,7 @@ export type NavItem = {
 type Ctx = { isMaster: boolean };
 
 const ALL: (NavItem & { visible: (s: Subject, ctx: Ctx) => boolean })[] = [
-  { key: "dashboard", label: "Dashboard", href: "/dashboard", hint: "What's waiting on you", section: "main", visible: () => true },
+  { key: "dashboard", label: "Home", href: "/dashboard", hint: "Your work and what's waiting on you", section: "main", visible: () => true },
   {
     key: "research",
     label: "Research",

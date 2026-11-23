@@ -2,56 +2,71 @@
 @import "tw-animate-css";
 
 /*
- * Design system — light, premium, glass.
- * Glass is for the app frame and floating layers only (sidebar, top bar,
- * dialogs, sheets, popovers, toasts). Dense data sits on solid white.
+ * Design system — ClickUp-style workspace (Nov 2026 redesign).
+ * White canvas, light grey sidebar, one purple accent. Floating layers (menus, dialogs, toasts)
+ * are solid white with a soft shadow; content sits on white with thin borders. Colour is kept
+ * for status and real warnings only.
  */
 
 :root {
-  --radius: 14px;
-  --radius-control: 10px;
+  --radius: 10px;
+  --radius-control: 8px;
 
-  --canvas: #f6f7f9;
-  --background: #f6f7f9;
-  --foreground: #0f172a; /* slate-900 */
+  --canvas: #ffffff;
+  --background: #ffffff;
+  --foreground: #1f2430;
+  --sidebar: #f7f8f9;
+  --sidebar-border: #e8eaed;
+  --line: #e8eaed; /* row and panel borders */
+  --hover: #f4f5f7; /* row hover */
 
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1f2430;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #1f2430;
 
-  --primary: #4f46e5; /* indigo-600 */
+  --primary: #6b4fe0; /* ClickUp-like purple, 5.5:1 on white */
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9; /* slate-100 */
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #475569; /* slate-600 */
-  --accent: #eef2ff; /* indigo-50 */
-  --accent-foreground: #3730a3; /* indigo-800 */
-  --destructive: #e11d48; /* rose-600 */
+  --secondary: #f4f5f7;
+  --secondary-foreground: #1f2430;
+  --muted: #f4f5f7;
+  --muted-foreground: #575e6a;
+  --accent: #f1eefd;
+  --accent-foreground: #4b33b8;
+  --destructive: #e11d48;
   --destructive-foreground: #ffffff;
 
-  --border: rgb(226 232 240 / 0.7); /* slate-200/70 */
-  --input: #e2e8f0;
-  --ring: #6366f1; /* indigo-500 */
+  --border: #e8eaed;
+  --input: #dfe1e6;
+  --ring: #7b68ee;
 
-  /* Glass */
-  --glass-bg: rgb(255 255 255 / 0.62);
-  --glass-bg-strong: rgb(255 255 255 / 0.78);
-  --glass-border: rgb(255 255 255 / 0.7);
-  --glass-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.85);
-  --glass-shadow:
-    0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -6px rgb(15 23 42 / 0.08), 0 24px 48px -12px rgb(15 23 42 / 0.06);
+  /* Floating layers (kept the old "glass" names so every menu, dialog and toast follows) */
+  --glass-bg: #ffffff;
+  --glass-bg-strong: #ffffff;
+  --glass-border: #e3e5e8;
+  --glass-highlight: 0 0 #0000;
+  --glass-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px -4px rgb(15 23 42 / 0.12);
 
   /* Solid surfaces */
-  --surface-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.03);
-  --raised-shadow: 0 2px 4px rgb(15 23 42 / 0.05), 0 12px 24px -8px rgb(15 23 42 / 0.12);
+  --surface-shadow: 0 0 #0000;
+  --raised-shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 6px 16px -6px rgb(15 23 42 / 0.14);
 }
 
 /* Tertiary text: one step darker than stock slate-500 so it passes WCAG AA
    (≥ 4.5:1) on tinted glass as well as on white. */
 @theme {
   --color-slate-500: #56677e;
+  /* "indigo" is remapped to the ClickUp-style purple so every accent in the app matches --primary. */
+  --color-indigo-50: #f4f1fe;
+  --color-indigo-100: #e9e3fd;
+  --color-indigo-200: #d5cafb;
+  --color-indigo-300: #b8a8f6;
+  --color-indigo-400: #9a85f1;
+  --color-indigo-500: #7b68ee;
+  --color-indigo-600: #6b4fe0;
+  --color-indigo-700: #5838c8;
+  --color-indigo-800: #4629a3;
+  --color-indigo-900: #352080;
 }
 
 @theme inline {
@@ -78,6 +93,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-line: var(--line);
+  --color-hover: var(--hover);
 
   --radius-panel: var(--radius);
   --radius-control: var(--radius-control);
@@ -86,13 +104,13 @@
   --radius-lg: var(--radius-control);
   --radius-xl: var(--radius);
 
-  /* Type scale: page title 24/600, section 15/600, body 14/400, meta 12/500 */
-  --text-page: 1.5rem;
-  --text-page--line-height: 2rem;
-  --text-page--letter-spacing: -0.015em;
+  /* Type scale: page title 20/600, section 14/600, body 14/400, meta 12/500 */
+  --text-page: 1.25rem;
+  --text-page--line-height: 1.75rem;
+  --text-page--letter-spacing: -0.01em;
   --text-page--font-weight: 600;
-  --text-section: 0.9375rem;
-  --text-section--line-height: 1.375rem;
+  --text-section: 0.875rem;
+  --text-section--line-height: 1.25rem;
   --text-section--font-weight: 600;
   --text-body: 0.875rem;
   --text-body--line-height: 1.25rem;
@@ -108,21 +126,13 @@
 @utility glass {
   background-color: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-highlight), var(--glass-shadow);
-  backdrop-filter: blur(24px) saturate(1.6);
-  @supports not (backdrop-filter: blur(1px)) {
-    background-color: rgb(255 255 255 / 0.92);
-  }
+  box-shadow: var(--glass-shadow);
 }
 
 @utility glass-strong {
   background-color: var(--glass-bg-strong);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-highlight), var(--glass-shadow);
-  backdrop-filter: blur(28px) saturate(1.7);
-  @supports not (backdrop-filter: blur(1px)) {
-    background-color: rgb(255 255 255 / 0.94);
-  }
+  box-shadow: var(--glass-shadow);
 }
 
 @utility surface {
@@ -133,7 +143,6 @@
 
 @utility raised {
   box-shadow: var(--raised-shadow);
-  transform: translateY(-1px);
 }
 
 /* Horizontal scrollers on phones: swipe without a visible scrollbar. */
@@ -153,8 +162,7 @@
     border-color 180ms var(--ease-out-soft);
   &:hover {
     box-shadow: var(--raised-shadow);
-    transform: translateY(-2px);
-    border-color: rgb(148 163 184 / 0.55);
+    border-color: #d5d8de;
   }
   &:active {
     transform: translateY(0) scale(0.99);
@@ -250,13 +258,12 @@
     outline-offset: 2px;
   }
   ::selection {
-    background: rgb(99 102 241 / 0.18);
+    background: rgb(107 79 224 / 0.18);
   }
 }
 
-/* Numbers, prices, dates, IDs, metrics. */
+/* Numbers, prices, dates and IDs line up (tabular figures) in the normal font, like ClickUp. */
 @utility num {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 

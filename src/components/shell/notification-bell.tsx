@@ -67,7 +67,7 @@ export function NotificationBell() {
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) void load(); }}>
       <PopoverTrigger
-        className="relative inline-flex size-9 items-center justify-center rounded-control text-slate-700 transition-colors hover:bg-white/70"
+        className="relative inline-flex size-9 items-center justify-center rounded-control text-slate-700 transition-colors hover:bg-hover"
         aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
       >
         <BellIcon className="size-[18px]" />
@@ -99,7 +99,7 @@ export function NotificationBell() {
                 <button
                   type="button"
                   onClick={() => openItem(n)}
-                  className={cn("flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-white/70", !n.read && "bg-indigo-50/50")}
+                  className={cn("flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-hover", !n.read && "bg-indigo-50/50")}
                 >
                   {n.actor ? <UserAvatar name={n.actor.name} color={n.actor.avatarColor} imageId={n.actor.avatarAssetId} size="sm" /> : <span className="size-7 shrink-0 rounded-full bg-slate-200" />}
                   <span className="min-w-0 flex-1">
@@ -117,7 +117,7 @@ export function NotificationBell() {
         <Link
           href="/profile#alerts"
           onClick={() => setOpen(false)}
-          className="flex items-center justify-center gap-1.5 border-t border-slate-900/[0.06] px-4 py-2.5 text-meta text-indigo-700 transition-colors hover:bg-white/70"
+          className="flex items-center justify-center gap-1.5 border-t border-slate-900/[0.06] px-4 py-2.5 text-meta text-indigo-700 transition-colors hover:bg-hover"
         >
           <SmartphoneIcon className="size-3.5" /> Get alerts on your phone &amp; Telegram
         </Link>

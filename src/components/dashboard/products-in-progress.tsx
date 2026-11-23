@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRightIcon, LayoutGridIcon, ListIcon } from "lucide-react";
+import { LayoutGridIcon, ListIcon } from "lucide-react";
+import { ListColumns, ListGroup, type GroupTone } from "@/components/common/list-view";
 import { BrandPill, DuePill, StagePill, TaskStatusPill } from "@/components/common/pills";
 import { MiniStepper } from "@/components/common/stepper";
 import { Thumbnail } from "@/components/common/thumbnail";
@@ -40,12 +41,37 @@ function phaseHref(p: ProductRow) {
 
 export type PipView = "list" | "grid";
 
+const TEAM_COLS = "md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_7.5rem]";
+
+const STEP_TONE: Record<string, GroupTone> = {
+  Research: "sky",
+  "Product review": "indigo",
+  "Image creative": "violet",
+  "Video creative": "violet",
+  "Meta ads": "emerald",
+  Ordering: "orange",
+};
+
+/** Team view groups products by the step they are on, in pipeline order. */
+function groupByStep(rows: ProductRow[]) {
+  const order: string[] = [];
+  const map = new Map<string, ProductRow[]>();
+  for (const p of rows) {
+    const label = p.stepper.steps[p.stepper.index]?.label ?? "Other";
+    if (!map.has(label)) map.set(label, []);
+    map.get(label)!.push(p);
+  }
+  for (const p of rows[0]?.stepper.steps ?? []) if (map.has(p.label)) order.push(p.label);
+  for (const k of map.keys()) if (!order.includes(k)) order.push(k);
+  return order.map((label) => ({ label, tone: STEP_TONE[label] ?? ("slate" as GroupTone), rows: map.get(label)! }));
+}
+
 function hrefFor(filter: PipFilter, view: PipView) {
   const q = new URLSearchParams();
   if (filter !== "all") q.set("show", filter);
   if (view === "grid") q.set("view", "grid");
   const qs = q.toString();
-  return `/dashboard${qs ? `?${qs}` : ""}#products-in-progress`;
+  return `/dashboard?tab=team${qs ? `&${qs}` : ""}`;
 }
 
 /** "Waiting on" chips: each opens that task (sits above the card's own link). */
@@ -59,7 +85,7 @@ function WaitingChips({ p, max }: { p: ProductRow; max: number }) {
           <li key={w.id} className="min-w-0">
             <Link
               href={`/products/${p.id}?task=${w.id}`}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-white py-0.5 pr-1 pl-0.5 ring-1 ring-slate-200 transition-[box-shadow,background-color] hover:bg-slate-50 hover:shadow-sm hover:ring-slate-300"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-[6px] bg-white py-0.5 pr-1 pl-0.5 ring-1 ring-[var(--line)] transition-colors hover:bg-hover hover:ring-slate-300"
               title={`Open ${TASK_TYPE_SHORT[w.type]}${w.assignee ? ` (${w.assignee.name})` : ""}`}
             >
               {w.assignee ? (
@@ -92,10 +118,10 @@ export function ProductsInProgress({
 }) {
   const shown = filterRows(rows, filter);
   return (
-    <section aria-labelledby="pip" className="mb-8 scroll-mt-24" id="products-in-progress">
+    <section aria-labelledby="pip" className="scroll-mt-24" id="products-in-progress">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 id="pip" className="text-section text-slate-900">
-          Products in progress <span className="num text-meta text-slate-500">{rows.length}</span>
+        <h2 id="pip" className="sr-only">
+          Products in progress
         </h2>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <nav aria-label="Filter products" className="no-scrollbar relative -mx-4 flex max-w-[calc(100%+2rem)] gap-1 overflow-x-auto px-4 sm:mx-0 sm:max-w-full sm:px-0">
@@ -106,8 +132,8 @@ export function ProductsInProgress({
                 scroll={false}
                 aria-current={filter === f.key ? "page" : undefined}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-meta whitespace-nowrap ring-1 transition-colors ring-inset",
-                  filter === f.key ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300",
+                  "inline-flex items-center gap-1.5 rounded-[6px] px-2.5 py-1 text-meta whitespace-nowrap ring-1 transition-colors ring-inset",
+                  filter === f.key ? "bg-accent text-accent-foreground ring-indigo-200" : "bg-white text-slate-700 ring-[var(--line)] hover:bg-hover",
                 )}
               >
                 {f.label} <span className="num">{counts[f.key]}</span>
@@ -179,44 +205,35 @@ export function ProductsInProgress({
           ))}
         </ul>
       ) : (
-        <ul className="surface divide-y divide-slate-100 overflow-hidden rounded-panel">
-          {shown.map((p) => (
-            <li
-              key={p.id}
-              className={cn(
-                "group relative grid cursor-pointer gap-2.5 px-3 py-3 transition-colors hover:bg-slate-50/80 sm:px-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)_auto] lg:items-center lg:gap-4",
-                p.overdue && "bg-rose-50/40 hover:bg-rose-50/70",
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <Thumbnail src={p.imageUrl} alt="" />
-                <span className="min-w-0">
-                  <span className="flex items-center gap-2">
-                    <BrandPill brand={p.brand} />
-                    <Link
-                      href={phaseHref(p)}
-                      className="truncate text-body font-medium text-slate-900 outline-none after:absolute after:inset-0 group-hover:underline group-hover:underline-offset-2 focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset"
-                    >
-                      {p.name}
-                    </Link>
+        <div>
+          {groupByStep(shown).map((g) => (
+            <ListGroup key={g.label} label={g.label} tone={g.tone} count={g.rows.length} columns={<ListColumns className={TEAM_COLS}><span>Product</span><span>Waiting on</span><span>Next due</span></ListColumns>}>
+              {g.rows.map((p) => (
+                <li key={p.id} className={cn("group relative grid items-center gap-x-4 gap-y-2 px-3 py-2.5 transition-colors hover:bg-hover", TEAM_COLS, p.overdue && "shadow-[inset_3px_0_0_var(--color-rose-500)]")}>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <Thumbnail src={p.imageUrl} alt="" className="size-8 rounded-[6px]" />
+                    <span className="min-w-0">
+                      <Link
+                        href={phaseHref(p)}
+                        className="block truncate text-body font-medium text-slate-900 outline-none after:absolute after:inset-0 group-hover:text-primary focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+                      >
+                        {p.name}
+                      </Link>
+                      <span className="mt-0.5 flex items-center gap-2">
+                        <BrandPill brand={p.brand} />
+                        <MiniStepper stepper={p.stepper} />
+                      </span>
+                    </span>
+                  </div>
+                  <WaitingChips p={p} max={4} />
+                  <span className="flex items-center">
+                    <DuePill dueAt={p.nextDueAt} />
                   </span>
-                  <span className="mt-1 flex items-center gap-2">
-                    <StagePill stage={p.stage} />
-                    <MiniStepper stepper={p.stepper} />
-                    <span className="text-meta font-normal text-slate-500">{p.stepper.steps[p.stepper.index]?.label}</span>
-                  </span>
-                </span>
-              </div>
-              <WaitingChips p={p} max={5} />
-              <span className="flex items-center gap-2 justify-self-start lg:justify-self-end">
-                <DuePill dueAt={p.nextDueAt} />
-                <span aria-hidden className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-meta text-slate-700 transition-colors group-hover:bg-slate-900/[0.05] group-hover:text-slate-900">
-                  Open <ArrowRightIcon className="size-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
-                </span>
-              </span>
-            </li>
+                </li>
+              ))}
+            </ListGroup>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   );
