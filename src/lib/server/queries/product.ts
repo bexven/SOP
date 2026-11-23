@@ -1,4 +1,5 @@
 import "server-only";
+import { canEditProduct } from "@/lib/domain/product-access";
 import { overallCampaignStatus } from "@/lib/domain/campaigns";
 import { canSeeBrand, type BrandViewer } from "@/lib/domain/permissions";
 import type { ProductStage, TaskType } from "@/generated/prisma/enums";
@@ -45,7 +46,7 @@ export function laneProgress(
 }
 
 /** A product for this viewer, or null if it doesn't exist or is a restricted brand they can't see. */
-export async function getProductDetail(id: string, viewer: BrandViewer & { role?: string }) {
+export async function getProductDetail(id: string, viewer: BrandViewer & { role?: string; id?: string; permissions?: readonly string[] }) {
   const [p, thresholds] = await Promise.all([
     db.product.findUnique({
       where: { id },
@@ -113,6 +114,8 @@ export async function getProductDetail(id: string, viewer: BrandViewer & { role?
     id: p.id,
     number: p.number,
     ref: productRef(p.number),
+    /** This viewer may change the product (Admin, its media buyer, or someone with a task on it). Others view only. */
+    editable: canEditProduct({ id: viewer.id ?? "", role: viewer.role ?? "", permissions: viewer.permissions }, { mediaBuyerId: p.mediaBuyerId, assigneeIds: p.tasks.map((t) => t.assigneeId) }),
     name: p.name,
     stage: p.stage,
     stageBeforeKill: p.stageBeforeKill,

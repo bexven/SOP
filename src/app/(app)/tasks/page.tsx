@@ -16,7 +16,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   return (
     <>
       <PageHeader title="Tasks" description="Team tasks outside the product steps. Add one, assign someone, set a due time, and drag it across as it moves." />
-      <ManualBoard board={board} viewer={{ id: user.id, role: user.role }} openTaskId={taskId} startNew={sp.new === "1"} />
+      <ManualBoard board={board} viewer={{ id: user.id, role: user.role, permissions: user.permissions }} openTaskId={taskId} startNew={sp.new === "1"} />
       <AutoRefresh seconds={30} />
     </>
   );

@@ -276,6 +276,19 @@ src/generated/     Prisma client (generated, git-ignored)
   match a filter are clickable; the page opens on **All**. `Shipment.shippingPaidOn` / `arrivedOn` (Dhaka days; `flagDay()`):
   set to today by the one-tap buttons, editable in the dialog. Desktop = table, below `lg` = cards.
 
+## Round 11 (edit access, optional research checklist, new permissions)
+- **View for all, edit for assigned**: everyone who can see a product can view it; changing it needs an Admin, **Edit every
+  product** (`product.editAll`), or being **assigned** = the product's media buyer or anyone who has / had a task on it — and the
+  matching role permission. Rule in `domain/product-access.ts` (`canEditProduct`); enforced by `defineAction({ productEdit: true })`
+  (brief, resources, website link, campaigns, launch, new batch, complete, drop, send back, override, due override) and mirrored
+  in the UI by `ProductDetail.editable` (edit controls hidden, header shows "View only"). **Not edits** (stay open to anyone with
+  the permission): Senior reviews / Product review, comments, orders & test orders, shipments, the maker's own task.
+- **Research SOP checklist is optional**: `researchBlockers()` no longer counts it; `ChecklistPanel optional` shows it as a guide.
+  Creative / launch checklists keep their required items.
+- **New permissions** (unticked by default): `product.editAll` (Edit every product), `orders.placeTest` (Place test orders — Media
+  Buyers / Supply Chain still can by job role), `tasks.manageAll` (Manage all board tasks: edit / move / delete anyone's).
+  `product.override` is now labelled "Correct product details".
+
 ## Navigation feel (Nov 2026)
 - **Loading bar** (`components/shell/nav-progress.tsx`, in the app layout): starts on any same-site link click (document
   listener) or a push/replace from `useNavRouter()` (use it instead of `useRouter()` when navigating in code); finishes once

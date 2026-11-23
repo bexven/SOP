@@ -116,13 +116,11 @@ describe("research", () => {
     expect(
       researchBlockers(
         { name: "Lamp", supplierUrl: "", chinaPriceBdt: "10", weightKg: null, shippingMethod: null, sellingPriceBdt: "900" },
-        2,
       ),
-    ).toEqual(["Supplier link", "Weight (kg)", "Shipping by (Air / Sea)", "2 checklist items"]);
+    ).toEqual(["Supplier link", "Weight (kg)", "Shipping by (Air / Sea)"]);
     expect(
       researchBlockers(
         { name: "Lamp", supplierUrl: "https://x", chinaPriceBdt: "10", weightKg: "0.5", shippingMethod: "SEA", sellingPriceBdt: "900" },
-        0,
       ),
     ).toEqual([]);
   });

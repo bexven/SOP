@@ -237,7 +237,7 @@ function ReviewPhase({ product, viewer }: { product: ProductDetail; viewer: View
           productId={product.id}
           brief={product.creativeBrief}
           updatedAt={product.creativeBriefUpdatedAt}
-          canEdit={can(viewer, "brief.edit") && !isTerminalStage(product.stage)}
+          canEdit={product.editable && can(viewer, "brief.edit") && !isTerminalStage(product.stage)}
         />
       ) : null}
       <section aria-label="Research" className="grid gap-3">

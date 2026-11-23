@@ -98,7 +98,6 @@ export function ResearchForm({
   );
   const band = margin?.marginPct && rates ? marginBand(margin.marginPct, rates) : null;
 
-  const missingChecklist = checklist.filter((i) => i.required && !i.checked).length;
   const blockers = researchBlockers(
     {
       brandId: v.brandId,
@@ -108,9 +107,7 @@ export function ResearchForm({
       weightKg: v.weightKg,
       shippingMethod: v.shippingMethod,
       sellingPriceBdt: v.sellingPriceBdt,
-    },
-    missingChecklist,
-  );
+  });
 
   const payload = () => ({ productId, ...v, referenceLinks: v.referenceLinks.map((l) => l.trim()).filter(Boolean) });
 
@@ -317,7 +314,7 @@ export function ResearchForm({
             Margin settings aren&apos;t set yet. An Admin needs to fill in Settings → Rates &amp; margins.
           </div>
         )}
-        {mode === "research" ? <ChecklistPanel items={checklist} editable={editable} /> : null}
+        {mode === "research" ? <ChecklistPanel items={checklist} editable={editable} optional /> : null}
         {editable && mode === "admin" ? (
           <div className="surface sticky bottom-3 grid gap-2 rounded-panel p-3">
             <p className="text-meta font-normal text-slate-600">You&apos;re editing as Admin. Every change is logged on the timeline (old → new).</p>

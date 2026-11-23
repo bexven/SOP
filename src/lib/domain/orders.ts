@@ -117,6 +117,7 @@ export function testOrderState(
 }
 
 /** Who confirms a test order was placed (and that it arrived): Admins, Media Buyers and Supply Chain. */
-export function canPlaceTestOrder(user: { role: string; jobRole?: string | null }): boolean {
+export function canPlaceTestOrder(user: { role: string; jobRole?: string | null; permissions?: readonly string[] }): boolean {
+  if (user.permissions?.includes("orders.placeTest")) return true;
   return user.role === "ADMIN" || user.role === "MEDIA_BUYER" || user.role === "SUPPLY_CHAIN" || user.jobRole === "MEDIA_BUYER" || user.jobRole === "SUPPLY_CHAIN";
 }

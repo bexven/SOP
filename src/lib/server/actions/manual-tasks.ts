@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { ManualTaskStatus } from "@/generated/prisma/enums";
-import { canEditManualTask, completedAtFor, MANUAL_STATUS_LABELS, manualTaskRef, positionBetween } from "@/lib/domain/manual-tasks";
+import { canEditManualTask, canManageAllManualTasks, completedAtFor, MANUAL_STATUS_LABELS, manualTaskRef, positionBetween } from "@/lib/domain/manual-tasks";
 import { extractMentions } from "@/lib/domain/mentions";
 import {
   createManualTaskSchema,
@@ -141,7 +141,7 @@ export const deleteManualTaskAction = defineAction({
   run: async ({ manualTaskId }, { user }) => {
     const task = await db.$transaction(async (tx) => {
       const task = await loadTask(tx, user, manualTaskId, false);
-      if (user.role !== "ADMIN" && task.createdById !== user.id) throw new ActionError("Only the person who created it or an Admin can delete this task.");
+      if (!canManageAllManualTasks(user) && task.createdById !== user.id) throw new ActionError("Only the person who created it or an Admin can delete this task.");
       await tx.manualTask.delete({ where: { id: manualTaskId } });
       return task;
     });

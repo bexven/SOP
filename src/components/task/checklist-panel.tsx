@@ -21,17 +21,20 @@ export function ChecklistPanel({
   items,
   editable,
   className,
+  optional = false,
 }: {
   items: ChecklistItemDTO[];
   editable: boolean;
   className?: string;
+  /** Every item is a guide only (e.g. research): nothing is marked required and nothing blocks. */
+  optional?: boolean;
 }) {
   const [optimistic, setOptimistic] = useOptimistic(items, (state, change: { id: string; checked: boolean }) =>
     state.map((i) => (i.id === change.id ? { ...i, checked: change.checked } : i)),
   );
   const [, startTransition] = useTransition();
   const done = optimistic.filter((i) => i.checked).length;
-  const missing = optimistic.filter((i) => i.required && !i.checked).length;
+  const missing = optional ? 0 : optimistic.filter((i) => i.required && !i.checked).length;
 
   function toggle(id: string, checked: boolean) {
     startTransition(async () => {
@@ -53,7 +56,7 @@ export function ChecklistPanel({
     <div className={cn("rounded-control border border-slate-200/80 bg-white", className)}>
       <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
         <span className="flex items-center gap-2 text-meta text-slate-700">
-          <ListChecksIcon className="size-3.5 text-slate-500" /> SOP checklist
+          <ListChecksIcon className="size-3.5 text-slate-500" /> SOP checklist{optional ? <span className="font-normal text-slate-500">· optional, doesn&apos;t block submit</span> : null}
         </span>
         <span className={cn("num text-meta", missing === 0 ? "text-emerald-700" : "text-slate-500")}>
           {done}/{optimistic.length}
@@ -78,7 +81,7 @@ export function ChecklistPanel({
                 <span className={cn("text-body", item.checked ? "text-slate-500 line-through decoration-slate-300" : "text-slate-800")}>
                   {item.label}
                 </span>
-                {item.required ? null : <span className="ml-1.5 text-meta text-slate-500">optional</span>}
+                {item.required || optional ? null : <span className="ml-1.5 text-meta text-slate-500">optional</span>}
                 {item.checked && item.checkedBy && item.checkedAt ? (
                   <span className="block text-meta font-normal text-slate-500">
                     {item.checkedBy} · <span className="num">{formatDateTime(new Date(item.checkedAt))}</span>

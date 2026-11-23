@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { missingRequiredCount, snapshotChecklist } from "@/lib/domain/checklist";
+import { snapshotChecklist } from "@/lib/domain/checklist";
 import { dueAtFrom } from "@/lib/domain/due";
 import { TASK_TYPE_LABELS } from "@/lib/domain/labels";
 import { KILL_REASON_LABELS } from "@/lib/domain/labels";
@@ -191,7 +191,6 @@ export const submitResearchAction = defineAction({
       const task = researchTask(snap);
       if (!task || !canWorkOnTask(user, task)) throw new ActionError("Only the assigned researcher or an Admin can submit.");
 
-      const checklist = await tx.checklistItem.findMany({ where: { taskId: task.id } });
       const blockers = researchBlockers(
         {
           brandId: product.brandId,
@@ -202,7 +201,6 @@ export const submitResearchAction = defineAction({
           shippingMethod: product.shippingMethod,
           sellingPriceBdt: product.sellingPriceBdt?.toString() ?? null,
         },
-        missingRequiredCount(checklist),
       );
       if (blockers.length) throw new ActionError(`Still needed: ${blockers.join(", ")}.`);
 
@@ -349,6 +347,7 @@ export const createRunningProductAction = defineAction({
 
 /** Add an extra resource link on the Image or Video creative tab. */
 export const addResourceLinkAction = defineAction({
+  productEdit: true,
   schema: resourceLinkSchema,
   run: async ({ productId, lane, url }, { user }) => {
     if (!canEditResources(user, lane)) throw new ActionError("You can't add links on this tab.");
@@ -368,6 +367,7 @@ export const addResourceLinkAction = defineAction({
 });
 
 export const removeResourceLinkAction = defineAction({
+  productEdit: true,
   schema: resourceLinkSchema,
   run: async ({ productId, lane, url }, { user }) => {
     if (!canEditResources(user, lane)) throw new ActionError("You can't change links on this tab.");

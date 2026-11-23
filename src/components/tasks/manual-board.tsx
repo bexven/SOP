@@ -62,7 +62,7 @@ function findColumn(cols: Columns, id: string): ManualTaskStatus | null {
   return MANUAL_STATUSES.find((s) => cols[s].some((t) => t.id === id)) ?? null;
 }
 
-export function ManualBoard({ board, viewer, openTaskId, startNew }: { board: Board; viewer: { id: string; role: string }; openTaskId?: string; startNew?: boolean }) {
+export function ManualBoard({ board, viewer, openTaskId, startNew }: { board: Board; viewer: { id: string; role: string; permissions?: readonly string[] }; openTaskId?: string; startNew?: boolean }) {
   const router = useRouter();
   const [scope, setScope] = useState<Scope>("all");
   const [view, setView] = useState<"board" | "list">("board");
@@ -302,7 +302,7 @@ function Column({
 }: {
   status: ManualTaskStatus;
   tasks: ManualTaskDTO[];
-  viewer: { id: string; role: string };
+  viewer: { id: string; role: string; permissions?: readonly string[] };
   onOpen: (id: string) => void;
   onAdd: () => void;
 }) {

@@ -84,7 +84,7 @@ export function CreativePhase({
   const tasks = batch ? ordered(laneTasks.filter((t) => t.batchId === batch.id)) : [];
   const openTask = laneTasks.find((t) => t.id === openId) ?? null;
   const approved = tasks.filter((t) => t.status === "APPROVED").length;
-  const canEditBrief = can(viewer, "brief.edit") && !isTerminalStage(product.stage);
+  const canEditBrief = product.editable && can(viewer, "brief.edit") && !isTerminalStage(product.stage);
   const commentCount = (id: string) => product.comments.filter((c) => c.taskId === id).length;
   const parentOf = (t: TaskDTO) => (t.dependsOnId ? laneTasks.find((x) => x.id === t.dependsOnId) ?? product.tasks.find((x) => x.id === t.dependsOnId) : undefined);
 
@@ -290,7 +290,7 @@ function WebsiteLinkCard({ product, viewer }: { product: ProductDetail; viewer: 
   const [url, setUrl] = useState(product.websiteUrl ?? "");
   const [pending, startTransition] = useTransition();
   const designer = product.tasks.some((t) => t.type === "WEBSITE_IMAGE" && t.assignee?.id === viewer.id);
-  const canEdit = designer || can(viewer, "task.review");
+  const canEdit = product.editable && (designer || can(viewer, "task.review"));
   const dirty = added !== Boolean(product.websiteUrl) || (added && url.trim() !== (product.websiteUrl ?? ""));
   const valid = !added || /^https?:\/\/\S+\.\S+/.test(url.trim());
 

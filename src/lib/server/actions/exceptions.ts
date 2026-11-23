@@ -39,6 +39,7 @@ export const deleteProductAction = defineAction({
 });
 
 export const killProductAction = defineAction({
+  productEdit: true,
   capability: "product.kill",
   schema: killSchema,
   run: async ({ productId, reason, note }, { user }) => {
@@ -72,6 +73,7 @@ export const killProductAction = defineAction({
 });
 
 export const sendBackAction = defineAction({
+  productEdit: true,
   capability: "product.sendBack",
   schema: sendBackSchema,
   run: async ({ productId, target, note, reopenTaskIds }, { user }) => {
@@ -115,6 +117,7 @@ function normalize(v: unknown): string | null {
 }
 
 export const overrideProductAction = defineAction({
+  productEdit: true,
   capability: "product.override",
   schema: overrideSchema,
   run: async ({ productId, courierChargePct, mediaBuyerId, ...rest }, { user }) => {
@@ -145,6 +148,7 @@ export const overrideProductAction = defineAction({
 });
 
 export const overrideTaskDueAction = defineAction({
+  productEdit: true,
   capability: "product.override",
   schema: taskDueSchema,
   run: async ({ taskId, dueAt }, { user }) => {

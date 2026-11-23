@@ -153,6 +153,7 @@ export const reassignTaskAction = defineAction({
 });
 
 export const updateBriefAction = defineAction({
+  productEdit: true,
   capability: "brief.edit",
   schema: briefSchema,
   run: async ({ productId, brief }, { user }) => {
@@ -258,6 +259,7 @@ export const markReadyAction = defineAction({
  * The image designer on this product, a Senior or an Admin can set it.
  */
 export const setWebsiteLinkAction = defineAction({
+  productEdit: true,
   schema: websiteLinkSchema,
   run: async ({ productId, added, url }, { user }) => {
     await db.$transaction(async (tx) => {

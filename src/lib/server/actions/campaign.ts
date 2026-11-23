@@ -35,6 +35,7 @@ async function draftCampaign(tx: Tx, productId: string) {
 }
 
 export const saveLaunchDetailsAction = defineAction({
+  productEdit: true,
   capability: "campaign.manage",
   schema: launchDetailsSchema,
   run: async ({ productId, name, type, ...fields }, { user }) => {
@@ -56,6 +57,7 @@ export const saveLaunchDetailsAction = defineAction({
 });
 
 export const launchCampaignAction = defineAction({
+  productEdit: true,
   capability: "campaign.manage",
   schema: launchSchema,
   run: async ({ productId, ...fields }, { user }) => {
@@ -96,6 +98,7 @@ export const launchCampaignAction = defineAction({
 
 /** Another named campaign while the product is live (it starts running straight away). */
 export const createCampaignAction = defineAction({
+  productEdit: true,
   capability: "campaign.manage",
   schema: newCampaignSchema,
   run: async ({ productId, ...fields }, { user }) => {
@@ -118,6 +121,7 @@ export const createCampaignAction = defineAction({
 
 /** Edit one campaign's name, type, link, ID, budget or strategy. */
 export const saveCampaignDetailsAction = defineAction({
+  productEdit: true,
   capability: "campaign.manage",
   schema: campaignDetailsSchema,
   run: async ({ productId, campaignId, ...fields }, { user }) => {
@@ -133,6 +137,7 @@ export const saveCampaignDetailsAction = defineAction({
 });
 
 export const setCampaignStatusAction = defineAction({
+  productEdit: true,
   capability: "campaign.manage",
   schema: campaignStatusSchema,
   run: async ({ productId, campaignId, status, note }, { user }) => {
@@ -153,6 +158,7 @@ export const setCampaignStatusAction = defineAction({
 });
 
 export const requestBatchAction = defineAction({
+  productEdit: true,
   capability: "batch.request",
   schema: newBatchSchema,
   run: async ({ productId, name, types, dueDate, reason, brief }, { user }) => {
@@ -192,6 +198,7 @@ export const requestBatchAction = defineAction({
 });
 
 export const completeProductAction = defineAction({
+  productEdit: true,
   capability: "campaign.manage",
   schema: productActionSchema,
   run: async ({ productId }, { user }) => {

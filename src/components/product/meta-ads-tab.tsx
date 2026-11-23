@@ -39,7 +39,7 @@ export function MetaAdsTab({
   const launched = launchedCampaigns.length > 0;
   const firstLaunch = launched ? launchedCampaigns.map((c) => c.launchedAt!).sort()[0]! : null;
   const running = product.campaigns.filter((c) => c.status === "RUNNING").length;
-  const canCampaign = can(viewer, "campaign.manage");
+  const canCampaign = product.editable && can(viewer, "campaign.manage");
   const canOrder = can(viewer, "orders.manage");
   const lane = (l: "images" | "videos") => {
     const live = product.tasks.filter((t) => laneOf(t.type) === l && t.status !== "CANCELLED");

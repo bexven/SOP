@@ -1,3 +1,4 @@
+import { EyeIcon } from "lucide-react";
 import type { Role } from "@/generated/prisma/enums";
 import { BrandPill, CampaignPill, MarginBadge, PriorityPill, StagePill } from "@/components/common/pills";
 import { PipelineStepper } from "@/components/common/stepper";
@@ -57,6 +58,13 @@ export function ProductHeader({
               {product.mediaBuyer.name}
             </span>
           </Prop>
+        ) : null}
+        {!product.editable ? (
+          <div className="flex items-center gap-1.5 text-slate-500 sm:ml-auto" title="Only Admins and people assigned to this product (its media buyer or anyone with a task on it) can change it.">
+            <EyeIcon className="size-3.5" aria-hidden />
+            <dt className="sr-only">Access</dt>
+            <dd>View only</dd>
+          </div>
         ) : null}
       </dl>
       <div className="rounded-panel border border-[var(--line)] bg-white px-2 py-1.5 sm:px-3">

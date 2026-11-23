@@ -16,10 +16,15 @@ export function manualTaskRef(number: number): string {
 
 /** The creator, the assignee and Admins can change, move or delete a task; anyone can comment. */
 export function canEditManualTask(
-  user: { id: string; role: string },
+  user: { id: string; role: string; permissions?: readonly string[] },
   task: { createdById: string; assigneeId: string | null },
 ): boolean {
-  return user.role === "ADMIN" || task.createdById === user.id || task.assigneeId === user.id;
+  return canManageAllManualTasks(user) || task.createdById === user.id || task.assigneeId === user.id;
+}
+
+/** Admins and people with "Manage all board tasks" can change and delete anyone's board task. */
+export function canManageAllManualTasks(user: { role: string; permissions?: readonly string[] }): boolean {
+  return user.role === "ADMIN" || Boolean(user.permissions?.includes("tasks.manageAll"));
 }
 
 /**

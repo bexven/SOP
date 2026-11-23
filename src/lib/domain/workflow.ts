@@ -189,15 +189,12 @@ const RESEARCH_REQUIRED: { key: keyof ResearchFields; label: string }[] = [
   { key: "sellingPriceBdt", label: "Selling price" },
 ];
 
-/** What still blocks research submission (empty = ready). */
-export function researchBlockers(fields: ResearchFields, checklistMissing: number): string[] {
+/** What still blocks research submission (empty = ready). The SOP checklist is a guide here, never a blocker (owner, Nov 2026). */
+export function researchBlockers(fields: ResearchFields): string[] {
   const missing = RESEARCH_REQUIRED.filter(({ key }) => !fields[key] || !String(fields[key]).trim()).map(
     (f) => f.label,
   );
   if ("brandId" in fields && !fields.brandId) missing.unshift("Brand");
-  if (checklistMissing > 0) {
-    missing.push(`${checklistMissing} checklist item${checklistMissing === 1 ? "" : "s"}`);
-  }
   return missing;
 }
 

@@ -50,11 +50,13 @@ export function ProductActions({ product, viewer }: { product: ProductDetail; vi
   const [dialog, setDialog] = useState<DialogKey>(null);
   const live = product.stage === "LIVE";
   const terminal = isTerminalStage(product.stage);
-  const canCampaign = can(viewer, "campaign.manage");
-  const canBatch = can(viewer, "batch.request");
-  const canKill = can(viewer, "product.kill") && !terminal;
-  const targets = can(viewer, "product.sendBack") ? sendBackTargets(product.stage, viewer.role) : [];
-  const canOverride = can(viewer, "product.override");
+  // View-only for anyone who isn't an Admin or assigned to the product (server enforces the same rule).
+  const edit = product.editable;
+  const canCampaign = edit && can(viewer, "campaign.manage");
+  const canBatch = edit && can(viewer, "batch.request");
+  const canKill = edit && can(viewer, "product.kill") && !terminal;
+  const targets = edit && can(viewer, "product.sendBack") ? sendBackTargets(product.stage, viewer.role) : [];
+  const canOverride = edit && can(viewer, "product.override");
   const canDelete = viewer.role === "ADMIN" && product.stage === "KILLED";
 
   const menuItems = [

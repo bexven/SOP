@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { can, canSeeBrand, type Capability } from "@/lib/domain/permissions";
+import { canEditProduct, VIEW_ONLY_MESSAGE } from "@/lib/domain/product-access";
 import { db } from "./db";
 import { getCurrentUser, type CurrentUser } from "./auth/current-user";
 import { flushAlerts, rememberAppUrl } from "./services/alerts";
@@ -28,6 +29,11 @@ type Options<S extends z.ZodType, T> = {
   masterOnly?: boolean;
   /** Allow users who still have to change their PIN (only the change-PIN action). */
   allowPendingPinChange?: boolean;
+  /**
+   * Changes product data: besides the capability, the person must be an Admin or assigned to the
+   * product (its media buyer or someone with a task on it). Reads `productId`, else `taskId`.
+   */
+  productEdit?: boolean;
   schema: S;
   run: (input: z.infer<S>, ctx: { user: CurrentUser }) => Promise<ActionResult<T>>;
 };
@@ -56,6 +62,7 @@ export function defineAction<S extends z.ZodType, T = undefined>(options: Option
     }
     try {
       if (!(await brandAllowed(user, parsed.data))) return { ok: false, error: "You don't have access to this brand." };
+      if (options.productEdit && !(await productEditAllowed(user, parsed.data))) return { ok: false, error: VIEW_ONLY_MESSAGE };
       const result = await options.run(parsed.data, { user });
       if (result.ok) {
         // After the response: send any new notifications to phones / Telegram.
@@ -92,4 +99,17 @@ async function brandAllowed(user: CurrentUser, input: unknown): Promise<boolean>
   if (typeof taskId === "string") brands.push((await db.task.findUnique({ where: { id: taskId }, select: { product: { select: { brand: brandSel } } } }))?.product.brand ?? null);
   if (typeof brandId === "string" && brandId) brands.push(await db.brand.findUnique({ where: { id: brandId }, select: { id: true, restricted: true } }));
   return brands.every((b) => canSeeBrand(user, b));
+}
+
+/** Admin, the product's media buyer, or anyone with a task on it (see domain/product-access). */
+async function productEditAllowed(user: CurrentUser, input: unknown): Promise<boolean> {
+  if (user.role === "ADMIN") return true;
+  if (!input || typeof input !== "object") return false;
+  const { productId, taskId } = input as { productId?: unknown; taskId?: unknown };
+  let id = typeof productId === "string" ? productId : null;
+  if (!id && typeof taskId === "string") id = (await db.task.findUnique({ where: { id: taskId }, select: { productId: true } }))?.productId ?? null;
+  if (!id) return false;
+  const product = await db.product.findUnique({ where: { id }, select: { mediaBuyerId: true, tasks: { select: { assigneeId: true } } } });
+  if (!product) return true; // the action itself reports "no longer exists"
+  return canEditProduct(user, { mediaBuyerId: product.mediaBuyerId, assigneeIds: product.tasks.map((t) => t.assigneeId) });
 }

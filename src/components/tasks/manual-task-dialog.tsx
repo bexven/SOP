@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/domain/labels";
-import { canEditManualTask, MANUAL_STATUS_LABELS, MANUAL_STATUSES, manualTaskRef } from "@/lib/domain/manual-tasks";
+import { canEditManualTask, canManageAllManualTasks, MANUAL_STATUS_LABELS, MANUAL_STATUSES, manualTaskRef } from "@/lib/domain/manual-tasks";
 import { splitMentions } from "@/lib/domain/mentions";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import {
@@ -48,7 +48,7 @@ function host(url: string) {
   }
 }
 
-type Viewer = { id: string; role: string };
+type Viewer = { id: string; role: string; permissions?: readonly string[] };
 
 export function ManualTaskDialog({
   open,
@@ -91,7 +91,7 @@ export function ManualTaskDialog({
 function Body({ task, board, viewer, startStatus, onDone }: { task: ManualTaskDTO | null; board: ManualBoard; viewer: Viewer; startStatus: ManualTaskStatus; onDone: () => void }) {
   const router = useRouter();
   const editable = !task || canEditManualTask(viewer, task);
-  const canDelete = task && (viewer.role === "ADMIN" || task.createdById === viewer.id);
+  const canDelete = task && (canManageAllManualTasks(viewer) || task.createdById === viewer.id);
   const [v, setV] = useState({
     title: task?.title ?? "",
     description: task?.description ?? "",

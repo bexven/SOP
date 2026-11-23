@@ -47,7 +47,7 @@ export function ResourcesCard({ product, viewer, lane }: { product: ProductDetai
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [pending, startTransition] = useTransition();
-  const canEdit = canEditResources(viewer, lane);
+  const canEdit = product.editable && canEditResources(viewer, lane);
 
   function add() {
     const v = url.trim();
@@ -96,7 +96,7 @@ export function ResourcesCard({ product, viewer, lane }: { product: ProductDetai
               key={`${r.from}-${r.url}`}
               url={r.url}
               tag={r.from}
-              onRemove={r.lane && canEditResources(viewer, r.lane) ? () => remove(r.url, r.lane!) : undefined}
+              onRemove={product.editable && r.lane && canEditResources(viewer, r.lane) ? () => remove(r.url, r.lane!) : undefined}
               pending={pending}
             />
           ))}
