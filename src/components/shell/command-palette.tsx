@@ -3,16 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Command } from "cmdk";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { CornerDownLeftIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { CornerDownLeftIcon, KanbanSquareIcon, ListChecksIcon, PlusIcon, SearchIcon, ShipIcon, TruckIcon } from "lucide-react";
 import type { ProductStage } from "@/generated/prisma/enums";
 import { StagePill } from "@/components/common/pills";
 import { Thumbnail } from "@/components/common/thumbnail";
 import type { NavItem } from "@/lib/domain/nav";
-import { paletteProductsAction } from "@/lib/server/actions/search";
+import { paletteMoreAction, paletteProductsAction } from "@/lib/server/actions/search";
 import { NAV_ICONS } from "./nav-icons";
 import { useNavRouter } from "@/components/shell/nav-progress";
 
 type PaletteProduct = { id: string; ref: string; name: string; stage: ProductStage; imageUrl: string | null };
+type PaletteMore = { tasks: { id: string; productId: string; label: string; product: string; who: string | null }[]; board: { id: string; ref: string; title: string; done: boolean }[]; orders: { id: string; productId: string; title: string; product: string }[]; shipments: { id: string; ref: string; product: string }[] };
 
 export const OPEN_PALETTE_EVENT = "sop:open-palette";
 export const NEW_PRODUCT_EVENT = "sop:new-product";
@@ -27,11 +28,17 @@ export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCrea
   const router = useNavRouter();
   const [open, setOpen] = useState(false);
   const [products, setProducts] = useState<PaletteProduct[] | null>(null);
+  const [more, setMore] = useState<PaletteMore | null>(null);
   const gPressed = useRef<number>(0);
+  const openRef = useRef(false);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   const loadProducts = useCallback(async () => {
-    const r = await paletteProductsAction({});
+    const [r, m] = await Promise.all([paletteProductsAction({}), paletteMoreAction({})]);
     if (r.ok && r.data) setProducts(r.data);
+    if (m.ok && m.data) setMore(m.data);
   }, []);
 
   const openPalette = useCallback(() => {
@@ -43,10 +50,9 @@ export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCrea
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((o) => {
-          if (!o) void loadProducts();
-          return !o;
-        });
+        // Use the ref for the current state: starting a load inside a state updater makes React warn.
+        if (openRef.current) setOpen(false);
+        else openPalette();
         return;
       }
       if (e.metaKey || e.ctrlKey || e.altKey || typingInField(e) || document.querySelector("[role=dialog]")) return;
@@ -100,7 +106,7 @@ export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCrea
                 <SearchIcon className="size-4 text-slate-500" />
                 <Command.Input
                   autoFocus
-                  placeholder="Search products or jump to…"
+                  placeholder="Search products, tasks, orders, shipments…"
                   className="h-12 flex-1 bg-transparent text-[15px] text-slate-900 outline-none placeholder:text-slate-500"
                 />
                 <kbd className="num rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-500">ESC</kbd>
@@ -139,6 +145,53 @@ export function CommandPalette({ items, canCreate }: { items: NavItem[]; canCrea
                     ))
                   )}
                 </Command.Group>
+                {more?.tasks.length ? (
+                  <Command.Group heading="Tasks">
+                    {more.tasks.map((t) => (
+                      <PaletteItem key={t.id} value={`task ${t.label} ${t.product} ${t.who ?? ""}`} onSelect={() => go(`/products/${t.productId}?task=${t.id}`)}>
+                        <ListChecksIcon className="size-4 text-slate-500" />
+                        <span className="min-w-0 flex-1 truncate">
+                          {t.label} <span className="text-slate-500">· {t.product}</span>
+                        </span>
+                        {t.who ? <span className="text-meta text-slate-500">{t.who}</span> : null}
+                      </PaletteItem>
+                    ))}
+                  </Command.Group>
+                ) : null}
+                {more?.board.length ? (
+                  <Command.Group heading="Tasks board">
+                    {more.board.map((t) => (
+                      <PaletteItem key={t.id} value={`board ${t.ref} ${t.title}`} onSelect={() => go(`/tasks?task=${t.id}`)}>
+                        <KanbanSquareIcon className="size-4 text-slate-500" />
+                        <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                        <span className="num text-meta text-slate-500">{t.ref}</span>
+                      </PaletteItem>
+                    ))}
+                  </Command.Group>
+                ) : null}
+                {more?.orders.length ? (
+                  <Command.Group heading="Orders">
+                    {more.orders.map((o) => (
+                      <PaletteItem key={o.id} value={`order ${o.title} ${o.product}`} onSelect={() => go(`/products/${o.productId}?phase=orders`)}>
+                        <TruckIcon className="size-4 text-slate-500" />
+                        <span className="min-w-0 flex-1 truncate">
+                          {o.title} <span className="text-slate-500">· {o.product}</span>
+                        </span>
+                      </PaletteItem>
+                    ))}
+                  </Command.Group>
+                ) : null}
+                {more?.shipments.length ? (
+                  <Command.Group heading="Shipments">
+                    {more.shipments.map((sh) => (
+                      <PaletteItem key={sh.id} value={`shipment ${sh.ref} ${sh.product}`} onSelect={() => go("/shipments")}>
+                        <ShipIcon className="size-4 text-slate-500" />
+                        <span className="min-w-0 flex-1 truncate">{sh.product}</span>
+                        <span className="num text-meta text-slate-500">{sh.ref}</span>
+                      </PaletteItem>
+                    ))}
+                  </Command.Group>
+                ) : null}
               </Command.List>
               <div className="flex items-center gap-3 border-t border-slate-900/[0.06] px-4 py-2 text-meta font-normal text-slate-500">
                 <span className="inline-flex items-center gap-1"><CornerDownLeftIcon className="size-3" /> open</span>

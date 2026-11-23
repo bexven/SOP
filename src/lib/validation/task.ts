@@ -33,3 +33,10 @@ export const markReadySchema = z.object({
 export const websiteLinkSchema = z
   .object({ productId: idSchema, added: z.boolean(), url: z.union([urlSchema, z.literal("")]).optional().transform((v) => v || null) })
   .refine((v) => !v.added || v.url, { message: "Paste the product's link on the website", path: ["url"] });
+
+/** The person doing a task asks for a later due date (an Admin sets it). */
+export const moreTimeSchema = z.object({
+  taskId: idSchema,
+  until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the new date"),
+  reason: z.string().trim().min(3, "Say why you need more time").max(500, "Keep it short"),
+});

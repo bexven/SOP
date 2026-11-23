@@ -6,6 +6,7 @@ import { getBrands } from "@/lib/server/queries/product";
 import Link from "next/link";
 import { InboxIcon, ListChecksIcon, UsersIcon } from "lucide-react";
 import { ListGroup, ListRow, StatStrip } from "@/components/common/list-view";
+import { WelcomeGuide } from "@/components/dashboard/welcome-guide";
 import { DuePill, PriorityPill } from "@/components/common/pills";
 import { Thumbnail } from "@/components/common/thumbnail";
 import { canPlaceTestOrder, testOrderState } from "@/lib/domain/orders";
@@ -19,6 +20,7 @@ import { QueueGroup } from "@/components/queue/queue-list";
 import { ROLE_LABELS } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
 import { requireUser } from "@/lib/server/auth/current-user";
+import { db } from "@/lib/server/db";
 import { getQueue, getTeamStats } from "@/lib/server/queries/queue";
 import { listProducts } from "@/lib/server/queries/products";
 import { filterRows, PIP_FILTERS, ProductsInProgress, type PipFilter } from "@/components/dashboard/products-in-progress";
@@ -56,6 +58,16 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     getMyManualTasks(user),
   ]);
   const testOrders = canPlaceTestOrder(user) ? await getOpenTestOrders(user) : [];
+  // People who can be picked for unassigned work (only loaded when there is some).
+  const assignPeople = q.unassigned.length
+    ? (
+        await db.user.findMany({
+          where: { removedAt: null, active: true },
+          select: { id: true, name: true, avatarColor: true, avatarAssetId: true, role: true, isMaster: true, brandAccess: true },
+          orderBy: { name: "asc" },
+        })
+      ).map((p) => ({ ...p, brandAccess: [...p.brandAccess] }))
+    : [];
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka" }).format(new Date());
   const brands = canAddProduct(user) ? await getBrands(user) : [];
   const running = products.filter((p) => p.stage !== "COMPLETED" && p.stage !== "KILLED");
@@ -129,6 +141,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         </nav>
       ) : null}
 
+      <WelcomeGuide userId={user.id} role={isAdmin ? "ADMIN" : user.jobRole} name={user.name} />
       <StatStrip items={stats} />
 
       {tab === "team" ? (
@@ -157,7 +170,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <QueueGroup group="revision" items={q.revision} />
           <QueueGroup group="today" items={q.today} />
           <QueueGroup group="upcoming" items={q.upcoming} />
-          <QueueGroup group="unassigned" items={q.unassigned} />
+          <QueueGroup group="unassigned" items={q.unassigned} people={assignPeople} viewerIsAdmin={isAdmin} canAssign={isAdmin || can(user, "task.reassignAny")} />
           {testOrders.length ? (
             <ListGroup id="q-tests" label="Test orders" tone="amber" count={testOrders.length}>
               {testOrders.map((t) => {

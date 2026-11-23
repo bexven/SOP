@@ -39,7 +39,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
           action={canCreate ? <Button asChild><Link href="/research?add=1">Go to Research</Link></Button> : undefined}
         />
       ) : (
-        <ProductsTable rows={products} people={people} initialStage={stage} />
+        <ProductsTable rows={products} people={people} initialStage={stage} defaultMine={user.jobRole === "MEDIA_BUYER"} />
       )}
     </>
   );

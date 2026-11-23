@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { isChecklistComplete, missingRequiredCount } from "@/lib/domain/checklist";
 import { isOpenStatus } from "@/lib/domain/assignment";
-import { FOLLOW_UP_LABELS, isReviewedType, submissionError, TASK_TYPE_LABELS, TASK_TYPE_SHORT } from "@/lib/domain/labels";
+import { FOLLOW_UP_LABELS, isReviewedType, laneOf, submissionError, TASK_TYPE_LABELS, TASK_TYPE_SHORT } from "@/lib/domain/labels";
 import { can } from "@/lib/domain/permissions";
 import {
   canWorkOnTask,
@@ -14,7 +14,7 @@ import {
   planWithdraw,
   reassignError,
 } from "@/lib/domain/workflow";
-import { approveTaskSchema, markReadySchema, briefSchema, reassignSchema, revisionSchema, websiteLinkSchema } from "@/lib/validation/task";
+import { approveTaskSchema, markReadySchema, briefSchema, moreTimeSchema, reassignSchema, revisionSchema, websiteLinkSchema } from "@/lib/validation/task";
 import { ActionError, defineAction } from "../action";
 import { db, type Tx } from "../db";
 import { applyPlan } from "../services/apply-plan";
@@ -280,5 +280,47 @@ export const setWebsiteLinkAction = defineAction({
     });
     revalidate();
     return { ok: true, message: added ? "Website link saved" : "Marked as not on the website yet" };
+  },
+});
+
+/**
+ * "Ask for more time": the person doing an open task proposes a new due date with a reason. It is posted in the task's
+ * discussion and sent to the product's media buyer and the Admins, who change the due date in the task window.
+ */
+export const requestMoreTimeAction = defineAction({
+  schema: moreTimeSchema,
+  run: async ({ taskId, until, reason }, { user }) => {
+    const pretty = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${until}T00:00:00Z`));
+    const productId = await db.$transaction(async (tx) => {
+      const task = await tx.task.findUnique({
+        where: { id: taskId },
+        select: { id: true, type: true, status: true, assigneeId: true, productId: true, product: { select: { name: true, mediaBuyerId: true } } },
+      });
+      if (!task) throw new ActionError("This task no longer exists.");
+      if (task.assigneeId !== user.id) throw new ActionError("Only the person doing this task can ask for more time.");
+      if (!isOpenStatus(task.status) || task.status === "SUBMITTED") throw new ActionError("This task isn't open any more.");
+      const lane = laneOf(task.type);
+      const body = `⏱ Asked for more time: new due date ${pretty}. Reason: ${reason}`;
+      await tx.comment.create({
+        data: { productId: task.productId, authorId: user.id, body, taskId: task.id, phase: lane === "videos" ? "VIDEOS" : lane === "images" ? "IMAGES" : "REVIEW" },
+      });
+      await logEvents(tx, [{ type: "COMMENT_ADDED", actorId: user.id, productId: task.productId, data: { taskId: task.id, moreTimeUntil: until } }]);
+      const admins = await tx.user.findMany({ where: { active: true, removedAt: null, OR: [{ role: "ADMIN" }, { adminAccess: true }, { isMaster: true }] }, select: { id: true } });
+      const to = [...new Set([task.product.mediaBuyerId, ...admins.map((a) => a.id)].filter((id): id is string => Boolean(id)))];
+      await notify(
+        tx,
+        user.id,
+        to.map((userId) => ({
+          userId,
+          type: "FEEDBACK" as const,
+          productId: task.productId,
+          taskId: task.id,
+          message: `${user.name} asked for more time on ${TASK_TYPE_SHORT[task.type]} (${task.product.name}): until ${pretty} — “${reason}”`,
+        })),
+      );
+      return task.productId;
+    });
+    revalidatePath(`/products/${productId}`);
+    return { ok: true, message: "Request sent — an Admin will set the new due date" };
   },
 });

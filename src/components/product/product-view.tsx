@@ -17,6 +17,7 @@ import { MarginCard } from "./margin-card";
 import { MetaAdsTab } from "./meta-ads-tab";
 import { OrdersTab } from "./orders-tab";
 import { ProductActions } from "./product-actions";
+import { HistoryButton } from "./history-button";
 import { ProductHeader } from "./product-header";
 import { ResearchForm } from "./research-form";
 import { ResearchSummary } from "./research-summary";
@@ -143,7 +144,12 @@ export function ProductView({
       <ProductHeader
         product={product}
         viewer={viewer}
-        actions={<ProductActions product={product} viewer={viewer} />}
+        actions={
+          <>
+            <HistoryButton productId={product.id} />
+            <ProductActions product={product} viewer={viewer} />
+          </>
+        }
         stepper={
           !simple
             ? {

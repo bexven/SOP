@@ -289,6 +289,19 @@ src/generated/     Prisma client (generated, git-ignored)
   Buyers / Supply Chain still can by job role), `tasks.manageAll` (Manage all board tasks: edit / move / delete anyone's).
   `product.override` is now labelled "Correct product details".
 
+## Round 12 (quick actions, more time, my products, search, history, guide)
+- **Home quick actions** (`components/queue/quick-actions.tsx`): review rows have **Approve / Changes** (note popover);
+  own open tasks have **Send for review** (opens the task's ready form); unassigned rows have **Assign** (eligible job role, brand
+  access). Rows use a link overlay with the actions above it (`relative z-10`).
+- **Ask for more time** (`requestMoreTimeAction`, `task/more-time.tsx`, in the task window for the assignee of an open task):
+  posts a ⏱ note in the task discussion and notifies the product's media buyer + Admins; an Admin then changes the due date
+  (existing due editor). No schema change.
+- **My products** filter on Products (`ProductRow.mine` = media buyer or has / had a task); on by default for Media Buyers.
+- **Search (⌘K)** also finds open tasks, Tasks-board tasks, orders and shipments (`paletteMoreAction`, brand-scoped).
+- **History** side panel on the product page (`history-button.tsx`, `productHistoryAction`, lines from `domain/history.ts`
+  `describeEvent()`), loaded on open, grouped by day.
+- **Welcome guide** on Home per role (`domain/guide.ts`, `dashboard/welcome-guide.tsx`); dismissed per person in localStorage.
+
 ## Navigation feel (Nov 2026)
 - **Loading bar** (`components/shell/nav-progress.tsx`, in the app layout): starts on any same-site link click (document
   listener) or a push/replace from `useNavRouter()` (use it instead of `useRouter()` when navigating in code); finishes once

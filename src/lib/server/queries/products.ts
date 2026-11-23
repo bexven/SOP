@@ -11,7 +11,7 @@ import { getMarginThresholds, laneProgress } from "./product";
 
 /** Every product as a compact row (pipeline cards, products table, palette). */
 /** Every product the viewer may see, as a compact row (pipeline, table, dashboard). */
-export async function listProducts(viewer: Subject & BrandViewer) {
+export async function listProducts(viewer: Subject & BrandViewer & { id?: string }) {
   const [products, thresholds] = await Promise.all([
     db.product.findMany({
       where: productScope(viewer),
@@ -79,6 +79,8 @@ export async function listProducts(viewer: Subject & BrandViewer) {
       // Overdue = work not yet done (to do / needs changes) past its due time — same rule as the dashboard counters.
       overdue: open.some((t) => (t.status === "TODO" || t.status === "REVISION") && t.dueAt !== null && t.dueAt.getTime() < now),
       openTaskCount: open.length,
+      /** The viewer's own product: they are its media buyer or have (had) a task on it. */
+      mine: Boolean(viewer.id) && (p.mediaBuyerId === viewer.id || p.tasks.some((t) => t.assignee?.id === viewer.id)),
     };
   });
 }

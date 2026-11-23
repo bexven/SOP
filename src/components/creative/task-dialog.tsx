@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ChecklistPanel } from "@/components/task/checklist-panel";
 import { DueOverride } from "@/components/task/due-override";
+import { MoreTimeButton } from "@/components/task/more-time";
 import { ReassignMenu } from "@/components/task/reassign-menu";
 import { Discussion } from "@/components/product/discussion";
 import { LinkCard } from "@/components/common/link-card";
@@ -252,6 +253,7 @@ function TaskBody({
             <ChecklistPanel items={task.checklist} editable={workable} />
           ) : null}
 
+          {workable ? <MoreTimeButton taskId={task.id} dueAt={task.dueAt} /> : null}
           {viewer.role === "ADMIN" && !locked && task.status !== "APPROVED" ? <DueOverride taskId={task.id} dueAt={task.dueAt} /> : null}
         </div>
 

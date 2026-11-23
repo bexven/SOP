@@ -12,7 +12,7 @@ import type { BrandViewer } from "@/lib/domain/permissions";
 const REVIEWED = ["WEBSITE_IMAGE", "AD_IMAGE_LANDSCAPE", "AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL", "STORE_LISTING", "VIDEO_MAIN", "VIDEO_SQUARE"] as const;
 
 const include = {
-  product: { select: { id: true, number: true, name: true, imageUrl: true, stage: true, priority: true, mediaBuyerId: true, brand: { select: { name: true, color: true } } } },
+  product: { select: { id: true, number: true, name: true, imageUrl: true, stage: true, priority: true, mediaBuyerId: true, brand: { select: { id: true, name: true, color: true, restricted: true } } } },
   assignee: { select: { id: true, name: true, avatarColor: true, avatarAssetId: true } },
 } as const;
 
@@ -25,6 +25,7 @@ function toItem(t: Row) {
   return {
     id: t.id,
     type: t.type,
+    role: t.role,
     status: t.status,
     dueAt: t.dueAt,
     priority: t.product.priority,

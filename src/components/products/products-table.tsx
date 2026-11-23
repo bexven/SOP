@@ -31,11 +31,15 @@ export function ProductsTable({
   rows,
   people,
   initialStage,
+  defaultMine = false,
 }: {
   rows: ProductRow[];
   people: { id: string; name: string; avatarColor: string }[];
   initialStage?: ProductStage;
+  /** Start with only the viewer's own products (media buyers). */
+  defaultMine?: boolean;
 }) {
+  const [mine, setMine] = useState(defaultMine && rows.some((r) => r.mine));
   const [q, setQ] = useState("");
   const [stage, setStage] = useState<ProductStage | "ALL">(initialStage ?? "ALL");
   const [priority, setPriority] = useState<Priority | "ALL">("ALL");
@@ -55,10 +59,11 @@ export function ProductsTable({
       if (brand !== "ALL" && r.brand?.id !== brand) return false;
       if (assignee !== "ALL" && !r.assignees.some((a) => a.id === assignee)) return false;
       if (overdue && !r.overdue) return false;
+      if (mine && !r.mine) return false;
       if (needle && !r.name.toLowerCase().includes(needle) && !r.ref.toLowerCase().includes(needle)) return false;
       return true;
     });
-  }, [rows, q, stage, priority, assignee, overdue, showKilled, brand]);
+  }, [rows, q, stage, priority, assignee, overdue, showKilled, brand, mine]);
 
   const columns = useMemo<ColumnDef<ProductRow>[]>(
     () => [
@@ -137,7 +142,7 @@ export function ProductsTable({
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table v8 manages its own memoisation
   const table = useReactTable({ data, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
-  const filtersActive = q || stage !== "ALL" || priority !== "ALL" || assignee !== "ALL" || overdue || brand !== "ALL";
+  const filtersActive = q || stage !== "ALL" || priority !== "ALL" || assignee !== "ALL" || overdue || mine || brand !== "ALL";
 
   return (
     <div className="grid gap-3">
@@ -153,6 +158,9 @@ export function ProductsTable({
           ) : null}
           <FilterSelect label="Priority" value={priority} onChange={(v) => setPriority(v as Priority | "ALL")} options={[["ALL", "Any priority"], ...PRIORITIES.map((p) => [p, PRIORITY_LABELS[p]] as [string, string])]} />
           <FilterSelect label="Assignee" value={assignee} onChange={setAssignee} options={[["ALL", "Anyone"], ...people.map((p) => [p.id, p.name] as [string, string])]} />
+          <label className="flex h-9 items-center gap-2 rounded-control border border-slate-200 bg-white px-3 text-body text-slate-700" title="Products where you are the media buyer or have a task">
+            <Checkbox checked={mine} onCheckedChange={(v) => setMine(v === true)} /> My products
+          </label>
           <label className="flex h-9 items-center gap-2 rounded-control border border-slate-200 bg-white px-3 text-body text-slate-700">
             <Checkbox checked={overdue} onCheckedChange={(v) => setOverdue(v === true)} /> Overdue
           </label>
