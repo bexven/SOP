@@ -10,7 +10,7 @@ export const GUIDE: Record<Role, { title: string; steps: GuideStep[] }> = {
     title: "Your image work",
     steps: [
       { text: "Everything waiting on you is here on Home and under Creative → Mine.", href: "/creative?who=mine", link: "Open Creative" },
-      { text: "Open a task, read the brief, add your image links, then press “Send for review”." },
+      { text: "Open a task, read the brief, add your image links, then press “Send for review”. Every step is open — you don't have to wait for the one before." },
       { text: "If a Senior asks for changes, the task comes back under “Needs changes” with their note." },
       { text: "Need more time? Use “Ask for more time” inside the task — your media buyer and the Admins are told." },
       SEARCH,
@@ -20,7 +20,7 @@ export const GUIDE: Record<Role, { title: string; steps: GuideStep[] }> = {
     title: "Your video work",
     steps: [
       { text: "Everything waiting on you is here on Home and under Creative → Mine.", href: "/creative?who=mine", link: "Open Creative" },
-      { text: "Open a task, read the brief, add your video links, then press “Send for review”." },
+      { text: "Open a task, read the brief, add your video links, then press “Send for review”. Every step is open — you don't have to wait for the one before." },
       { text: "If a Senior asks for changes, the task comes back under “Needs changes” with their note." },
       { text: "Need more time? Use “Ask for more time” inside the task — your media buyer and the Admins are told." },
       SEARCH,
@@ -48,7 +48,7 @@ export const GUIDE: Record<Role, { title: string; steps: GuideStep[] }> = {
   REVIEWER: {
     title: "Reviewing",
     steps: [
-      { text: "New products to approve or drop are on Research → Pending approval.", href: "/research", link: "Open Research" },
+      { text: "New products to approve or drop show here under “Products to approve” (and on Research → Pending approval).", href: "/research", link: "Open Research" },
       { text: "Creative work to review is under “Waiting for my review” — Approve or ask for Changes right in the row." },
       { text: "Open History on any product to see who did what and when." },
       SEARCH,

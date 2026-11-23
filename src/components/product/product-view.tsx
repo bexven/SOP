@@ -35,7 +35,7 @@ export type Viewer = {
 export type Phase = "review" | "images" | "videos" | "ads" | "orders";
 
 const PHASE_LABEL: Record<Phase, string> = {
-  review: "Product review",
+  review: "Research & review",
   images: "Image creative",
   videos: "Video creative",
   ads: "Meta ads",
@@ -43,7 +43,7 @@ const PHASE_LABEL: Record<Phase, string> = {
 };
 
 /** Stepper step → the tab that shows its details (Research and Product review share one tab). */
-const STEP_PHASE: Phase[] = ["review", "review", "images", "videos", "ads", "orders"];
+const STEP_PHASE: Phase[] = ["review", "images", "videos", "ads", "orders"];
 
 const LAUNCHED_STAGES = ["READY_TO_LAUNCH", "LIVE", "COMPLETED"];
 
@@ -70,7 +70,7 @@ function defaultPhase(p: ProductDetail, viewer: Viewer, available: Phase[], focu
   if (viewer.jobRole === "VIDEO_EDITOR") return pick("videos");
   switch (p.stage) {
     case "CREATIVE":
-      return p.stepper.index === 3 ? pick("videos") : pick("images");
+      return p.stepper.index === 2 ? pick("videos") : pick("images");
     case "READY_TO_LAUNCH":
       return pick("ads");
     case "LIVE":

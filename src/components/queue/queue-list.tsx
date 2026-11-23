@@ -15,12 +15,14 @@ const GROUPS = {
   today: { title: "Due today", tone: "amber" },
   upcoming: { title: "Upcoming", tone: "sky" },
   unassigned: { title: "Unassigned — needs a person", tone: "slate" },
+  sent: { title: "Sent for review", tone: "indigo" },
+  done: { title: "Done — last 14 days", tone: "emerald" },
 } as const satisfies Record<string, { title: string; tone: GroupTone }>;
 
 export type QueueGroupKey = keyof typeof GROUPS;
 
 /** Task · Product · Status · Due · Person (one template for the header and every row). */
-export const WORK_COLS = "md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_8.5rem_7.5rem_minmax(2rem,auto)]";
+export const WORK_COLS = "md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_7.5rem_10rem_minmax(2rem,auto)]";
 
 export function WorkColumns() {
   return (
@@ -47,6 +49,9 @@ export function QueueGroup({
   people = [],
   viewerIsAdmin = false,
   canAssign = false,
+  watchOnly = false,
+  title,
+  defaultOpen = true,
 }: {
   group: QueueGroupKey;
   items: QueueItem[];
@@ -54,11 +59,15 @@ export function QueueGroup({
   people?: AssignPerson[];
   viewerIsAdmin?: boolean;
   canAssign?: boolean;
+  /** Admin overview of reviews: show how long work has waited instead of Approve / Changes. */
+  watchOnly?: boolean;
+  title?: string;
+  defaultOpen?: boolean;
 }) {
   if (items.length === 0) return null;
   const g = GROUPS[group];
   return (
-    <ListGroup id={`q-${group}`} label={g.title} tone={g.tone} count={items.length} columns={<WorkColumns />}>
+    <ListGroup id={`q-${group}`} label={title ?? g.title} tone={g.tone} count={items.length} columns={<WorkColumns />} defaultOpen={defaultOpen}>
       {items.map((t) => {
         const label = TASK_TYPE_LABELS[t.type];
         const mineOpen = group !== "review" && group !== "unassigned" && (t.status === "TODO" || t.status === "REVISION");
@@ -94,11 +103,18 @@ export function QueueGroup({
                 <TaskStatusPill status={t.status} />
               </span>
               <span className="flex items-center gap-2">
-                <DuePill dueAt={t.dueAt} />
+                {group === "done" && t.approvedAt ? (
+                  <span className="text-meta text-emerald-800">Approved {shortDate(t.approvedAt)}</span>
+                ) : (group === "sent" || group === "review") && t.submittedAt ? (
+                  <span className="text-meta text-slate-600">Sent {shortDate(t.submittedAt)}</span>
+                ) : (
+                  <DuePill dueAt={t.dueAt} />
+                )}
                 {t.priority === "URGENT" || t.priority === "HIGH" ? <PriorityPill priority={t.priority} className="md:hidden" /> : null}
               </span>
               <span className="relative z-10 flex items-center justify-end gap-2 max-md:ml-auto">
-                {group === "review" ? <ReviewQuickActions taskId={t.id} label={`${label}, ${t.product.name}`} /> : null}
+                {group === "review" && !watchOnly ? <ReviewQuickActions taskId={t.id} label={`${label}, ${t.product.name}`} /> : null}
+                {group === "review" && watchOnly ? <WaitingFor days={t.waitingDays} /> : null}
                 {mineOpen ? <ReadyQuickAction productId={t.product.id} taskId={t.id} label={`${label}, ${t.product.name}`} /> : null}
                 {group === "unassigned" && canAssign ? (
                   <AssignQuickAction taskId={t.id} taskRole={t.role} brand={t.product.brand} people={people} viewerIsAdmin={viewerIsAdmin} />
@@ -110,5 +126,18 @@ export function QueueGroup({
         );
       })}
     </ListGroup>
+  );
+}
+
+const shortDate = (iso: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", day: "numeric", month: "short" }).format(new Date(iso));
+
+/** Admin view of a review: how long it has waited (amber after a day, rose after three). */
+function WaitingFor({ days }: { days: number | null }) {
+  if (days === null) return null;
+  const tone = days >= 3 ? "bg-rose-50 text-rose-700 ring-rose-200" : days >= 1 ? "bg-amber-50 text-amber-800 ring-amber-200" : "bg-slate-50 text-slate-700 ring-slate-200";
+  return (
+    <span className={cn("inline-flex h-6 items-center rounded-[6px] px-2 text-meta whitespace-nowrap ring-1 ring-inset", tone)}>
+      {days === 0 ? "Sent today" : `Waiting ${days} day${days === 1 ? "" : "s"}`}
+    </span>
   );
 }

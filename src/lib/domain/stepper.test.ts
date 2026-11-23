@@ -6,22 +6,26 @@ const base: StepperInput = { stage: "RESEARCH", stageBeforeKill: null, campaignS
 const states = (i: StepperInput) => deriveStepper(i).steps.map((s) => s.state[0]).join("");
 
 describe("deriveStepper", () => {
-  it("research", () => expect(states(base)).toBe("cuuuuu"));
-  it("product review", () => expect(states({ ...base, stage: "REVIEW" })).toBe("dcuuuu"));
+  it("research and product review are one step", () => {
+    expect(states(base)).toBe("cuuuu");
+    expect(deriveStepper(base).note).toBe("Researching");
+    expect(states({ ...base, stage: "REVIEW" })).toBe("cuuuu");
+    expect(deriveStepper({ ...base, stage: "REVIEW" }).note).toBe("Waiting for review");
+  });
   it("image creative with progress", () => {
     const s = deriveStepper({ ...base, stage: "CREATIVE", lanes: { images: { approved: 1, total: 3 }, videos: { approved: 0, total: 2 } } });
-    expect(s.index).toBe(2);
+    expect(s.index).toBe(1);
     expect(s.progress).toEqual({ approved: 1, total: 3 });
   });
   it("video creative once every image task is approved", () => {
     const s = deriveStepper({ ...base, stage: "CREATIVE", lanes: { images: { approved: 3, total: 3 }, videos: { approved: 1, total: 2 } } });
-    expect(s.index).toBe(3);
+    expect(s.index).toBe(2);
     expect(s.progress).toEqual({ approved: 1, total: 2 });
   });
   it("meta ads while ready to launch / live, ordering once moved", () => {
-    expect(states({ ...base, stage: "READY_TO_LAUNCH" })).toBe("ddddcu");
-    expect(states({ ...base, stage: "LIVE", campaignStatus: "RUNNING" })).toBe("ddddcu");
-    expect(states({ ...base, stage: "LIVE", ordering: true })).toBe("dddddc");
+    expect(states({ ...base, stage: "READY_TO_LAUNCH" })).toBe("dddcu");
+    expect(states({ ...base, stage: "LIVE", campaignStatus: "RUNNING" })).toBe("dddcu");
+    expect(states({ ...base, stage: "LIVE", ordering: true })).toBe("ddddc");
   });
   it("completed marks everything done", () => {
     const s = deriveStepper({ ...base, stage: "COMPLETED" });
@@ -31,6 +35,6 @@ describe("deriveStepper", () => {
   it("killed shows where it stopped", () => {
     const s = deriveStepper({ ...base, stage: "KILLED", stageBeforeKill: "READY_TO_LAUNCH" });
     expect(s.killed).toBe(true);
-    expect(s.steps.map((x) => x.state[0]).join("")).toBe("ddddku");
+    expect(s.steps.map((x) => x.state[0]).join("")).toBe("dddku");
   });
 });

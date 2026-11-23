@@ -7,7 +7,8 @@ import Link from "next/link";
 import { InboxIcon, ListChecksIcon, UsersIcon } from "lucide-react";
 import { ListGroup, ListRow, StatStrip } from "@/components/common/list-view";
 import { WelcomeGuide } from "@/components/dashboard/welcome-guide";
-import { DuePill, PriorityPill } from "@/components/common/pills";
+import { BrandPill, DuePill, PriorityPill } from "@/components/common/pills";
+import { productScope } from "@/lib/server/services/brand-scope";
 import { Thumbnail } from "@/components/common/thumbnail";
 import { canPlaceTestOrder, testOrderState } from "@/lib/domain/orders";
 import { formatDate } from "@/lib/format";
@@ -58,6 +59,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     getMyManualTasks(user),
   ]);
   const testOrders = canPlaceTestOrder(user) ? await getOpenTestOrders(user) : [];
+  // Product review: products waiting for an approve / not-approved decision (people who review products).
+  const toApprove = can(user, "product.approve")
+    ? await db.product.findMany({
+        where: { AND: [productScope(user)], stage: "REVIEW" },
+        orderBy: { stageEnteredAt: "asc" },
+        select: { id: true, name: true, imageUrl: true, stageEnteredAt: true, brand: { select: { name: true, color: true } }, createdBy: { select: { name: true } } },
+      })
+    : [];
   // People who can be picked for unassigned work (only loaded when there is some).
   const assignPeople = q.unassigned.length
     ? (
@@ -72,7 +81,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const brands = canAddProduct(user) ? await getBrands(user) : [];
   const running = products.filter((p) => p.stage !== "COMPLETED" && p.stage !== "KILLED");
   const mine = q.today.length + q.upcoming.length + q.overdue.length + q.revision.length;
-  const total = mine + q.review.length + q.unassigned.length + boardTasks.length + testOrders.length;
+  const total = mine + toApprove.length + q.review.length + q.unassigned.length + boardTasks.length + testOrders.length + q.sent.length + q.done.length;
   const h = hour();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const show = (PIP_FILTERS.find((f) => f.key === sp.show)?.key ?? "all") as PipFilter;
@@ -92,6 +101,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         { label: "overdue", value: q.overdue.length, tone: "danger" as const, href: q.overdue.length ? "#q-overdue" : undefined },
         { label: "due today", value: q.today.length, tone: "warn" as const, href: q.today.length ? "#q-today" : undefined },
         { label: "need changes", value: q.revision.length, tone: "warn" as const, href: q.revision.length ? "#q-revision" : undefined },
+        ...(toApprove.length ? [{ label: "products to approve", value: toApprove.length, tone: "accent" as const, href: "#q-approve" }] : []),
         ...(senior ? [{ label: "to review", value: q.review.length, tone: "accent" as const, href: q.review.length ? "#q-review" : undefined }] : []),
         ...(testOrders.length ? [{ label: "test orders", value: testOrders.length, href: "#q-tests" }] : []),
         ...(boardTasks.length ? [{ label: "board tasks", value: boardTasks.length, href: "#q-board" }] : []),
@@ -142,7 +152,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       ) : null}
 
       <WelcomeGuide userId={user.id} role={isAdmin ? "ADMIN" : user.jobRole} name={user.name} />
-      <StatStrip items={stats} />
+      <StatStrip items={stats.filter((s, i) => i === 0 || s.value > 0)} />
 
       {tab === "team" ? (
         <ProductsInProgress rows={running} filter={show} counts={pipCounts} view={sp.view === "grid" ? "grid" : "list"} />
@@ -166,11 +176,32 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       ) : (
         <div id="my-work">
           <QueueGroup group="overdue" items={q.overdue} />
-          <QueueGroup group="review" items={q.review} showAssignee />
+          {toApprove.length ? (
+            <ListGroup id="q-approve" label="Products to approve" tone="indigo" count={toApprove.length}>
+              {toApprove.map((p) => (
+                <ListRow key={p.id} href={`/products/${p.id}`} className={TEST_COLS}>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <Thumbnail src={p.imageUrl} alt="" className="size-7 rounded-[6px]" />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-slate-900 group-hover/row:text-primary">{p.name}</span>
+                      <span className="block truncate text-meta font-normal text-slate-500">Researched by {p.createdBy?.name ?? "—"}</span>
+                    </span>
+                  </span>
+                  <span className="flex items-center justify-between gap-3 text-meta text-slate-600">
+                    <BrandPill brand={p.brand} />
+                    <span>Waiting since {formatDate(p.stageEnteredAt)}</span>
+                  </span>
+                </ListRow>
+              ))}
+            </ListGroup>
+          ) : null}
+          {/* Admins see reviews as something to watch (how long it has waited); Seniors act on them in the row. */}
+          <QueueGroup group="review" items={q.review} showAssignee watchOnly={isAdmin} title={isAdmin ? "Waiting for review" : undefined} />
           <QueueGroup group="revision" items={q.revision} />
           <QueueGroup group="today" items={q.today} />
           <QueueGroup group="upcoming" items={q.upcoming} />
           <QueueGroup group="unassigned" items={q.unassigned} people={assignPeople} viewerIsAdmin={isAdmin} canAssign={isAdmin || can(user, "task.reassignAny")} />
+          <QueueGroup group="sent" items={q.sent} />
           {testOrders.length ? (
             <ListGroup id="q-tests" label="Test orders" tone="amber" count={testOrders.length}>
               {testOrders.map((t) => {
@@ -224,6 +255,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
               ))}
             </ListGroup>
           ) : null}
+          <QueueGroup group="done" items={q.done} defaultOpen={false} />
         </div>
       )}
     </>

@@ -74,6 +74,7 @@ export function PipelineStepper({
                   {stepper.progress.approved}/{stepper.progress.total} approved
                 </span>
               ) : null}
+              {current && stepper.note ? <span className="block font-normal text-slate-500">{stepper.note}</span> : null}
               {killed ? <span className="block font-normal">Dropped here</span> : null}
             </span>
             <span className="sr-only">{step.state}</span>
@@ -177,6 +178,8 @@ function CompactStepper({
           <span className="num font-normal text-slate-500">
             {step.state === "current" && stepper.progress
               ? `${stepper.progress.approved}/${stepper.progress.total} approved`
+              : step.state === "current" && stepper.note
+                ? stepper.note
               : step.state === "done"
                 ? "Done"
                 : step.state === "killed"

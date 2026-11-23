@@ -31,13 +31,19 @@ function toItem(t: Row) {
     priority: t.product.priority,
     revisionNote: t.revisionNote,
     submittedAt: t.submittedAt?.toISOString() ?? null,
+    approvedAt: t.approvedAt?.toISOString() ?? null,
     assignee: t.assignee,
     product: { id: t.product.id, ref: productRef(t.product.number), name: t.product.name, imageUrl: t.product.imageUrl, stage: t.product.stage, brand: t.product.brand },
   };
 }
 
-export type QueueItem = Omit<ReturnType<typeof toItem>, "dueAt"> & { dueAt: string | null };
-const ser = (i: ReturnType<typeof toItem>): QueueItem => ({ ...i, dueAt: i.dueAt?.toISOString() ?? null });
+export type QueueItem = Omit<ReturnType<typeof toItem>, "dueAt"> & { dueAt: string | null; waitingDays: number | null };
+const ser = (i: ReturnType<typeof toItem>): QueueItem => ({
+  ...i,
+  dueAt: i.dueAt?.toISOString() ?? null,
+  // Whole days since it was sent for review (shown to Admins watching reviews).
+  waitingDays: i.submittedAt ? Math.floor((Date.now() - new Date(i.submittedAt).getTime()) / 86_400_000) : null,
+});
 
 export type QueueUser = { id: string; role: Role; jobRole: Role; permissions: readonly string[] } & BrandViewer;
 
@@ -75,7 +81,15 @@ export async function getQueue(user: QueueUser) {
       .map(toItem)
       .map(ser);
   }
+  // My finished side: sent for review (waiting on a Senior) and approved in the last 14 days.
+  const since = new Date(now.getTime() - 14 * 86_400_000);
+  const [sent, done] = await Promise.all([
+    loadRows({ assigneeId: user.id, status: "SUBMITTED", product: { stage: { notIn: ["COMPLETED", "KILLED"] } } }),
+    db.task.findMany({ where: { assigneeId: user.id, status: "APPROVED", approvedAt: { gte: since } }, include, orderBy: { approvedAt: "desc" }, take: 30 }),
+  ]);
   return {
+    sent: sent.map(toItem).map(ser),
+    done: done.map(toItem).map(ser),
     overdue: groups.overdue.map(ser),
     today: groups.today.map(ser),
     upcoming: groups.upcoming.map(ser),

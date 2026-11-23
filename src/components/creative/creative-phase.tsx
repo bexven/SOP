@@ -295,7 +295,7 @@ function WebsiteLinkCard({ product, viewer }: { product: ProductDetail; viewer: 
   const valid = !added || /^https?:\/\/\S+\.\S+/.test(url.trim());
 
   return (
-    <section aria-label="Product on the website" className="surface flex flex-col gap-3 rounded-panel p-4 sm:flex-row sm:items-center">
+    <section aria-label="Product on the website" className="surface flex min-w-0 flex-col gap-3 rounded-panel p-4">
       <span className="flex items-center gap-2.5">
         <span className="flex size-8 items-center justify-center rounded-control bg-accent text-accent-foreground">
           <GlobeIcon className="size-4" />
@@ -335,14 +335,14 @@ function WebsiteLinkCard({ product, viewer }: { product: ProductDetail; viewer: 
             )}
           </form>
         ) : product.websiteUrl ? (
-          <Button asChild size="sm" className="w-fit">
-            <a href={product.websiteUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLinkIcon /> {product.websiteUrl.replace(/^https?:\/\/(www\.)?/, "")}
+          <Button asChild size="sm" variant="brandSoft" className="w-fit max-w-full min-w-0 justify-start">
+            <a href={product.websiteUrl} target="_blank" rel="noopener noreferrer" title={product.websiteUrl}>
+              <ExternalLinkIcon /> <span className="min-w-0 truncate">{product.websiteUrl.replace(/^https?:\/\/(www\.)?/, "")}</span>
             </a>
           </Button>
         ) : null
       ) : (
-        <span className="text-meta font-normal text-slate-500 sm:ml-auto">
+        <span className="text-meta font-normal text-slate-500">
           {product.websiteUrl === null ? "Not on the website yet." : ""}
           {canEdit && product.websiteUrl ? (
             <Button

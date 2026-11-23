@@ -153,12 +153,12 @@ export function firstBatchBlueprint(): NewTask[] {
     type,
     role: TASK_TYPE_ROLE[type],
     phase,
-    status: dependsOnKey ? "LOCKED" : "TODO",
+    // No lock (owner, Nov 2026): every creative task can be worked on as soon as it exists. `dependsOnKey` only orders the board.
+    status: "TODO",
     dependsOnKey,
     inNewBatch: true,
   });
-  // Images: website product images → Meta ads portrait → Meta ads square (each unlocks after the Senior approves the previous one).
-  // Videos: main video → square video.
+  // Images: website product images → Meta ads portrait → Meta ads square. Videos: main video → square video.
   return [
     t("website", "WEBSITE_IMAGE", 1, null),
     t("adPortrait", "AD_IMAGE_VERTICAL", 2, "website"),
@@ -380,7 +380,7 @@ export function planNewBatch(
       type,
       role: TASK_TYPE_ROLE[type],
       phase: dependsOnKey ? 2 : 1,
-      status: dependsOnKey ? ("LOCKED" as const) : ("TODO" as const),
+      status: "TODO" as const,
       dependsOnKey,
       inNewBatch: true,
       dueAt: input.dueAt ?? undefined,
@@ -463,25 +463,10 @@ export function planSendBack(
   if (ids.some((id) => !allowed.has(id))) return fail("Only approved tasks from the current batch can be reopened.");
 
   plan.changes = cancelOpen(p, (t) => t.type !== "CAMPAIGN_LAUNCH");
-  const reopening = new Set(ids);
   for (const id of ids) {
     const task = allowed.get(id)!;
-    // Q3: a task whose own Phase 1 task is being reopened waits LOCKED again.
-    const parentReopened = task.dependsOnId !== null && reopening.has(task.dependsOnId);
-    plan.changes.push(
-      parentReopened
-        ? { kind: "relock", taskId: id, from: task.status, note }
-        : { kind: "reopen", taskId: id, from: task.status, note },
-    );
-  }
-  // Q3: non-approved dependents of reopened tasks go back to LOCKED.
-  for (const id of ids) {
-    for (const dep of p.tasks.filter((t) => t.dependsOnId === id)) {
-      if (reopening.has(dep.id)) continue;
-      if (dep.status === "TODO" || dep.status === "SUBMITTED" || dep.status === "REVISION") {
-        plan.changes.push({ kind: "relock", taskId: dep.id, from: dep.status });
-      }
-    }
+    // No lock any more (owner, Nov 2026, supersedes Q3): reopened tasks are workable straight away.
+    plan.changes.push({ kind: "reopen", taskId: id, from: task.status, note });
   }
   return ok(plan);
 }

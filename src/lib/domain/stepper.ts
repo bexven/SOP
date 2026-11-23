@@ -3,12 +3,14 @@ import type { CampaignStatus, ProductStage } from "@/generated/prisma/enums";
 /**
  * Pipeline stepper (pure). Derived from stage, creative progress per lane and
  * ordering — never stored.
- *   Research → Product review → Image creative → Video creative → Meta ads → Ordering
+ *   Research & review → Image creative → Video creative → Meta ads → Ordering
+ * (Research and Product review are one step since Nov 2026: both open the same tab. While early, the step's
+ * `note` says "Researching" or "Waiting for review".)
  * Image and video work run side by side; the stepper shows Image creative until
  * every image task of the current batch is approved, then Video creative.
  */
 
-export const STEPPER_STEPS = ["Research", "Product review", "Image creative", "Video creative", "Meta ads", "Ordering"] as const;
+export const STEPPER_STEPS = ["Research & review", "Image creative", "Video creative", "Meta ads", "Ordering"] as const;
 
 export type StepState = "done" | "current" | "upcoming" | "killed";
 
@@ -32,6 +34,8 @@ export type Stepper = {
   completed: boolean;
   /** "2/3 approved" under the current creative step. */
   progress: Progress | null;
+  /** Short note under the current step while early ("Researching" / "Waiting for review"). */
+  note: string | null;
 };
 
 const done = (p: Progress) => p.total > 0 && p.approved >= p.total;
@@ -39,15 +43,14 @@ const done = (p: Progress) => p.total > 0 && p.approved >= p.total;
 function indexFor(stage: ProductStage, input: StepperInput): number {
   switch (stage) {
     case "RESEARCH":
-      return 0;
     case "REVIEW":
-      return 1;
+      return 0;
     case "CREATIVE":
-      return done(input.lanes.images) || input.lanes.images.total === 0 ? 3 : 2;
+      return done(input.lanes.images) || input.lanes.images.total === 0 ? 2 : 1;
     case "READY_TO_LAUNCH":
-      return 4;
+      return 3;
     case "LIVE":
-      return input.ordering ? 5 : 4;
+      return input.ordering ? 4 : 3;
     case "COMPLETED":
       return STEPPER_STEPS.length;
     case "KILLED":
@@ -66,6 +69,7 @@ export function deriveStepper(input: StepperInput): Stepper {
     else state = "upcoming";
     return { label, state };
   });
-  const progress = killed ? null : index === 2 ? input.lanes.images : index === 3 ? input.lanes.videos : null;
-  return { steps, index, killed, completed, progress: progress && progress.total > 0 ? progress : null };
+  const progress = killed ? null : index === 1 ? input.lanes.images : index === 2 ? input.lanes.videos : null;
+  const note = killed ? null : input.stage === "RESEARCH" ? "Researching" : input.stage === "REVIEW" ? "Waiting for review" : null;
+  return { steps, index, killed, completed, progress: progress && progress.total > 0 ? progress : null, note };
 }

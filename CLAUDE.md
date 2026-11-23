@@ -302,6 +302,18 @@ src/generated/     Prisma client (generated, git-ignored)
   `describeEvent()`), loaded on open, grouped by day.
 - **Welcome guide** on Home per role (`domain/guide.ts`, `dashboard/welcome-guide.tsx`); dismissed per person in localStorage.
 
+## Round 13 (no lock, merged first step, Home groups)
+- **No lock on creative work** (supersedes Round 5's chain gating and Q3): every creative task is created **TODO** with its due date
+  straight away; `dependsOnId` only orders the board. Approving a step unlocks nothing; reopening never re-locks. Data migration
+  `20261124090000_unlock_creative_tasks` opened every LOCKED task (due = batch due, else now + SLA). LOCKED stays in the enum.
+- **Stepper: one first step "Research & review"** (5 steps; `STEPPER_STEPS`), with a `note` "Researching" / "Waiting for review"
+  while early. The phase tab is labelled "Research & review". Code that used step indexes: images = 1, videos = 2, ordering = 4.
+- **Home**: new groups **Sent for review** (my SUBMITTED) and **Done — last 14 days** (my APPROVED, collapsed); **Products to
+  approve** (stage REVIEW) for people with `product.approve`. Admins see reviews as **Waiting for review** with "Waiting N days"
+  (no Approve / Changes in the row); review rows show "Sent <date>" instead of the maker's due date. The stat strip hides zero
+  counters (except "my open tasks"). Due column widened.
+- Website link card stacks vertically and truncates the link (no overflow in the side panel).
+
 ## Navigation feel (Nov 2026)
 - **Loading bar** (`components/shell/nav-progress.tsx`, in the app layout): starts on any same-site link click (document
   listener) or a push/replace from `useNavRouter()` (use it instead of `useRouter()` when navigating in code); finishes once

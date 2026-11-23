@@ -151,10 +151,10 @@ describe("research", () => {
     const batch = p.tasks.filter((t) => t.batchId === "b1");
     expect(batch.map((t) => [t.type, t.role, t.phase, t.status])).toEqual([
       ["WEBSITE_IMAGE", "IMAGE_DESIGNER", 1, "TODO"],
-      ["AD_IMAGE_VERTICAL", "IMAGE_DESIGNER", 2, "LOCKED"],
-      ["AD_IMAGE_SQUARE", "IMAGE_DESIGNER", 3, "LOCKED"],
+      ["AD_IMAGE_VERTICAL", "IMAGE_DESIGNER", 2, "TODO"],
+      ["AD_IMAGE_SQUARE", "IMAGE_DESIGNER", 3, "TODO"],
       ["VIDEO_MAIN", "VIDEO_EDITOR", 1, "TODO"],
-      ["VIDEO_SQUARE", "VIDEO_EDITOR", 2, "LOCKED"],
+      ["VIDEO_SQUARE", "VIDEO_EDITOR", 2, "TODO"],
     ]);
     expect(byType(p, "AD_IMAGE_VERTICAL").dependsOnId).toBe(byType(p, "WEBSITE_IMAGE").id);
     expect(byType(p, "AD_IMAGE_SQUARE").dependsOnId).toBe(byType(p, "AD_IMAGE_VERTICAL").id);
@@ -170,22 +170,13 @@ describe("research", () => {
 });
 
 describe("creative phase gating", () => {
-  it("each step stays locked until the Senior approves the one before it", () => {
+  it("no lock: every step can be sent for review straight away, in any order", () => {
     let p = toCreative();
     const portrait = byType(p, "AD_IMAGE_VERTICAL");
-    expect(planSubmitTask(p, portrait.id)).toEqual({ ok: false, error: "This task is still locked." });
-
-    // Main video approval only unlocks the square video
-    p = submitAndApprove(p, "VIDEO_MAIN");
-    expect(byType(p, "VIDEO_SQUARE").status).toBe("TODO");
-    expect(byType(p, "AD_IMAGE_VERTICAL").status).toBe("LOCKED");
-
-    // Website images unlock the portrait ads only; portrait ads unlock the square ads
-    p = submitAndApprove(p, "WEBSITE_IMAGE");
-    expect(byType(p, "AD_IMAGE_VERTICAL").status).toBe("TODO");
-    expect(byType(p, "AD_IMAGE_SQUARE").status).toBe("LOCKED");
-    p = submitAndApprove(p, "AD_IMAGE_VERTICAL");
-    expect(byType(p, "AD_IMAGE_SQUARE").status).toBe("TODO");
+    expect(planSubmitTask(p, portrait.id).ok).toBe(true);
+    p = submitAndApprove(p, "VIDEO_SQUARE");
+    expect(byType(p, "VIDEO_SQUARE").status).toBe("APPROVED");
+    expect(byType(p, "VIDEO_MAIN").status).toBe("TODO");
     expect(p.stage).toBe("CREATIVE");
   });
 
@@ -257,7 +248,7 @@ describe("launch & live", () => {
     const both = planNewBatch(p, { types: ["AD_IMAGE_SQUARE", "AD_IMAGE_VERTICAL"], dueAt: null, reason: null });
     expect(both.ok && both.plan.newTasks.map((t) => [t.type, t.status, t.dependsOnKey])).toEqual([
       ["AD_IMAGE_VERTICAL", "TODO", null],
-      ["AD_IMAGE_SQUARE", "LOCKED", "AD_IMAGE_VERTICAL"],
+      ["AD_IMAGE_SQUARE", "TODO", "AD_IMAGE_VERTICAL"],
     ]);
     // approving batch #2 work never changes the stage
     p = submitAndApprove(p, "AD_IMAGE_SQUARE");
@@ -338,7 +329,7 @@ describe("send back", () => {
     expect(p.batches.map((b) => b.number)).toEqual([1, 2]);
     const b2 = p.tasks.filter((t) => t.batchId === "b2");
     expect(b2).toHaveLength(5);
-    expect(b2.filter((t) => t.status === "LOCKED")).toHaveLength(3);
+    expect(b2.every((t) => t.status === "TODO")).toBe(true);
   });
 
   it("Ready to Launch → Creative reopens chosen tasks and cancels the launch task", () => {
@@ -356,7 +347,7 @@ describe("send back", () => {
     expect(p.tasks.filter((t) => t.type === "CAMPAIGN_LAUNCH").map((t) => t.status)).toEqual(["CANCELLED", "TODO"]);
   });
 
-  it("reopening a Phase 1 task together with its dependent relocks the dependent (Q3)", () => {
+  it("reopening a step and the one after it reopens both — nothing is locked", () => {
     let p = toReadyToLaunch();
     const website = byType(p, "WEBSITE_IMAGE");
     const portrait = byType(p, "AD_IMAGE_VERTICAL");
@@ -365,10 +356,8 @@ describe("send back", () => {
       planSendBack(p, { target: "CREATIVE", actorRole: "ADMIN", note: "Rebrand", reopenTaskIds: [website.id, portrait.id] }),
     );
     expect(byType(p, "WEBSITE_IMAGE").status).toBe("REVISION");
-    expect(byType(p, "AD_IMAGE_VERTICAL").status).toBe("LOCKED");
+    expect(byType(p, "AD_IMAGE_VERTICAL").status).toBe("REVISION");
     expect(byType(p, "AD_IMAGE_SQUARE").status).toBe("APPROVED"); // approved dependents stay approved
-    p = submitAndApprove(p, "WEBSITE_IMAGE");
-    expect(byType(p, "AD_IMAGE_VERTICAL").status).toBe("TODO");
   });
 
   it("only approved tasks of the current batch can be reopened", () => {
@@ -407,7 +396,7 @@ describe("task permissions", () => {
 });
 
 describe("approve with a follow-up (different angle / size)", () => {
-  it("creates a follow-up task for the same person in the same batch and still unlocks Phase 2", () => {
+  it("creates a follow-up task for the same person in the same batch", () => {
     let p = toCreative();
     const website = byType(p, "WEBSITE_IMAGE");
     p = apply(p, planSubmitTask(p, website.id));
@@ -422,7 +411,7 @@ describe("approve with a follow-up (different angle / size)", () => {
       assigneeId: website.assigneeId,
       followUp: { ofTaskId: website.id, kind: "DIFFERENT_ANGLE", note: "Show it folded" },
     });
-    expect(r.plan.changes.filter((c) => c.kind === "unlock")).toHaveLength(1);
+    expect(r.plan.changes.filter((c) => c.kind === "unlock")).toHaveLength(0);
   });
 
   it("a follow-up on the last task keeps the product in Creative", () => {

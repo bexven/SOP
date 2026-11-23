@@ -30,10 +30,10 @@ function phaseHref(p: ProductRow) {
     p.stage === "RESEARCH" || p.stage === "REVIEW"
       ? "review"
       : p.stage === "CREATIVE"
-        ? p.stepper.index === 3
+        ? p.stepper.index === 2
           ? "videos"
           : "images"
-        : p.stepper.index === 5
+        : p.stepper.index === 4
           ? "orders"
           : "ads";
   return `/products/${p.id}?phase=${phase}`;
@@ -45,7 +45,7 @@ const TEAM_COLS = "md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_7.5rem]";
 
 const STEP_TONE: Record<string, GroupTone> = {
   Research: "sky",
-  "Product review": "indigo",
+  "Research & review": "sky",
   "Image creative": "violet",
   "Video creative": "violet",
   "Meta ads": "emerald",
